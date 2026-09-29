@@ -2,6 +2,8 @@
 
 const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
+const { sendMail } = require('../utils/sendMail');
+const { buildReceipt } = require('../utils/receiptEmail');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -464,6 +466,27 @@ exports.payBooking = async (req, res) => {
         booking.status = 'Active';
         booking.paidAt = new Date();
         await booking.save();
+
+        // ONLY AFTER save succeeds: Attempt best-effort receipt email
+        try {
+            const populatedBooking = await Booking.findById(booking._id)
+                .populate('listing')
+                .populate('renter')
+                .populate('lender');
+
+            if (populatedBooking) {
+                const receipt = buildReceipt(populatedBooking);
+                if (receipt) {
+                    await sendMail(receipt);
+                } else {
+                    console.log(`[Mail] Receipt email skipped for booking ${booking._id}: no recipient email`);
+                }
+            }
+        } catch (mailError) {
+            // Treat missing referenced schema (MissingSchemaError) or any other population/mail
+            // failure as an email-data limitation, ensuring payment succeeds.
+            console.log(`[Mail] Could not generate or send receipt for booking ${booking._id}`);
+        }
 
         return res.status(200).json({
             success: true,
