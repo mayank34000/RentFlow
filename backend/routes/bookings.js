@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const bookingController = require('../controllers/bookingController');
 const devAuth = require('../middleware/devAuth');
+const upload = require('../middleware/upload');
 
 // ── Public Routes ─────────────────────────────────────────────────────────────
 
@@ -34,6 +35,19 @@ router.patch('/:id/approve', devAuth, bookingController.approveBooking);
 router.patch('/:id/pay', devAuth, bookingController.payBooking);
 
 // PATCH /api/bookings/:id/return
-router.patch('/:id/return', devAuth, bookingController.returnBooking);
+router.patch('/:id/return', devAuth, (req, res, next) => {
+    upload.single('returnPhoto')(req, res, function (err) {
+        if (err instanceof require('multer').MulterError) {
+            // A Multer error occurred when uploading.
+            return res.status(400).json({ success: false, message: err.message });
+        } else if (err && err.message === 'INVALID_FILE_TYPE') {
+            return res.status(400).json({ success: false, message: 'Invalid file type. Only JPEG, PNG, and WebP are allowed.' });
+        } else if (err) {
+            // An unknown error occurred when uploading.
+            return res.status(400).json({ success: false, message: 'File upload error.' });
+        }
+        next();
+    });
+}, bookingController.returnBooking);
 
 module.exports = router;

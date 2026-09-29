@@ -4,3 +4,7 @@
 # Backend
 .env
 node_modules/
+
+# Uploads
+backend/uploads/returns/*
+!backend/uploads/returns/.gitkeep

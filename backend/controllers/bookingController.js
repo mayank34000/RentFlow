@@ -480,22 +480,38 @@ exports.payBooking = async (req, res) => {
  * Return a booking. Allowed from Active. Only renter.
  */
 exports.returnBooking = async (req, res) => {
+    const fs = require('fs');
+
+    const cleanupUpload = () => {
+        if (req.file && req.file.path) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (cleanupErr) {
+                // Ignore errors during cleanup
+            }
+        }
+    };
+
     try {
         const bookingId = req.params.id;
         if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+            cleanupUpload();
             return res.status(400).json({ success: false, message: 'Invalid booking ID.' });
         }
 
         const booking = await Booking.findById(bookingId);
         if (!booking) {
+            cleanupUpload();
             return res.status(404).json({ success: false, message: 'Booking not found.' });
         }
 
         if (String(booking.renter) !== String(req.user._id)) {
+            cleanupUpload();
             return res.status(403).json({ success: false, message: 'Only the renter can return this booking.' });
         }
 
         if (booking.status !== 'Active') {
+            cleanupUpload();
             return res.status(409).json({ success: false, message: 'Only Active bookings can be returned.' });
         }
 
@@ -506,6 +522,11 @@ exports.returnBooking = async (req, res) => {
             booking.returnNote = req.body.returnNote.substring(0, 500); // reasonable maximum length
         }
 
+        if (req.file) {
+            // Save relative representation of the uploaded file
+            booking.returnPhoto = `uploads/returns/${req.file.filename}`;
+        }
+
         await booking.save();
 
         return res.status(200).json({
@@ -514,6 +535,7 @@ exports.returnBooking = async (req, res) => {
             data: booking
         });
     } catch (err) {
+        cleanupUpload();
         return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
     }
 };
