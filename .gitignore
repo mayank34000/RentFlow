@@ -1,2 +1,6 @@
 .DS_Store
 ._*
+
+# Backend
+.env
+node_modules/
