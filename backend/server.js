@@ -23,13 +23,22 @@ const express   = require('express');
 const cors      = require('cors');
 const mongoose  = require('mongoose');
 const connectDB = require('./config/db');
+const http      = require('http');
+const { Server } = require('socket.io');
 
 // ── 3. App setup ──────────────────────────────────────────────────────────────
 const app = express();
+const httpServer = http.createServer(app);
 
 // CORS — allow the configured origin (Live Server default if not set)
 const corsOrigin = process.env.CORS_ORIGIN || 'http://127.0.0.1:5500';
 app.use(cors({ origin: corsOrigin, credentials: true }));
+
+// Socket.IO configuration
+const io = new Server(httpServer, {
+    cors: { origin: corsOrigin, methods: ['GET', 'POST'] }
+});
+require('./sockets/chatSocket')(io);
 
 // Parse incoming JSON request bodies
 app.use(express.json());
@@ -94,7 +103,7 @@ const startServer = async () => {
     // Attempt DB connection first (non-fatal — server starts regardless)
     await connectDB();
 
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
         console.log(`[Server] RentFlow API running on http://localhost:${PORT}`);
         console.log(`[Server] Environment : ${process.env.NODE_ENV || 'development'}`);
         console.log(`[Server] CORS origin  : ${corsOrigin}`);
