@@ -18,7 +18,7 @@ const getListingModel = () => {
 
 /**
  * Shared availability helper to check if a listing has overlapping bookings.
- * 
+ *
  * Logic: An existing booking overlaps if its start date is before the new end date
  * AND its end date is after the new start date.
  * Ignored statuses: Cancelled, Rejected.
@@ -195,7 +195,7 @@ exports.checkAvailability = async (req, res) => {
                 message: 'A valid listingId is required.'
             });
         }
-        
+
         if (!startDate || !endDate) {
             return res.status(400).json({
                 success: false,
@@ -269,5 +269,251 @@ exports.checkAvailability = async (req, res) => {
             success: false,
             message: err.message || 'Internal server error while checking availability'
         });
+    }
+};
+
+// ── Read / CRUD Operations ────────────────────────────────────────────────────
+
+/**
+ * GET /api/bookings/my
+ * Get bookings for the authenticated renter
+ */
+exports.getMyBookings = async (req, res) => {
+    try {
+        const bookings = await Booking.find({ renter: req.user._id })
+            .sort({ createdAt: -1 })
+            .populate('listing')
+            .populate('renter', '-passwordHash')
+            .populate('lender', '-passwordHash');
+
+        return res.status(200).json({
+            success: true,
+            data: bookings
+        });
+    } catch (err) {
+        if (err.name === 'MissingSchemaError') {
+            return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
+        }
+        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+    }
+};
+
+/**
+ * GET /api/bookings/lender
+ * Get bookings for the authenticated lender
+ */
+exports.getLenderBookings = async (req, res) => {
+    try {
+        const bookings = await Booking.find({ lender: req.user._id })
+            .sort({ createdAt: -1 })
+            .populate('listing')
+            .populate('renter', '-passwordHash')
+            .populate('lender', '-passwordHash');
+
+        return res.status(200).json({
+            success: true,
+            data: bookings
+        });
+    } catch (err) {
+        if (err.name === 'MissingSchemaError') {
+            return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
+        }
+        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+    }
+};
+
+/**
+ * GET /api/bookings/:id
+ * Get single booking by ID
+ */
+exports.getBookingById = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+
+        if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+            return res.status(400).json({ success: false, message: 'Invalid booking ID.' });
+        }
+
+        const booking = await Booking.findById(bookingId)
+            .populate('listing')
+            .populate('renter', '-passwordHash')
+            .populate('lender', '-passwordHash');
+
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found.' });
+        }
+
+        // Authorization: only renter or lender can view
+        if (String(booking.renter._id || booking.renter) !== String(req.user._id) &&
+            String(booking.lender._id || booking.lender) !== String(req.user._id)) {
+            return res.status(403).json({ success: false, message: 'Not authorized to view this booking.' });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: booking
+        });
+    } catch (err) {
+        if (err.name === 'MissingSchemaError') {
+            return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
+        }
+        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+    }
+};
+
+// ── Status Operations ─────────────────────────────────────────────────────────
+
+/**
+ * DELETE /api/bookings/:id
+ * Cancel a booking. Allowed from Pending or Approved. Only renter.
+ */
+exports.cancelBooking = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+            return res.status(400).json({ success: false, message: 'Invalid booking ID.' });
+        }
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found.' });
+        }
+
+        if (String(booking.renter) !== String(req.user._id)) {
+            return res.status(403).json({ success: false, message: 'Only the renter can cancel this booking.' });
+        }
+
+        if (!['Pending', 'Approved'].includes(booking.status)) {
+            return res.status(409).json({ success: false, message: 'Booking cannot be cancelled in its current status.' });
+        }
+
+        booking.status = 'Cancelled';
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Booking cancelled successfully',
+            data: booking
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+    }
+};
+
+/**
+ * PATCH /api/bookings/:id/approve
+ * Approve a booking. Allowed from Pending. Only lender.
+ */
+exports.approveBooking = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+            return res.status(400).json({ success: false, message: 'Invalid booking ID.' });
+        }
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found.' });
+        }
+
+        if (String(booking.lender) !== String(req.user._id)) {
+            return res.status(403).json({ success: false, message: 'Only the lender can approve this booking.' });
+        }
+
+        if (booking.status !== 'Pending') {
+            return res.status(409).json({ success: false, message: 'Only Pending bookings can be approved.' });
+        }
+
+        booking.status = 'Approved';
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Booking approved successfully',
+            data: booking
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+    }
+};
+
+/**
+ * PATCH /api/bookings/:id/pay
+ * Pay and activate a booking. Allowed from Approved. Only renter.
+ */
+exports.payBooking = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+            return res.status(400).json({ success: false, message: 'Invalid booking ID.' });
+        }
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found.' });
+        }
+
+        if (String(booking.renter) !== String(req.user._id)) {
+            return res.status(403).json({ success: false, message: 'Only the renter can pay for this booking.' });
+        }
+
+        if (booking.status !== 'Approved') {
+            return res.status(409).json({ success: false, message: 'Only Approved bookings can be paid.' });
+        }
+
+        booking.status = 'Active';
+        booking.paidAt = new Date();
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Booking activated successfully',
+            data: booking
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+    }
+};
+
+/**
+ * PATCH /api/bookings/:id/return
+ * Return a booking. Allowed from Active. Only renter.
+ */
+exports.returnBooking = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+            return res.status(400).json({ success: false, message: 'Invalid booking ID.' });
+        }
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found.' });
+        }
+
+        if (String(booking.renter) !== String(req.user._id)) {
+            return res.status(403).json({ success: false, message: 'Only the renter can return this booking.' });
+        }
+
+        if (booking.status !== 'Active') {
+            return res.status(409).json({ success: false, message: 'Only Active bookings can be returned.' });
+        }
+
+        booking.status = 'Returned';
+        booking.returnedAt = new Date();
+
+        if (req.body.returnNote && typeof req.body.returnNote === 'string') {
+            booking.returnNote = req.body.returnNote.substring(0, 500); // reasonable maximum length
+        }
+
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Booking returned successfully',
+            data: booking
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
     }
 };
