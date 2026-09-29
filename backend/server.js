@@ -35,11 +35,9 @@ app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 
 // ── 4. API Routes ─────────────────────────────────────────────────────────────
-// Future routes are mounted here, for example:
-//   const bookingRoutes = require('./routes/bookings');
-//   app.use('/api/bookings', bookingRoutes);
-//
-// Add new route mounts below this comment block as needed.
+// Mount routers here
+app.use('/api/bookings', require('./routes/bookings'));
+
 
 // ── 5a. Health check ──────────────────────────────────────────────────────────
 // Indicates the DB state without exposing connection details.
