@@ -37,6 +37,7 @@ app.use(express.json());
 // ── 4. API Routes ─────────────────────────────────────────────────────────────
 // Mount routers here
 app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/contact', require('./routes/contact'));
 
 
 // ── 5a. Health check ──────────────────────────────────────────────────────────
