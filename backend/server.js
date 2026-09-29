@@ -38,6 +38,7 @@ app.use(express.json());
 // Mount routers here
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/contact', require('./routes/contact'));
+app.use('/api/chat', require('./routes/chat'));
 
 
 // ── 5a. Health check ──────────────────────────────────────────────────────────
