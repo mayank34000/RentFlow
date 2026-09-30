@@ -25,11 +25,16 @@ const messageSchema = new mongoose.Schema(
                 },
                 message: 'Message text cannot be empty or whitespace only.'
             }
+        },
+        readAt: {
+            type: Date,
+            default: null
         }
     },
     { timestamps: true }
 );
 
 messageSchema.index({ conversation: 1, createdAt: 1 });
+messageSchema.index({ conversation: 1, sender: 1, readAt: 1 });
 
 module.exports = mongoose.model('Message', messageSchema);

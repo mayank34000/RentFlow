@@ -82,7 +82,38 @@ exports.getMyConversations = async (req, res) => {
             .populate('participants', 'username name avatar')
             .populate('lastMessage');
 
-        return res.status(200).json({ success: true, data: conversations });
+        const conversationIds = conversations.map(c => c._id);
+
+        let unreadCountsMap = {};
+        if (conversationIds.length > 0) {
+            const counts = await Message.aggregate([
+                {
+                    $match: {
+                        conversation: { $in: conversationIds },
+                        sender: { $ne: new mongoose.Types.ObjectId(userId) },
+                        readAt: null
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$conversation",
+                        count: { $sum: 1 }
+                    }
+                }
+            ]);
+
+            counts.forEach(c => {
+                unreadCountsMap[String(c._id)] = c.count;
+            });
+        }
+
+        const data = conversations.map(doc => {
+            const conv = doc.toObject ? doc.toObject() : doc;
+            conv.unreadCount = unreadCountsMap[String(conv._id)] || 0;
+            return conv;
+        });
+
+        return res.status(200).json({ success: true, data });
     } catch (err) {
         if (err.name === 'MissingSchemaError') {
             return res.status(503).json({ success: false, message: 'Referenced model not available yet' });

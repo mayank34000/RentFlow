@@ -5,6 +5,29 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 
 module.exports = function (io) {
+    const presenceMap = new Map();
+
+    // Shared conversation authorization helper
+    async function authorizeTask10Event(socket, payload) {
+        if (!payload || typeof payload !== 'object') throw new Error('Invalid payload');
+        const { conversationId } = payload;
+        if (!conversationId || typeof conversationId !== 'string' || !mongoose.Types.ObjectId.isValid(conversationId)) {
+            throw new Error('Invalid conversation ID');
+        }
+        const room = `conversation:${conversationId}`;
+        if (!socket.rooms.has(room)) {
+            throw new Error('Socket not joined to conversation room');
+        }
+        if (mongoose.connection.readyState !== 1) {
+            throw new Error('Database disconnected');
+        }
+        const conversation = await Conversation.findById(conversationId).select('participants').lean().exec();
+        if (!conversation) throw new Error('Conversation not found');
+        const isParticipant = conversation.participants.some(p => String(p) === socket.user._id);
+        if (!isParticipant) throw new Error('Unauthorized participant');
+        return { conversationId, room, conversation };
+    }
+
     // ── Authentication Middleware ───────────────────────────────────────────────
     // DEV ONLY: This authentication relies on DEV headers/auth payloads.
     // Replace with real JWT or session validation in production.
@@ -40,6 +63,13 @@ module.exports = function (io) {
     // ── Connection Handling ───────────────────────────────────────────────────
     io.on('connection', (socket) => {
         logDev(`[Socket] User connected: ${maskId(socket.user._id)}`);
+
+        const userId = socket.user._id;
+        if (!presenceMap.has(userId)) {
+            presenceMap.set(userId, new Set());
+        }
+        presenceMap.get(userId).add(socket.id);
+
 
         // ── Join Conversation Event ───────────────────────────────────────────
         socket.on('join_conversation', async (payload, callback) => {
@@ -87,6 +117,35 @@ module.exports = function (io) {
                 socket.join(roomName);
 
                 logDev(`[Socket] User ${maskId(socket.user._id)} joined ${roomName}`);
+
+
+                // Task 10: Presence state and user_online on join
+                try {
+                    const otherParticipant = conversation.participants.find(p => String(p) !== socket.user._id);
+                    if (otherParticipant) {
+                        const otherIdStr = String(otherParticipant);
+                        const isOnline = presenceMap.has(otherIdStr) && presenceMap.get(otherIdStr).size > 0;
+                        socket.emit('presence_state', {
+                            conversationId,
+                            userId: otherIdStr,
+                            online: isOnline
+                        });
+                    }
+
+                    const socketsInRoom = await io.in(roomName).fetchSockets();
+                    const otherSocketsForUser = socketsInRoom.filter(
+                        s => s.user && s.user._id === socket.user._id && s.id !== socket.id
+                    );
+
+                    if (otherSocketsForUser.length === 0) {
+                        socket.to(roomName).emit('user_online', {
+                            conversationId,
+                            userId: socket.user._id
+                        });
+                    }
+                } catch (presenceErr) {
+                    logDev('[Socket] presence on join failed');
+                }
 
                 return cb({
                     success: true,
@@ -205,7 +264,114 @@ module.exports = function (io) {
             }
         });
 
+
+        // ── Task 10 Events ────────────────────────────────────────────────────
+        socket.on('mark_read', async (payload, callback) => {
+            const cb = typeof callback === 'function' ? callback : () => {};
+            try {
+                const { conversationId, room } = await authorizeTask10Event(socket, payload);
+                const now = new Date();
+                const res = await Message.updateMany(
+                    {
+                        conversation: new mongoose.Types.ObjectId(conversationId),
+                        sender: { $ne: new mongoose.Types.ObjectId(socket.user._id) },
+                        readAt: null
+                    },
+                    {
+                        $set: { readAt: now }
+                    }
+                );
+
+                const modifiedCount = res.modifiedCount;
+                if (modifiedCount > 0) {
+                    socket.to(room).emit('messages_read', {
+                        conversationId,
+                        userId: socket.user._id,
+                        readAt: now,
+                        modifiedCount
+                    });
+                }
+
+                return cb({
+                    success: true,
+                    conversationId,
+                    modifiedCount
+                });
+            } catch (err) {
+                logDev(`[Socket] Error mark_read: ${err.message}`);
+                return cb({ success: false, message: 'Internal server error or invalid request' });
+            }
+        });
+
+        socket.on('typing_start', async (payload, callback) => {
+            const cb = typeof callback === 'function' ? callback : () => {};
+            try {
+                const { conversationId, room } = await authorizeTask10Event(socket, payload);
+                socket.to(room).emit('typing_start', {
+                    conversationId,
+                    userId: socket.user._id
+                });
+                return cb({ success: true });
+            } catch (err) {
+                logDev(`[Socket] Error typing_start: ${err.message}`);
+                return cb({ success: false, message: 'Internal server error or invalid request' });
+            }
+        });
+
+        socket.on('typing_stop', async (payload, callback) => {
+            const cb = typeof callback === 'function' ? callback : () => {};
+            try {
+                const { conversationId, room } = await authorizeTask10Event(socket, payload);
+                socket.to(room).emit('typing_stop', {
+                    conversationId,
+                    userId: socket.user._id
+                });
+                return cb({ success: true });
+            } catch (err) {
+                logDev(`[Socket] Error typing_stop: ${err.message}`);
+                return cb({ success: false, message: 'Internal server error or invalid request' });
+            }
+        });
+
+        socket.on('disconnecting', () => {
+            const conversationRooms = [];
+            for (const r of socket.rooms) {
+                if (r.startsWith('conversation:')) {
+                    conversationRooms.push(r);
+                }
+            }
+
+            for (const room of conversationRooms) {
+                const convId = room.split(':')[1];
+                if (convId) {
+                    socket.to(room).emit('typing_stop', {
+                        conversationId: convId,
+                        userId: socket.user._id
+                    });
+                }
+            }
+
+            const uId = socket.user._id;
+            if (presenceMap.has(uId)) {
+                const userSockets = presenceMap.get(uId);
+                userSockets.delete(socket.id);
+                if (userSockets.size === 0) {
+                    presenceMap.delete(uId);
+                    for (const room of conversationRooms) {
+                        const convId = room.split(':')[1];
+                        if (convId) {
+                            socket.to(room).emit('user_offline', {
+                                conversationId: convId,
+                                userId: uId
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
         // ── Disconnect Handling ───────────────────────────────────────────────
+
         socket.on('disconnect', (reason) => {
             logDev(`[Socket] User disconnected: ${maskId(socket.user._id)}`);
         });
