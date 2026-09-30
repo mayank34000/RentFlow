@@ -126,68 +126,69 @@ The analytics section provides:
 ```text
 RentFlow-main/
 │
-├── assets/
-│   ├── facebook.png
-│   ├── google.png
-│   ├── profile.png
-│   └── video.mp4
-│
-├── css/
-│   ├── about.css
-│   ├── admin-dashboard.css
-│   ├── analytics.css
-│   ├── booking-history.css
-│   ├── booking.css
-│   ├── contactus.css
-│   ├── create_listings.css
-│   ├── feedback.css
-│   ├── index.css
-│   ├── light-theme.css
-│   ├── navbar.css
-│   ├── premium.css
-│   ├── profile.css
-│   ├── rentflow-rental.css
-│   ├── signup.css
-│   └── upcoming_features.css
-│
-├── html/
-│   ├── about.html
-│   ├── admin-dashboard.html
-│   ├── analytics.html
-│   ├── booking-history.html
-│   ├── booking.html
-│   ├── contact.html
-│   ├── create_listings.html
-│   ├── edit-listing.html
-│   ├── feedback.html
-│   ├── index.html
-│   ├── login.html
-│   ├── policy.html
-│   ├── premium.html
-│   ├── profile.html
-│   ├── signup.html
-│   └── upcoming_features.html
-│
-├── js/
-│   ├── admin-dashboard.js
-│   ├── analytics.js
-│   ├── booking-history.js
-│   ├── booking.js
-│   ├── contactus.js
-│   ├── create_listings.js
-│   ├── edit-listing.js
-│   ├── feedback.js
-│   ├── index.js
-│   ├── login.js
-│   ├── navbar-scroll.js
-│   ├── navbar.js
-│   ├── premium.js
-│   ├── products.json
-│   ├── profile.js
-│   ├── rentflow-rental.js
-│   ├── signup.js
-│   ├── storage.js
-│   └── theme.js
+├── frontend/
+│   ├── assets/
+│   │   ├── facebook.png
+│   │   ├── google.png
+│   │   ├── profile.png
+│   │   └── video.mp4
+│   │
+│   ├── css/
+│   │   ├── about.css
+│   │   ├── admin-dashboard.css
+│   │   ├── analytics.css
+│   │   ├── booking-history.css
+│   │   ├── booking.css
+│   │   ├── contactus.css
+│   │   ├── create_listings.css
+│   │   ├── feedback.css
+│   │   ├── index.css
+│   │   ├── light-theme.css
+│   │   ├── navbar.css
+│   │   ├── premium.css
+│   │   ├── profile.css
+│   │   ├── rentflow-rental.css
+│   │   ├── signup.css
+│   │   └── upcoming_features.css
+│   │
+│   ├── html/
+│   │   ├── about.html
+│   │   ├── admin-dashboard.html
+│   │   ├── analytics.html
+│   │   ├── booking-history.html
+│   │   ├── booking.html
+│   │   ├── contact.html
+│   │   ├── create_listings.html
+│   │   ├── edit-listing.html
+│   │   ├── feedback.html
+│   │   ├── index.html
+│   │   ├── login.html
+│   │   ├── policy.html
+│   │   ├── premium.html
+│   │   ├── profile.html
+│   │   ├── signup.html
+│   │   └── upcoming_features.html
+│   │
+│   └── js/
+│       ├── admin-dashboard.js
+│       ├── analytics.js
+│       ├── booking-history.js
+│       ├── booking.js
+│       ├── contactus.js
+│       ├── create_listings.js
+│       ├── edit-listing.js
+│       ├── feedback.js
+│       ├── index.js
+│       ├── login.js
+│       ├── navbar-scroll.js
+│       ├── navbar.js
+│       ├── premium.js
+│       ├── products.json
+│       ├── profile.js
+│       ├── rentflow-rental.js
+│       ├── signup.js
+│       ├── storage.js
+│       └── theme.js
 │
 └── README.md
 ```
@@ -201,85 +202,85 @@ RentFlow-main/
 ### 🏠 Homepage
 
 <p align="center">
-  <img src="./assets/homepage.jpeg" alt="RentFlow Homepage" width="900">
+  <img src="./frontend/assets/homepage.jpeg" alt="RentFlow Homepage" width="900">
 </p>
 
 ### 🔎 Browse Available Rentals
 
 <p align="center">
-  <img src="./assets/browse-rentals.jpeg" alt="Browse Available Rentals" width="900">
+  <img src="./frontend/assets/browse-rentals.jpeg" alt="Browse Available Rentals" width="900">
 </p>
 
 ### ➕ Create a New Listing
 
 <p align="center">
-  <img src="./assets/create-listing.jpeg" alt="Create a New Listing" width="900">
+  <img src="./frontend/assets/create-listing.jpeg" alt="Create a New Listing" width="900">
 </p>
 
 ### 📄 Rental Receipt
 
 <p align="center">
-  <img src="./assets/rental-receipt.jpeg" alt="Rental Receipt" width="700">
+  <img src="./frontend/assets/rental-receipt.jpeg" alt="Rental Receipt" width="700">
 </p>
 
 ### 👤 User Profile
 
 <p align="center">
-  <img src="./assets/profile.jpeg" alt="RentFlow User Profile" width="900">
+  <img src="./frontend/assets/profile.jpeg" alt="RentFlow User Profile" width="900">
 </p>
 
 ### ⭐ RentFlow Premium
 
 <p align="center">
-  <img src="./assets/premium.jpeg" alt="RentFlow Premium" width="700">
+  <img src="./frontend/assets/premium.jpeg" alt="RentFlow Premium" width="700">
 </p>
 
 ### 💬 Feedback
 
 <p align="center">
-  <img src="./assets/feedback.jpeg" alt="RentFlow Feedback Page" width="900">
+  <img src="./frontend/assets/feedback.jpeg" alt="RentFlow Feedback Page" width="900">
 </p>
 
 ### 📞 Contact & FAQ
 
 <p align="center">
-  <img src="./assets/contact-faq.jpeg" alt="Contact and FAQ" width="900">
+  <img src="./frontend/assets/contact-faq.jpeg" alt="Contact and FAQ" width="900">
 </p>
 
 ### ℹ️ About RentFlow
 
 <p align="center">
-  <img src="./assets/about.jpeg" alt="About RentFlow" width="900">
+  <img src="./frontend/assets/about.jpeg" alt="About RentFlow" width="900">
 </p>
 
 ### 👨‍💼 Admin Dashboard
 
 <p align="center">
-  <img src="./assets/admin-dashboard.jpeg" alt="Admin Dashboard" width="900">
+  <img src="./frontend/assets/admin-dashboard.jpeg" alt="Admin Dashboard" width="900">
 </p>
 
 ### 📊 Admin Analytics
 
 <p align="center">
-  <img src="./assets/analytics-dashboard.jpeg" alt="Admin Analytics Dashboard" width="900">
+  <img src="./frontend/assets/analytics-dashboard.jpeg" alt="Admin Analytics Dashboard" width="900">
 </p>
 
 ### 🛠️ Admin Listing & Booking Management
 
 <p align="center">
-  <img src="./assets/admin-management.jpeg" alt="Admin Listing and Booking Management" width="900">
+  <img src="./frontend/assets/admin-management.jpeg" alt="Admin Listing and Booking Management" width="900">
 </p>
 
 ### 🚫 Listing Management & Blocked Listings
 
 <p align="center">
-  <img src="./assets/listing-management.jpeg" alt="Listing Management and Blocked Listings" width="900">
+  <img src="./frontend/assets/listing-management.jpeg" alt="Listing Management and Blocked Listings" width="900">
 </p>
 
 ### 🚀 Upcoming Features
 
 <p align="center">
-  <img src="./assets/upcoming-features.jpeg" alt="Upcoming Features" width="900">
+  <img src="./frontend/assets/upcoming-features.jpeg" alt="Upcoming Features" width="900">
 </p>
 
 ---
@@ -304,7 +305,7 @@ For the best experience, run it using a local development server.
 Install the **Live Server** extension and:
 
 1. Open the project folder.
-2. Open `html/index.html`.
+2. Open `frontend/html/index.html`.
 3. Right-click the file.
 4. Select **Open with Live Server**.
 
@@ -315,7 +316,7 @@ The application will open in your browser.
 You can also open:
 
 ```text
-html/index.html
+frontend/html/index.html
 ```
 
 directly in a browser, although a local server is recommended for more reliable behavior.
@@ -324,7 +325,7 @@ directly in a browser, although a local server is recommended for more reliable 
 
 ## 👥 Demo Accounts
 
-The project currently contains seed users in `js/storage.js`.
+The project currently contains seed users in `frontend/js/storage.js`.
 
 ### Admin
 
@@ -350,7 +351,7 @@ Password: User@1234
 Role: Seller
 ```
 
-Additional seeded users are also available in `js/storage.js`.
+Additional seeded users are also available in `frontend/js/storage.js`.
 
 > **Security note:** These credentials are demo credentials for the frontend prototype. They must not be used as production administrator credentials.
 
@@ -363,7 +364,7 @@ The current version uses the browser's **LocalStorage** instead of a backend dat
 The central storage logic is handled by:
 
 ```text
-js/storage.js
+frontend/js/storage.js
 ```
 
 Important storage keys include:
