@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const User = require('../models/User');
+const Feedback = require('../models/Feedback');
 
 const router = express.Router();
 
@@ -147,6 +148,74 @@ router.delete('/users/:id', auth, admin, async (req, res, next) => {
       success: true,
       message: 'User deleted successfully.',
       user,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/admin/analytics/overview ───────────────────────
+// Returns platform analytics (user and feedback statistics).
+router.get('/analytics/overview', auth, admin, async (req, res, next) => {
+  try {
+    const [
+      totalUsers,
+      roleDistribution,
+      kycDistribution,
+      proUsers,
+      nonProUsers,
+      registrationTrend,
+      totalFeedback,
+      ratingStats,
+      ratingDistribution,
+      feedbackTrend
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
+      User.aggregate([{ $group: { _id: '$kycStatus', count: { $sum: 1 } } }]),
+      User.countDocuments({ isPro: true }),
+      User.countDocuments({ isPro: false }),
+      User.aggregate([
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Feedback.countDocuments(),
+      Feedback.aggregate([
+        { $group: { _id: null, averageRating: { $avg: '$rating' } } }
+      ]),
+      Feedback.aggregate([
+        { $group: { _id: '$rating', count: { $sum: 1 } } },
+        { $sort: { _id: -1 } }
+      ]),
+      Feedback.aggregate([
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ])
+    ]);
+
+    let averageRating = 0;
+    if (ratingStats.length > 0 && ratingStats[0].averageRating) {
+      averageRating = Math.round(ratingStats[0].averageRating * 100) / 100;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        userStats: {
+          totalUsers,
+          roleDistribution,
+          kycDistribution,
+          proUsers,
+          nonProUsers,
+          registrationTrend
+        },
+        feedbackStats: {
+          totalFeedback,
+          averageRating,
+          ratingDistribution,
+          feedbackTrend
+        }
+      }
     });
   } catch (err) {
     next(err);
