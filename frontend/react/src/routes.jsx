@@ -1,6 +1,7 @@
 import React from 'react';
 import ContactUs from './contactus';
 import BookingHistory from './booking-history';
+import Chat from './chat';
 
 const routes = [
   // ==========================================
@@ -34,6 +35,7 @@ const routes = [
   { path: '/booking-history', element: <BookingHistory />, owner: 'Aryan', title: 'Booking History' },
   { path: '/booking', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Booking</h2><p>Owner: Aryan</p></div>, owner: 'Aryan', title: 'Booking' },
   { path: '/contact', element: <ContactUs />, owner: 'Aryan', title: 'Contact' },
+  { path: '/chat', element: <Chat />, owner: 'Aryan', title: 'Chat' },
 
   // ==========================================
   // COMMON / FALLBACK
