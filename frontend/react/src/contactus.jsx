@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../../css/index.css';
 import './styles/contactus.css';
+import { useTheme, useScrollHide } from './useNavbarBehavior';
 
 export default function ContactUs() {
-    const [scrollState, setScrollState] = useState({ hidden: false, scrolled: false });
     const [openFaq, setOpenFaq] = useState(null);
     const [showModal, setShowModal] = useState(false);
 
@@ -21,15 +21,10 @@ export default function ContactUs() {
 
     const navigate = useNavigate();
 
-    useEffect(() => {
-        // Theme initialization
-        const savedTheme = localStorage.getItem("theme") || "dark";
-        if (savedTheme === "light") {
-            document.body.classList.add("light-theme");
-        } else {
-            document.body.classList.remove("light-theme");
-        }
+    useTheme();
+    const scrollState = useScrollHide();
 
+    useEffect(() => {
         // Auth initialization
         const loggedIn = localStorage.getItem("isLoggedIn") === "true";
         setIsLoggedIn(loggedIn);
@@ -38,47 +33,16 @@ export default function ContactUs() {
             setCurrentUser(user);
         }
 
-        // Scroll listener for navbar
-        let lastScrollTop = window.scrollY || document.documentElement.scrollTop;
-        const handleScroll = () => {
-            const scrollTop = window.scrollY || document.documentElement.scrollTop;
-            let hidden = scrollState.hidden;
-            let scrolled = scrollState.scrolled;
-
-            if (scrollTop > lastScrollTop && scrollTop > 80) {
-                hidden = true;
-            } else {
-                hidden = false;
-            }
-
-            if (scrollTop > 50) {
-                scrolled = true;
-            } else {
-                scrolled = false;
-            }
-
-            setScrollState(prev => {
-                if (prev.hidden !== hidden || prev.scrolled !== scrolled) {
-                    return { hidden, scrolled };
-                }
-                return prev;
-            });
-            lastScrollTop = scrollTop;
-        };
-
-        window.addEventListener("scroll", handleScroll);
-
         // Load legacy wallet script since it's massive and shared.
         // We do this so window.openWalletModal is available.
         // TODO: replace with Mayank's shared React Navbar when available.
+        window.__DISABLE_LEGACY_NAVBAR_SCROLL__ = true;
         if (!document.getElementById("legacy-navbar-script")) {
             const script = document.createElement("script");
             script.id = "legacy-navbar-script";
             script.src = "../../js/navbar-scroll.js";
             document.body.appendChild(script);
         }
-
-        return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
     const showToast = (msg, type = "success") => {
