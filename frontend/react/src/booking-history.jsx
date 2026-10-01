@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import '../../css/index.css';
 import './styles/booking-history.css';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
+import { apiRequest } from './services/api';
 
 // ============================================================================
 // UTILITIES
@@ -28,60 +29,42 @@ function formatDate(dateString) {
     }
 }
 
-function getSeedBookings() {
-    const now = new Date();
+/**
+ * Maps a backend booking object (with populated listing/lender) to
+ * the shape the existing UI cards expect.
+ */
+function mapBookingToUI(booking) {
+    const listing = booking.listing || {};
+    const lender = booking.lender || {};
 
-    const d1Start = new Date(now); d1Start.setDate(now.getDate() - 20);
-    const d1End   = new Date(now); d1End.setDate(now.getDate() - 15);
-    const d2Start = new Date(now); d2Start.setDate(now.getDate() - 2);
-    const d2End   = new Date(now); d2End.setDate(now.getDate() + 3);
-    const d3Start = new Date(now); d3Start.setDate(now.getDate() - 40);
-    const d3End   = new Date(now); d3End.setDate(now.getDate() - 30);
-    const d4Start = new Date(now); d4Start.setDate(now.getDate() + 5);
-    const d4End   = new Date(now); d4End.setDate(now.getDate() + 8);
+    // Listing image: populated listing may have an images array
+    const rawImages = Array.isArray(listing.images) ? listing.images : [];
+    const validImages = rawImages.filter(img => img && typeof img === 'string' && img.trim() !== '');
+    const itemImage = validImages.length > 0 ? validImages[0] : '../../assets/profile.png';
 
-    return [
-        {
-            id: 'BKG-001', listingId: 'LIST-MOCK-2',
-            itemTitle: 'Sony A7S III Mirrorless Camera',
-            itemImage: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=300&q=80',
-            lenderName: 'Priya Sharma',
-            startDate: d1Start.toISOString().split('T')[0],
-            endDate:   d1End.toISOString().split('T')[0],
-            duration: 5, rate: 350, subtotal: 1750, deposit: 1500, platformFee: 0, grandTotal: 3250,
-            status: 'Completed'
-        },
-        {
-            id: 'BKG-002', listingId: 'LIST-MOCK-1',
-            itemTitle: 'Apple MacBook Pro M3 (16-inch)',
-            itemImage: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=300&q=80',
-            lenderName: 'Aryan Tyagi',
-            startDate: d2Start.toISOString().split('T')[0],
-            endDate:   d2End.toISOString().split('T')[0],
-            duration: 5, rate: 500, subtotal: 2500, deposit: 2000, platformFee: 0, grandTotal: 4500,
-            status: 'Active'
-        },
-        {
-            id: 'BKG-003', listingId: 'LIST-MOCK-4',
-            itemTitle: 'Bosch Power Drill Set',
-            itemImage: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=300&q=80',
-            lenderName: 'Ravi Kumar',
-            startDate: d3Start.toISOString().split('T')[0],
-            endDate:   d3End.toISOString().split('T')[0],
-            duration: 10, rate: 150, subtotal: 1500, deposit: 500, platformFee: 0, grandTotal: 2000,
-            status: 'Completed'
-        },
-        {
-            id: 'BKG-004', listingId: 'LIST-MOCK-3',
-            itemTitle: 'DJI Mavic 3 Pro Drone',
-            itemImage: 'https://images.unsplash.com/photo-1579829366248-204fe8413f31?auto=format&fit=crop&w=300&q=80',
-            lenderName: 'Kabir Singh',
-            startDate: d4Start.toISOString().split('T')[0],
-            endDate:   d4End.toISOString().split('T')[0],
-            duration: 3, rate: 600, subtotal: 1800, deposit: 3000, platformFee: 0, grandTotal: 4800,
-            status: 'Pending'
-        }
-    ];
+    // Listing title
+    const itemTitle = listing.title || listing.name || 'Untitled Listing';
+
+    // Lender name
+    const lenderName = lender.name || lender.username || lender.userfname || 'Unknown Lender';
+
+    return {
+        id: booking._id,
+        listingId: listing._id || booking.listing,
+        itemTitle,
+        itemImage,
+        lenderName,
+        startDate: booking.startDate,
+        endDate: booking.endDate,
+        duration: booking.totalDays,
+        rate: booking.pricePerDay,
+        subtotal: booking.subtotal,
+        deposit: booking.securityDeposit,
+        platformFee: booking.platformFee || 0,
+        grandTotal: booking.total,
+        status: booking.status,
+        createdAt: booking.createdAt,
+    };
 }
 
 // ============================================================================
@@ -99,10 +82,13 @@ export default function BookingHistory() {
     const [showProfileMenu, setShowProfileMenu] = useState(false);
 
     // ── Booking state ─────────────────────────────────────────────────────────
-    // allBookings is stored in a ref so countdown mutations don't cause full re-renders
     const allBookingsRef = useRef([]);
     const [currentFilter, setCurrentFilter] = useState('All');
     const [displayedOrders, setDisplayedOrders] = useState([]);
+
+    // ── API state ─────────────────────────────────────────────────────────────
+    const [isLoading, setIsLoading] = useState(true);
+    const [apiError, setApiError] = useState('');
 
     // ── Stats state ───────────────────────────────────────────────────────────
     const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, returned: 0, spent: 0 });
@@ -118,40 +104,27 @@ export default function BookingHistory() {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    const getMyBookings = useCallback(() => {
-        const userEmail = currentUser ? currentUser.useremail : '';
-        return allBookingsRef.current.filter(booking => {
-            // Legacy seed bookings without renterEmail show only to rahul@example.com
-            if (!booking.renterEmail) {
-                return userEmail === 'rahul@example.com';
-            }
-            return booking.renterEmail === userEmail;
-        });
-    }, [currentUser]);
-
-    const calcStats = useCallback(() => {
-        const myBookings = getMyBookings();
-        const activeCount    = myBookings.reduce((c, b) => b.status === 'Active'    ? c + 1 : c, 0);
-        const completedCount = myBookings.reduce((c, b) => b.status === 'Completed' ? c + 1 : c, 0);
-        const returnedCount  = myBookings.reduce((c, b) => b.status === 'Returned'  ? c + 1 : c, 0);
-        const totalSpent     = myBookings.reduce((s, b) => b.status !== 'Cancelled' ? s + (b.grandTotal || 0) : s, 0);
+    const calcStats = useCallback((bookings) => {
+        const activeCount    = bookings.reduce((c, b) => b.status === 'Active'    ? c + 1 : c, 0);
+        const completedCount = bookings.reduce((c, b) => b.status === 'Completed' ? c + 1 : c, 0);
+        const returnedCount  = bookings.reduce((c, b) => b.status === 'Returned'  ? c + 1 : c, 0);
+        const totalSpent     = bookings.reduce((s, b) => b.status !== 'Cancelled' ? s + (b.grandTotal || 0) : s, 0);
 
         setStats({
-            total:     myBookings.length,
+            total:     bookings.length,
             active:    activeCount,
             completed: completedCount,
             returned:  returnedCount,
             spent:     totalSpent
         });
-    }, [getMyBookings]);
+    }, []);
 
-    const buildDisplayedOrders = useCallback((filter) => {
-        const myBookings = getMyBookings();
-        const filtered = filter === 'All' ? myBookings : myBookings.filter(b => b.status === filter);
+    const buildDisplayedOrders = useCallback((bookings, filter) => {
+        const filtered = filter === 'All' ? bookings : bookings.filter(b => b.status === filter);
         setDisplayedOrders(filtered);
-    }, [getMyBookings]);
+    }, []);
 
-    // ── Init ──────────────────────────────────────────────────────────────────
+    // ── Fetch bookings from API ───────────────────────────────────────────────
 
     useEffect(() => {
         // Auth
@@ -163,45 +136,82 @@ export default function BookingHistory() {
             setCurrentUser(user);
         }
 
-        // Load bookings from localStorage, seed if absent
-        const stored = localStorage.getItem('rentflow_bookings');
-        if (stored) {
-            try { allBookingsRef.current = JSON.parse(stored); } catch { allBookingsRef.current = getSeedBookings(); }
-        } else {
-            allBookingsRef.current = getSeedBookings();
-            localStorage.setItem('rentflow_bookings', JSON.stringify(allBookingsRef.current));
-        }
+        // Fetch from GET /api/bookings/my
+        let cancelled = false;
+        const fetchBookings = async () => {
+            setIsLoading(true);
+            setApiError('');
 
-        // Wallet legacy script (same pattern as Contact)
-        // TODO: replace with Mayank's shared React Navbar when available.
-    }, []);
+            try {
+                const { data: responseData } = await apiRequest('/api/bookings/my');
 
-    // Re-compute stats & orders whenever user or filter changes
+                if (cancelled) return;
+
+                // Response shape: { success: true, data: [...bookings] }
+                const rawBookings = Array.isArray(responseData?.data)
+                    ? responseData.data
+                    : Array.isArray(responseData) ? responseData : [];
+
+                const mapped = rawBookings.map(mapBookingToUI);
+                allBookingsRef.current = mapped;
+
+                calcStats(mapped);
+                buildDisplayedOrders(mapped, 'All');
+            } catch (err) {
+                if (cancelled) return;
+
+                if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                    setApiError('Cannot reach the server. Please try again.');
+                } else if (err.status === 401) {
+                    if (import.meta.env.DEV) {
+                        setApiError('Development: Set localStorage.devUserId to a valid 24-character MongoDB ObjectId.');
+                    } else {
+                        setApiError('Authentication required. Please log in to view your bookings.');
+                    }
+                } else if (err.status === 404) {
+                    setApiError('Booking history endpoint not found. Please contact support.');
+                } else if (err.status === 503) {
+                    setApiError('A required backend service is temporarily unavailable. Please try again later.');
+                } else if (err.status >= 500) {
+                    setApiError('Unable to load booking history. Please try again later.');
+                } else {
+                    setApiError(err.message || 'Unable to load booking history.');
+                }
+
+                allBookingsRef.current = [];
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        fetchBookings();
+
+        return () => { cancelled = true; };
+    }, [calcStats, buildDisplayedOrders]);
+
+    // Re-compute displayed orders when filter changes
     useEffect(() => {
-        calcStats();
-        buildDisplayedOrders(currentFilter);
-    }, [currentUser, currentFilter, calcStats, buildDisplayedOrders]);
+        if (!isLoading && !apiError) {
+            buildDisplayedOrders(allBookingsRef.current, currentFilter);
+        }
+    }, [currentFilter, isLoading, apiError, buildDisplayedOrders]);
 
     // ── Countdown timer ───────────────────────────────────────────────────────
 
     useEffect(() => {
         const tick = () => {
-            const myBookings = getMyBookings();
+            const bookings = allBookingsRef.current;
             const newCountdowns = {};
-            let didUpdate = false;
 
-            myBookings.forEach(item => {
+            bookings.forEach(item => {
                 if (item.status === 'Active' && item.endDate) {
-                    const hasTime = item.endDate.includes('T') || item.endDate.includes(':');
                     const end = new Date(item.endDate);
-                    if (!hasTime) end.setHours(23, 59, 59, 999);
                     const diff = end - new Date();
 
                     if (diff <= 0) {
                         newCountdowns[item.id] = 'Rental Ended';
-                        // Auto-complete the booking
-                        item.status = 'Completed';
-                        didUpdate = true;
                     } else {
                         const d = Math.floor(diff / (1000 * 60 * 60 * 24));
                         const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -213,17 +223,11 @@ export default function BookingHistory() {
             });
 
             setCountdowns(newCountdowns);
-
-            if (didUpdate) {
-                localStorage.setItem('rentflow_bookings', JSON.stringify(allBookingsRef.current));
-                calcStats();
-                buildDisplayedOrders(currentFilter);
-            }
         };
 
         const intervalId = setInterval(tick, 1000);
         return () => clearInterval(intervalId);
-    }, [getMyBookings, calcStats, buildDisplayedOrders, currentFilter]);
+    }, []);
 
     // ── Razorpay payment ──────────────────────────────────────────────────────
 
@@ -239,11 +243,10 @@ export default function BookingHistory() {
             description: 'Payment for ' + booking.itemTitle,
             handler: function(response) {
                 console.log('Successful Payment ID:', response.razorpay_payment_id);
-                booking.status = 'Active';
-                localStorage.setItem('rentflow_bookings', JSON.stringify(allBookingsRef.current));
+                // Note: In the real flow, payment should go through the backend
+                // PATCH /api/bookings/:id/pay endpoint. This Razorpay UI handler
+                // is preserved from the existing code for UI continuity.
                 alert('Payment Successful! Rental is now Active.');
-                calcStats();
-                buildDisplayedOrders(currentFilter);
             },
             prefill: { name: 'User', email: 'user@example.com', contact: '9999999999' },
             theme: { color: '#2563eb' }
@@ -527,7 +530,31 @@ export default function BookingHistory() {
 
                     {/* Orders List */}
                     <div className="orders-list">
-                        {displayedOrders.length === 0 ? (
+                        {isLoading ? (
+                            <div className="empty-state">
+                                <div className="empty-icon">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                                        <line x1="12" y1="22.08" x2="12" y2="12" />
+                                    </svg>
+                                </div>
+                                <h3 className="empty-title">Loading your bookings...</h3>
+                                <p className="empty-sub">Please wait while we fetch your rental history.</p>
+                            </div>
+                        ) : apiError ? (
+                            <div className="empty-state">
+                                <div className="empty-icon">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="12" y1="8" x2="12" y2="12" />
+                                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                                    </svg>
+                                </div>
+                                <h3 className="empty-title">Unable to load bookings</h3>
+                                <p className="empty-sub">{apiError}</p>
+                            </div>
+                        ) : displayedOrders.length === 0 ? (
                             <div className="empty-state">
                                 <div className="empty-icon">
                                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -552,7 +579,7 @@ export default function BookingHistory() {
                                 return (
                                     <div className="order-card" key={item.id}>
                                         <div className="order-info-wrapper">
-                                            <img src={item.itemImage} alt={item.itemTitle} className="order-img" />
+                                            <img src={item.itemImage} alt={item.itemTitle} className="order-img" onError={(e) => { e.target.src = '../../assets/profile.png'; }} />
                                             <div className="order-details">
                                                 <h4 className="order-title">{item.itemTitle}</h4>
                                                 <div className="order-meta">Lender: <span>{item.lenderName}</span></div>
