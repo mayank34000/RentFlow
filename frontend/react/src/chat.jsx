@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import '../../css/index.css';
 import './styles/chat.css';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
+import { apiRequest, API_URL } from './services/api';
 
 // ============================================================================
 // CHAT UI COMPONENT
@@ -35,6 +36,12 @@ export default function Chat() {
     const messagesEndRef = useRef(null);
     const typingTimeoutRef = useRef(null);
 
+    // ── Dev user identity ─────────────────────────────────────────────────────
+    // The authoritative development user identity is localStorage.devUserId.
+    // This is the same identity used by booking, booking-history, and all
+    // backend devAuth-protected endpoints.
+    const devUserId = localStorage.getItem('devUserId') || '';
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     const formatTime = (dateString) => {
@@ -60,37 +67,46 @@ export default function Chat() {
             setCurrentUser(user);
         }
 
-        // Fetch initial conversations via HTTP
-        const fetchConversations = async (devUserId) => {
+        // Fetch initial conversations via the shared apiRequest helper
+        const fetchConversations = async () => {
             try {
-                const res = await fetch('http://localhost:5000/api/chat/conversations', {
-                    headers: { 'x-dev-user-id': devUserId }
-                });
-                const data = await res.json();
+                const { data: responseData } = await apiRequest('/api/chat/conversations');
 
-                if (res.ok && data.success) {
-                    setConversations(data.data);
+                if (responseData?.success) {
+                    setConversations(responseData.data);
                 } else {
-                    // Check if it's the specific ObjectId validation blocker
-                    if (data.message && data.message.includes('valid MongoDB ObjectId')) {
-                        setError('BLOCKER: Current mock authentication uses invalid MongoDB ObjectIds.');
-                    } else {
-                        setError(data.message || 'Failed to load conversations.');
-                    }
+                    setError(responseData?.message || 'Failed to load conversations.');
                 }
-            } catch (_err) {
-                setError('Failed to connect to chat API. Backend might be down.');
+            } catch (err) {
+                if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                    setError('Cannot reach the server. Please try again.');
+                } else if (err.status === 401) {
+                    if (import.meta.env.DEV) {
+                        setError('Development: Set localStorage.devUserId to a valid 24-character MongoDB ObjectId.');
+                    } else {
+                        setError('Authentication required. Please log in to access chat.');
+                    }
+                } else if (err.status === 503) {
+                    setError('A required backend service is temporarily unavailable. Please try again later.');
+                } else if (err.status >= 500) {
+                    setError('Unable to load conversations. Please try again later.');
+                } else {
+                    setError(err.message || 'Failed to load conversations.');
+                }
             } finally {
                 setLoading(false);
             }
         };
 
-        if (loggedIn && user) {
-            // Using useremail as mock ObjectId. This WILL fail on the backend currently,
-            // but we must use what we have and let the backend reject it to demonstrate the blocker.
-            const devUserId = user.useremail || 'mock-id';
-            fetchConversations(devUserId);
+        // Only fetch if devUserId is set (backend will reject otherwise)
+        if (devUserId) {
+            fetchConversations();
         } else {
+            if (import.meta.env.DEV) {
+                setError('Development: Set localStorage.devUserId to a valid 24-character MongoDB ObjectId.');
+            } else {
+                setError('Authentication required. Please log in to access chat.');
+            }
             setLoading(false);
         }
 
@@ -102,16 +118,15 @@ export default function Chat() {
             script.src = '../../js/navbar-scroll.js';
             document.body.appendChild(script);
         }
-    }, []);
+    }, [devUserId]);
 
     // ── Socket initialization ─────────────────────────────────────────────────
 
     useEffect(() => {
-        if (!currentUser) return;
-        const devUserId = currentUser.useremail || 'mock-id';
+        if (!devUserId) return;
 
-        // Connect to Socket.IO using dev auth headers
-        const newSocket = io('http://localhost:5000', {
+        // Connect to Socket.IO using the same devUserId identity
+        const newSocket = io(API_URL, {
             extraHeaders: { 'x-dev-user-id': devUserId },
             auth: { userId: devUserId }
         });
@@ -126,7 +141,14 @@ export default function Chat() {
 
         // Incoming message
         newSocket.on('message', (payload) => {
-            setMessages(prev => [...prev, payload]);
+            setMessages(prev => {
+                // Deduplicate by _id to prevent double-rendering when
+                // the sender receives their own emitted message
+                if (payload._id && prev.some(m => m._id === payload._id)) {
+                    return prev;
+                }
+                return [...prev, payload];
+            });
 
             // Auto-mark as read if we are looking at this conversation
             if (activeConversation && payload.conversation === activeConversation._id) {
@@ -168,7 +190,7 @@ export default function Chat() {
         return () => {
             newSocket.disconnect();
         };
-    }, [currentUser, activeConversation]);
+    }, [devUserId, activeConversation]);
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -181,16 +203,10 @@ export default function Chat() {
         setActiveConversation(conv);
         setMessages([]); // clear while loading
 
-        const devUserId = currentUser?.useremail || 'mock-id';
-
         try {
-            const res = await fetch(`http://localhost:5000/api/chat/conversations/${conv._id}/messages`, {
-                headers: { 'x-dev-user-id': devUserId }
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                // messages come back sorted newest first based on the API contract
-                setMessages(data.data.reverse());
+            const { data: responseData } = await apiRequest(`/api/chat/conversations/${conv._id}/messages`);
+            if (responseData?.success) {
+                setMessages(responseData.data);
             }
         } catch (err) {
             console.error('Failed to load messages:', err);
@@ -252,21 +268,6 @@ export default function Chat() {
 
     const firstName = currentUser ? (currentUser.name || currentUser.username || currentUser.userfname || 'User').split(' ')[0] : 'User';
     const savedImage = currentUser ? (localStorage.getItem('profileImage') || '../assets/profile.png') : '../assets/profile.png';
-    const devUserId = currentUser?.useremail || 'mock-id';
-
-    // ── Render Helpers ────────────────────────────────────────────────────────
-
-    const renderBlockerNotice = () => (
-        <div className="blocker-notice">
-            <h4 style={{ margin: '0 0 10px 0' }}>Integration Blocker Detected</h4>
-            <p style={{ margin: 0, fontSize: '0.9rem' }}>
-                The backend expects a valid 24-character MongoDB `ObjectId` for the user and booking IDs.
-                Currently, the frontend uses mock email addresses (<code>{devUserId}</code>) as identifiers.
-                <br /><br />
-                The UI components are fully implemented and ready, but API/Socket interactions will fail until real User/Auth ObjectIds are integrated.
-            </p>
-        </div>
-    );
 
     // ========================================================================
     // RETURN RENDER
@@ -338,7 +339,7 @@ export default function Chat() {
                             <div style={{ padding: 20, color: '#a0aabe' }}>Loading conversations...</div>
                         ) : error ? (
                             <div style={{ padding: 20 }}>
-                                {error.includes('BLOCKER') ? renderBlockerNotice() : <span style={{ color: '#ef4444' }}>{error}</span>}
+                                <span style={{ color: '#ef4444' }}>{error}</span>
                             </div>
                         ) : conversations.length === 0 ? (
                             <div style={{ padding: 20, color: '#a0aabe' }}>No conversations yet.</div>
@@ -346,7 +347,7 @@ export default function Chat() {
                             <ul className="conversation-list">
                                 {conversations.map(conv => {
                                     // Determine the "other" participant name for display
-                                    const otherParticipant = conv.participants?.find(p => p._id !== devUserId);
+                                    const otherParticipant = conv.participants?.find(p => String(p._id) !== devUserId);
                                     const title = otherParticipant ? (otherParticipant.name || otherParticipant.username) : 'Chat';
                                     const initials = title.substring(0, 2).toUpperCase();
 
@@ -378,7 +379,7 @@ export default function Chat() {
                         <div className="chat-main">
                             <div className="chat-header">
                                 <div className="chat-header-title">
-                                    {activeConversation.participants?.find(p => p._id !== devUserId)?.name || 'Conversation'}
+                                    {activeConversation.participants?.find(p => String(p._id) !== devUserId)?.name || 'Conversation'}
                                 </div>
                                 <div className="chat-header-status">
                                     {/* Mock online status or use real presence if available */}
@@ -436,7 +437,6 @@ export default function Chat() {
                             </svg>
                             <h3>Your Messages</h3>
                             <p>Select a conversation from the sidebar to start chatting.</p>
-                            {error && error.includes('BLOCKER') && renderBlockerNotice()}
                         </div>
                     )}
                 </div>

@@ -6,7 +6,7 @@
  * mechanism without duplicating VITE_API_URL or header construction.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 /**
  * Returns the development authentication headers used by the backend
