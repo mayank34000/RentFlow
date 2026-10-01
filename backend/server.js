@@ -29,14 +29,33 @@ const { Server } = require('socket.io');
 // ── 3. App setup ──────────────────────────────────────────────────────────────
 const app = express();
 const httpServer = http.createServer(app);
+const defaultOrigins = 'http://localhost:5501,http://127.0.0.1:5501,http://127.0.0.1:5500';
+
+function getAllowedOrigins() {
+    const originsString = process.env.CORS_ORIGIN || defaultOrigins;
+    return originsString.split(',').map(o => o.trim());
+}
+
+const originCallback = (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = getAllowedOrigins();
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+    } else {
+        // Disallowed origin should simply receive no Access-Control-Allow-Origin header, not a 500
+        callback(null, false);
+    }
+};
 
 // CORS — allow the configured origin (Live Server default if not set)
-const corsOrigin = process.env.CORS_ORIGIN || 'http://127.0.0.1:5500';
-app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(cors({ origin: originCallback, credentials: true }));
 
 // Socket.IO configuration
 const io = new Server(httpServer, {
-    cors: { origin: corsOrigin, methods: ['GET', 'POST'] }
+    cors: { origin: originCallback, methods: ['GET', 'POST'] }
 });
 require('./sockets/chatSocket')(io);
 
@@ -106,7 +125,7 @@ const startServer = async () => {
     httpServer.listen(PORT, () => {
         console.log(`[Server] RentFlow API running on http://localhost:${PORT}`);
         console.log(`[Server] Environment : ${process.env.NODE_ENV || 'development'}`);
-        console.log(`[Server] CORS origin  : ${corsOrigin}`);
+        console.log(`[Server] CORS origin  : ${getAllowedOrigins().join(', ')}`);
         console.log(`[Server] Health check : http://localhost:${PORT}/api/health`);
     });
 };
