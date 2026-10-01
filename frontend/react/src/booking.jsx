@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
 import '../../css/index.css';
@@ -13,13 +13,13 @@ export function calculateBooking(listing, start, end) {
     if (!start || !end || start.getTime() >= end.getTime()) {
         return { hours: 0, days: 0, chargedDays: 0, description: '', subtotal: 0, deposit: 0, total: 0 };
     }
-    
+
     // Duration Logic (~722-760)
     const diffMs = end.getTime() - start.getTime();
     const totalHours = diffMs / (1000 * 60 * 60);
     const fullDays = Math.floor(totalHours / 24);
     const remainingHours = totalHours % 24;
-    
+
     let chargedDays = 0;
     if (fullDays === 0) {
         chargedDays = remainingHours < 12 ? 0.5 : 1.0;
@@ -32,7 +32,7 @@ export function calculateBooking(listing, start, end) {
             chargedDays = fullDays + 1.0;
         }
     }
-    
+
     let desc = '';
     if (fullDays > 0) {
         desc += `${fullDays} day${fullDays > 1 ? 's' : ''}`;
@@ -44,7 +44,7 @@ export function calculateBooking(listing, start, end) {
         const roundedHours = Math.round(totalHours * 10) / 10;
         desc = `${roundedHours} hour${roundedHours !== 1 ? 's' : ''}`;
     }
-    
+
     // Pricing Logic (~817-819)
     const price = parseFloat(listing.price) || 0;
     const deposit = parseFloat(listing.securityDeposit) || 0;
@@ -62,6 +62,16 @@ export function calculateBooking(listing, start, end) {
     };
 }
 // END calculateBooking
+
+// BEGIN buildBookingRequest
+export function buildBookingRequest(listing, startLocal, endLocal) {
+    return {
+        listingId: listing._id,
+        startDate: new Date(startLocal).toISOString(),
+        endDate: new Date(endLocal).toISOString()
+    };
+}
+// END buildBookingRequest
 
 
 // ============================================================================
@@ -110,6 +120,12 @@ export default function BookingPage() {
     const [bookingEnd, setBookingEnd] = useState('');
     const [validationError, setValidationError] = useState('');
     const [isConfirmed, setIsConfirmed] = useState(false);
+
+    // ── API State ──
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [apiError, setApiError] = useState('');
+    const [serverBooking, setServerBooking] = useState(null);
+    const abortControllerRef = useRef(null);
 
     // ── Init Data & Auth ──
     useEffect(() => {
@@ -212,10 +228,10 @@ export default function BookingPage() {
         setSelectedListing(listing);
         setIsConfirmed(false);
         setValidationError('');
-        
+
         const defaultStart = getMinStart();
         setBookingStart(formatForDatetimeLocal(defaultStart));
-        
+
         const defaultEnd = new Date(defaultStart.getTime());
         defaultEnd.setHours(defaultEnd.getHours() + 24);
         setBookingEnd(formatForDatetimeLocal(defaultEnd));
@@ -227,6 +243,13 @@ export default function BookingPage() {
         setSelectedListing(null);
         setIsConfirmed(false);
         setValidationError('');
+        setApiError('');
+        setServerBooking(null);
+        setIsSubmitting(false);
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
         document.body.style.overflow = ''; // unlock scroll
     };
 
@@ -240,6 +263,9 @@ export default function BookingPage() {
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = ''; // cleanup scroll lock on unmount
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
         };
     }, [selectedListing]);
 
@@ -256,12 +282,12 @@ export default function BookingPage() {
         if (startObj.getTime() < now.getTime() - 60000) {
             valError = "⚠️ Start time cannot be in the past.";
             isFormValid = false;
-        } 
+        }
         // OLD: End time cannot be earlier than actual (current) time
         else if (endObj.getTime() < now.getTime()) {
             valError = "⚠️ End time cannot be earlier than actual (current) time.";
             isFormValid = false;
-        } 
+        }
         // OLD: End time must be after the start time
         else if (endObj.getTime() <= startObj.getTime()) {
             valError = "⚠️ End time must be after the start time.";
@@ -284,14 +310,74 @@ export default function BookingPage() {
 
     const calcResult = calculateBooking(selectedListing || {}, startObj, endObj);
 
-    const handleConfirm = () => {
-        if (!isFormValid) {
+    const handleConfirm = async () => {
+        if (!isFormValid || isSubmitting) {
             setValidationError(valError);
             return;
         }
+
+        const devUserId = localStorage.getItem('devUserId');
+        const objectIdRegex = /^[a-f\d]{24}$/i;
+
+        if (!devUserId || !objectIdRegex.test(devUserId)) {
+            if (import.meta.env.DEV) {
+                setApiError("Development Error: Set localStorage devUserId to a valid 24-character MongoDB ObjectId.");
+            } else {
+                setApiError("Authentication required. Please log in.");
+            }
+            return;
+        }
+
+        if (!selectedListing || !selectedListing._id || !objectIdRegex.test(selectedListing._id)) {
+            setApiError("Cannot book this listing: invalid or missing listing ID.");
+            return;
+        }
+
         setValidationError('');
-        setIsConfirmed(true);
-        // Note: No backend calls, no localStorage writes. UI-only confirm.
+        setApiError('');
+        setIsSubmitting(true);
+
+        const payload = buildBookingRequest(selectedListing, startObj, endObj);
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+        abortControllerRef.current = new AbortController();
+
+        try {
+            const response = await fetch(`${apiUrl}/api/bookings`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-dev-user-id': devUserId
+                },
+                body: JSON.stringify(payload),
+                signal: abortControllerRef.current.signal
+            });
+
+            const data = await response.json().catch(() => null);
+
+            if (response.status === 201 && data?.success) {
+                setIsConfirmed(true);
+                setServerBooking(data.data);
+            } else if (response.status === 400) {
+                setApiError(data?.message || "Invalid booking request.");
+            } else if (response.status === 401) {
+                setApiError(import.meta.env.DEV ? "Development Error: Set localStorage devUserId to a valid 24-character MongoDB ObjectId." : "Authentication required. Please log in.");
+            } else if (response.status === 404) {
+                setApiError("Listing not found.");
+            } else if (response.status === 409 && data?.error === "LISTING_UNAVAILABLE") {
+                setApiError("The listing is unavailable for the selected dates.");
+            } else if (response.status === 503) {
+                setApiError("Listing model not available yet. (Backend dependency issue)");
+            } else {
+                setApiError(data?.message || "Booking failed. Please try again.");
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') return;
+            setApiError("Cannot reach the server. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+            abortControllerRef.current = null;
+        }
     };
 
     const handleBackdropClick = (e) => {
@@ -308,7 +394,7 @@ export default function BookingPage() {
 
     return (
         <div className="booking-page">
-            
+
             {/* ── Navbar ── */}
             <header
                 className={`site-header${scrollState.hidden ? ' hidden-nav' : ''}${scrollState.scrolled ? ' scrolled' : ''}`}
@@ -357,10 +443,10 @@ export default function BookingPage() {
                 <div className="booking-header">
                     <h1>Explore Rentals</h1>
                     <div className="booking-controls">
-                        <input 
-                            type="text" 
-                            className="search-input" 
-                            placeholder="Search by item, category, or location..." 
+                        <input
+                            type="text"
+                            className="search-input"
+                            placeholder="Search by item, category, or location..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -390,12 +476,12 @@ export default function BookingPage() {
                             const validImages = rawImages.filter(img => img && typeof img === 'string' && img.trim() !== '');
                             const imageSrc = validImages.length > 0 ? validImages[0] : '../../assets/profile.png'; // using a safe local fallback if via.placeholder isn't allowed
                             const initial = item.seller?.name?.charAt(0).toUpperCase() || 'S';
-                            
+
                             return (
                                 <div className="listing-card" key={item.id}>
-                                    <img 
-                                        src={imageSrc} 
-                                        alt={item.title} 
+                                    <img
+                                        src={imageSrc}
+                                        alt={item.title}
                                         className="listing-image"
                                         onError={(e) => { e.target.src = '../../assets/profile.png'; }}
                                     />
@@ -406,7 +492,7 @@ export default function BookingPage() {
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                                             {item.seller?.address || item.seller?.city || 'Unknown Location'}
                                         </div>
-                                        
+
                                         <div className="listing-price-row">
                                             <div className="listing-price">
                                                 ₹{item.price} <span>/ day</span>
@@ -445,7 +531,7 @@ export default function BookingPage() {
                             <h2>Book Rental</h2>
                             <button className="btn-close" onClick={closeModal}>×</button>
                         </div>
-                        
+
                         <div className="modal-body">
                             {isConfirmed ? (
                                 <div className="success-message">
@@ -454,6 +540,39 @@ export default function BookingPage() {
                                     </div>
                                     <h3>Booking Confirmed!</h3>
                                     <p>Your request has been sent to the owner.</p>
+
+                                    {serverBooking && (
+                                        <div style={{ textAlign: 'left', background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px', marginTop: '20px', fontSize: '0.9rem' }}>
+                                            <div style={{ marginBottom: '10px' }}><strong>Booking ID:</strong> {serverBooking._id}</div>
+                                            <div style={{ marginBottom: '10px' }}><strong>Status:</strong> {serverBooking.status || 'Pending, awaiting seller approval'}</div>
+
+                                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '15px 0' }}></div>
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                                <span>Duration (Server)</span>
+                                                <span>{serverBooking.totalDays} day(s)</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                                <span>Subtotal (₹{serverBooking.pricePerDay}/day)</span>
+                                                <span>₹{serverBooking.subtotal}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                                <span>Security Deposit</span>
+                                                <span>₹{serverBooking.securityDeposit}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                                <span>Final Total</span>
+                                                <span>₹{serverBooking.total}</span>
+                                            </div>
+
+                                            {serverBooking.total !== calcResult.total && (
+                                                <div style={{ marginTop: '15px', fontSize: '0.85rem', color: '#fbbf24', lineHeight: 1.4 }}>
+                                                    * Note: The final amount was calculated by the server and differs from the initial estimate.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <button className="btn-confirm" onClick={closeModal} style={{ marginTop: '20px' }}>
                                         Done
                                     </button>
@@ -461,8 +580,8 @@ export default function BookingPage() {
                             ) : (
                                 <>
                                     <div className="selected-listing-preview">
-                                        <img 
-                                            src={Array.isArray(selectedListing.images) && selectedListing.images[0] ? selectedListing.images[0] : '../../assets/profile.png'} 
+                                        <img
+                                            src={Array.isArray(selectedListing.images) && selectedListing.images[0] ? selectedListing.images[0] : '../../assets/profile.png'}
                                             alt={selectedListing.title}
                                             className="selected-image"
                                             onError={(e) => { e.target.src = '../../assets/profile.png'; }}
@@ -474,15 +593,15 @@ export default function BookingPage() {
                                         </div>
                                     </div>
 
-                                    {(validationError || (!isFormValid && (bookingStart && bookingEnd))) && (
+                                    {(validationError || apiError || (!isFormValid && (bookingStart && bookingEnd))) && (
                                         <div className="validation-error">
-                                            {validationError || valError}
+                                            {validationError || apiError || valError}
                                         </div>
                                     )}
 
                                     <div className="form-group">
                                         <label>Start Date &amp; Time</label>
-                                        <input 
+                                        <input
                                             type="datetime-local"
                                             className="form-control"
                                             value={bookingStart}
@@ -493,7 +612,7 @@ export default function BookingPage() {
 
                                     <div className="form-group">
                                         <label>End Date &amp; Time</label>
-                                        <input 
+                                        <input
                                             type="datetime-local"
                                             className="form-control"
                                             value={bookingEnd}
@@ -518,18 +637,18 @@ export default function BookingPage() {
                                                 <span>₹{calcResult.deposit.toLocaleString('en-IN')}</span>
                                             </div>
                                             <div className="pricing-row total">
-                                                <span>Total Amount</span>
+                                                <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Estimated total (final amount confirmed by server)</span>
                                                 <span>₹{calcResult.total.toLocaleString('en-IN')}</span>
                                             </div>
                                         </div>
                                     )}
 
-                                    <button 
-                                        className="btn-confirm" 
-                                        disabled={!isFormValid}
+                                    <button
+                                        className="btn-confirm"
+                                        disabled={!isFormValid || isSubmitting}
                                         onClick={handleConfirm}
                                     >
-                                        Confirm Booking
+                                        {isSubmitting ? 'Confirming...' : 'Confirm Booking'}
                                     </button>
                                 </>
                             )}

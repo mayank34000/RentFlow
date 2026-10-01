@@ -43,6 +43,40 @@ const checkBookingOverlap = async (listingId, newStartDate, newEndDate) => {
  * POST /api/bookings
  * Create a new booking.
  */
+// Pure function to calculate legacy pricing rules
+function calculatePricing(listing, startDate, endDate) {
+    const diffMs = endDate.getTime() - startDate.getTime();
+    const totalHours = diffMs / (1000 * 60 * 60);
+    const fullDays = Math.floor(totalHours / 24);
+    const remainingHours = totalHours % 24;
+
+    let chargedDays = 0;
+    if (fullDays === 0) {
+        chargedDays = remainingHours < 12 ? 0.5 : 1.0;
+    } else {
+        if (remainingHours === 0) {
+            chargedDays = fullDays;
+        } else if (remainingHours < 12) {
+            chargedDays = fullDays + 0.5;
+        } else {
+            chargedDays = fullDays + 1.0;
+        }
+    }
+
+    const pricePerDay = parseFloat(listing.price) || 0;
+    const securityDeposit = parseFloat(listing.securityDeposit) || 0;
+    const subtotal = chargedDays * pricePerDay;
+    const total = subtotal + securityDeposit;
+
+    return {
+        totalDays: chargedDays,
+        pricePerDay,
+        subtotal,
+        securityDeposit,
+        total
+    };
+}
+
 exports.createBooking = async (req, res) => {
     try {
         const { listingId, startDate, endDate } = req.body;
@@ -144,12 +178,8 @@ exports.createBooking = async (req, res) => {
             });
         }
 
-        // Server-side Financial Calculations
-        const pricePerDay = listing.price || 0; // ensure fallback to 0 if undefined
-        const calculatedTotalDays = Math.max(1, Math.ceil(durationMs / (24 * 60 * 60 * 1000)));
-        const calculatedSubtotal = pricePerDay * calculatedTotalDays;
-        const calculatedSecurityDeposit = Math.round(calculatedSubtotal * 0.10);
-        const calculatedTotal = calculatedSubtotal + calculatedSecurityDeposit;
+        // Server-side Financial Calculations using legacy rules
+        const pricing = calculatePricing(listing, parsedStart, parsedEnd);
 
         // Build Booking instance
         const newBooking = new Booking({
@@ -158,12 +188,12 @@ exports.createBooking = async (req, res) => {
             lender: listing.seller,
             startDate: parsedStart,
             endDate: parsedEnd,
-            pricePerDay: pricePerDay,
-            totalDays: calculatedTotalDays,
-            subtotal: calculatedSubtotal,
-            securityDeposit: calculatedSecurityDeposit,
+            pricePerDay: pricing.pricePerDay,
+            totalDays: pricing.totalDays,
+            subtotal: pricing.subtotal,
+            securityDeposit: pricing.securityDeposit,
             platformFee: 0,
-            total: calculatedTotal
+            total: pricing.total
             // status will use Mongoose default ('Pending')
         });
 
