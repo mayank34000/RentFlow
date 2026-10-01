@@ -8,29 +8,39 @@
 // State for pending block/unblock actions
 let _pendingBlockId = null;
 let _pendingUnblockId = null;
+let backendAnalytics = null;
 
 // ─── KPI OVERVIEW ───────────────────────────────────────────
 
 function renderKPIs() {
-    const users = getUsers();
     const listings = getListings();
     const bookings = getBookings();
     const revenue = calculateTotalRevenue(bookings);
     const platformFee = calculatePlatformFeeRevenue(listings);
-    const premiumUsers = getPremiumUsers(users);
     const activeListings = listings.filter(l => (l.status || '').toLowerCase() === 'active');
     const blockedListings = listings.filter(l => (l.status || '').toLowerCase() === 'blocked');
 
     const el = id => document.getElementById(id);
 
-    if (el('statUsers'))           el('statUsers').textContent = users.length;
+    let totalUsersCount = 0;
+    let premiumUsersCount = 0;
+    if (backendAnalytics && backendAnalytics.userStats) {
+        totalUsersCount = backendAnalytics.userStats.totalUsers || 0;
+        premiumUsersCount = backendAnalytics.userStats.proUsers || 0;
+    } else {
+        const users = getUsers();
+        totalUsersCount = users.length;
+        premiumUsersCount = getPremiumUsers(users).length;
+    }
+
+    if (el('statUsers'))           el('statUsers').textContent = totalUsersCount;
     if (el('statListings'))        el('statListings').textContent = listings.length;
     if (el('statActiveListings'))  el('statActiveListings').textContent = activeListings.length;
     if (el('statBlockedListings')) el('statBlockedListings').textContent = blockedListings.length;
     if (el('statBookings'))        el('statBookings').textContent = bookings.length;
     if (el('statRevenue'))         el('statRevenue').textContent = formatCurrency(revenue);
     if (el('statPlatformFee'))     el('statPlatformFee').textContent = formatCurrency(platformFee);
-    if (el('statPremium'))         el('statPremium').textContent = premiumUsers.length;
+    if (el('statPremium'))         el('statPremium').textContent = premiumUsersCount;
 }
 
 // ─── BOOKING ANALYTICS ──────────────────────────────────────
@@ -250,8 +260,85 @@ function renderCategoryDistribution() {
 function renderUserOverview() {
     const container = document.getElementById('userAnalyticsBody');
     if (!container) return;
-    const users = getUsers();
 
+    if (backendAnalytics && backendAnalytics.userStats) {
+        const { totalUsers, roleDistribution, kycDistribution, proUsers, nonProUsers, registrationTrend } = backendAnalytics.userStats;
+
+        if (totalUsers === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">👥</div>
+                    <div class="empty-state-text">No user data available yet.</div>
+                </div>
+            `;
+            return;
+        }
+
+        let html = `<div class="bar-chart">`;
+        
+        roleDistribution.forEach(r => {
+            const roleName = r._id ? r._id.charAt(0).toUpperCase() + r._id.slice(1).toLowerCase() : 'Unknown';
+            const count = r.count || 0;
+            const percentage = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0;
+            html += `
+                <div class="bar-row">
+                    <div class="bar-label" style="text-align: left;">${roleName}</div>
+                    <div class="bar-track"><div class="bar-fill" style="width: ${percentage}%;"></div></div>
+                    <div class="bar-value">${count}</div>
+                </div>
+            `;
+        });
+
+        const premiumPct = totalUsers > 0 ? Math.round((proUsers / totalUsers) * 100) : 0;
+        html += `
+            <div class="bar-row">
+                <div class="bar-label" style="text-align: left;">⭐ Premium</div>
+                <div class="bar-track"><div class="bar-fill lime-accent" style="width: ${premiumPct}%;"></div></div>
+                <div class="bar-value">${proUsers}</div>
+            </div>
+        `;
+        html += `</div>`;
+        
+        if (kycDistribution && kycDistribution.length > 0) {
+            html += `<div style="margin-top:24px;"><strong style="font-size:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">KYC Status</strong><div class="bar-chart" style="margin-top:12px;">`;
+            kycDistribution.forEach(k => {
+                const kycName = k._id ? k._id.charAt(0).toUpperCase() + k._id.slice(1).toLowerCase() : 'None';
+                const count = k.count || 0;
+                const pct = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0;
+                html += `
+                    <div class="bar-row">
+                        <div class="bar-label" style="text-align:left;font-size:12px;">${kycName}</div>
+                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+                        <div class="bar-value">${count}</div>
+                    </div>
+                `;
+            });
+            html += `</div></div>`;
+        }
+
+        if (registrationTrend && registrationTrend.length > 0) {
+            html += `<div style="margin-top:24px;"><strong style="font-size:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">Registration Trend</strong><div class="bar-chart" style="margin-top:12px; max-height: 200px; overflow-y: auto;">`;
+            const recentTrend = registrationTrend.slice(-30);
+            const maxCount = Math.max(...recentTrend.map(t => t.count), 1);
+            
+            recentTrend.forEach(t => {
+                const pct = Math.round((t.count / maxCount) * 100);
+                html += `
+                    <div class="bar-row">
+                        <div class="bar-label" style="text-align:left;width:100px;font-size:12px;">${t._id}</div>
+                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+                        <div class="bar-value">${t.count}</div>
+                    </div>
+                `;
+            });
+            html += `</div></div>`;
+        }
+
+        container.innerHTML = html;
+        return;
+    }
+
+    const users = getUsers();
     if (users.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -299,6 +386,80 @@ function renderUserOverview() {
 function renderFeedbackAnalytics() {
     const container = document.getElementById('feedbackAnalyticsBody');
     if (!container) return;
+
+    if (backendAnalytics && backendAnalytics.feedbackStats) {
+        const { totalFeedback, averageRating, ratingDistribution, feedbackTrend } = backendAnalytics.feedbackStats;
+        
+        if (totalFeedback === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">💬</div>
+                    <div class="empty-state-text">No feedback submitted yet.</div>
+                </div>
+            `;
+            return;
+        }
+
+        const avgRating = Number(averageRating).toFixed(1);
+        const fullStars = Math.round(parseFloat(avgRating));
+        let starsHtml = '';
+        for (let i = 1; i <= 5; i++) { starsHtml += (i <= fullStars) ? '★' : '☆'; }
+
+        let html = `
+            <div class="rating-overview">
+                <div class="average-rating">
+                    <div class="average-score">${avgRating}</div>
+                    <div class="average-stars">${starsHtml}</div>
+                    <div class="rating-total">Based on ${totalFeedback} reviews</div>
+                </div>
+                <div class="bar-chart" style="flex: 1; margin-top: 0;">
+        `;
+
+        const distributionMap = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+        if (ratingDistribution) {
+            ratingDistribution.forEach(r => {
+                if (distributionMap[r._id] !== undefined) {
+                    distributionMap[r._id] = r.count;
+                }
+            });
+        }
+
+        for (let i = 5; i >= 1; i--) {
+            const count = distributionMap[i];
+            const percentage = totalFeedback > 0 ? Math.round((count / totalFeedback) * 100) : 0;
+            const fillClass = i >= 4 ? 'bar-fill lime-accent' : 'bar-fill';
+            html += `
+                <div class="bar-row">
+                    <div class="bar-label" style="width: 60px;">${i} Stars</div>
+                    <div class="bar-track"><div class="${fillClass}" style="width: ${percentage}%;"></div></div>
+                    <div class="bar-value">${count}</div>
+                </div>
+            `;
+        }
+        html += `</div></div>`;
+        
+        if (feedbackTrend && feedbackTrend.length > 0) {
+            html += `<div style="margin-top:24px;"><strong style="font-size:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">Feedback Trend</strong><div class="bar-chart" style="margin-top:12px; max-height: 200px; overflow-y: auto;">`;
+            const recentTrend = feedbackTrend.slice(-30);
+            const maxCount = Math.max(...recentTrend.map(t => t.count), 1);
+            
+            recentTrend.forEach(t => {
+                const pct = Math.round((t.count / maxCount) * 100);
+                html += `
+                    <div class="bar-row">
+                        <div class="bar-label" style="text-align:left;width:100px;font-size:12px;">${t._id}</div>
+                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+                        <div class="bar-value">${t.count}</div>
+                    </div>
+                `;
+            });
+            html += `</div></div>`;
+        }
+
+        container.innerHTML = html;
+        return;
+    }
+
     const feedback = getFeedback();
 
     if (feedback.length === 0) {
@@ -782,7 +943,18 @@ function confirmUnblock_handler() { confirmUnblock(); }
 
 // ─── REFRESH ALL ─────────────────────────────────────────────
 
-function refreshAll() {
+async function refreshAll() {
+    try {
+        if (window.RentFlowAPI && window.RentFlowAPI.isLoggedIn()) {
+            const res = await window.RentFlowAPI.get('/admin/analytics/overview');
+            if (res && res.data) {
+                backendAnalytics = res.data;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to fetch backend analytics:", e);
+    }
+    
     renderKPIs();
     renderBookingAnalytics();
     renderRevenueAnalytics();

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <script>
-        if (localStorage.getItem('isLoggedIn') !== 'true') {
+        if (localStorage.getItem('isLoggedIn') !== 'true' && !localStorage.getItem('rf_token')) {
             window.location.href = 'login.html';
         }
     </script>
@@ -309,6 +309,7 @@
 
     <!-- Shared Storage & Data Helpers -->
     <script src="../js/storage.js"></script>
+    <script src="../js/api.js"></script>
     <!-- Analytics JS -->
     <script src="../js/analytics.js"></script>
     <script src="../js/navbar-scroll.js"></script>
