@@ -178,38 +178,51 @@ function renderBookings() {
     list.innerHTML = html;
 }
 
-function renderFeedbackAndReports() {
+async function renderFeedbackAndReports() {
     const feedbackEl = document.getElementById('feedbackList');
     const reportEl = document.getElementById('reportList');
 
     if (feedbackEl) {
-        let fbHtml = '';
-        const allFeedback = getFeedback();
-        
-        if (allFeedback.length === 0) {
-            fbHtml = '<p style="padding:12px; color:#9ca3af; font-size:14px; text-align:center;">No feedback submitted yet.</p>';
-        }
-        
-        allFeedback.forEach(fb => {
-            let starsStr = '';
-            for(let i=1; i<=5; i++) starsStr += (i <= fb.rating) ? '★' : '☆';
+        try {
+            feedbackEl.innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:14px; text-align:center;">Loading feedback...</p>';
+            const res = await window.RentFlowAPI.get('/feedback');
             
-            fbHtml += `
-                <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
-                        <span style="color:#fbbf24">${starsStr}</span>
-                        <span class="badge badge-normal">${fb.status}</span>
-                    </div>
-                    <p style="font-size:14px; margin-bottom: 4px; color: #cbd5e1;">"${fb.message}"</p>
-                    <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">${fb.type} | ${fb.date}</div>
-                    <div>
-                        <button class="action-btn" onclick="alert('Viewing feedback ${fb.id}')">View</button>
-                        <button class="action-btn" style="color: #f87171;" onclick="removeAdminFeedback('${fb.id}')">Remove</button>
-                    </div>
-                </div>
-            `;
-        });
-        feedbackEl.innerHTML = fbHtml;
+            if (!res.success) {
+                throw new Error(res.message);
+            }
+            
+            const allFeedback = res.feedbacks || [];
+            let fbHtml = '';
+            
+            if (allFeedback.length === 0) {
+                fbHtml = '<p style="padding:12px; color:#9ca3af; font-size:14px; text-align:center;">No feedback submitted yet.</p>';
+            } else {
+                allFeedback.forEach(fb => {
+                    let starsStr = '';
+                    for(let i=1; i<=5; i++) starsStr += (i <= fb.rating) ? '★' : '☆';
+                    
+                    const dateStr = new Date(fb.createdAt).toLocaleDateString();
+                    const userName = fb.user ? fb.user.name : 'Unknown User';
+                    
+                    fbHtml += `
+                        <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                                <span style="color:#fbbf24">${starsStr}</span>
+                            </div>
+                            <p style="font-size:14px; margin-bottom: 4px; color: #cbd5e1;">"${fb.comment || 'No comment provided'}"</p>
+                            <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">${userName} | ${dateStr}</div>
+                            <div>
+                                <button class="action-btn" style="color: #f87171;" onclick="removeAdminFeedback('${fb._id}')">Remove</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            feedbackEl.innerHTML = fbHtml;
+        } catch (err) {
+            console.error('Error fetching feedback:', err);
+            feedbackEl.innerHTML = `<p style="padding:12px; color:#f87171; font-size:14px; text-align:center;">Error loading feedback. <button onclick="renderFeedbackAndReports()" class="action-btn">Retry</button></p>`;
+        }
     }
 
     if (reportEl) {
@@ -648,3 +661,175 @@ document.addEventListener('DOMContentLoaded', () => {
     attachFilterListeners();
     attachModalListeners();
 });
+
+// ─── ADMIN USER MANAGEMENT (BACKEND API) ────────────────────
+async function loadAdminUsers() {
+    const list = document.getElementById('userManagementList');
+    if (!list) return;
+
+    try {
+        list.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #9ca3af;">Loading users...</td></tr>';
+        
+        // Use RentFlowAPI
+        const res = await window.RentFlowAPI.get('/admin/users');
+        if (res && res.success) {
+            renderAdminUsers(res.users);
+        } else {
+            throw new Error(res.message || 'Failed to fetch users');
+        }
+    } catch (err) {
+        console.error('Error loading users:', err);
+        list.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #f87171;">Error loading users. <button onclick="loadAdminUsers()" class="action-btn">Retry</button></td></tr>`;
+        showToast('Error loading users: ' + err.message, 'error');
+    }
+}
+
+function renderAdminUsers(users) {
+    const list = document.getElementById('userManagementList');
+    if (!list) return;
+
+    if (!users || users.length === 0) {
+        list.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #9ca3af;">No users found.</td></tr>';
+        return;
+    }
+
+    let html = '';
+    users.forEach(u => {
+        const avatar = u.avatar || 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(u.name || 'User');
+        
+        // stringify safely for the onclick handler
+        const userJson = JSON.stringify({
+            _id: u._id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            kycStatus: u.kycStatus,
+            isPro: u.isPro
+        }).replace(/'/g, "&#39;");
+
+        html += `
+            <tr>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="${avatar}" alt="avatar" style="width:32px; height:32px; border-radius:50%;">
+                        <strong style="color:#fff;">${u.name || 'Unknown'}</strong>
+                    </div>
+                </td>
+                <td>${u.email || 'N/A'}</td>
+                <td><span class="badge badge-normal" style="text-transform: capitalize;">${u.role || 'customer'}</span></td>
+                <td>
+                    <span class="badge ${u.isPro ? 'badge-low' : 'badge-normal'}">${u.isPro ? 'Pro' : 'Standard'}</span>
+                    <span class="badge ${u.kycStatus === 'approved' ? 'badge-low' : (u.kycStatus === 'pending' ? 'badge-orange' : 'badge-normal')}">${u.kycStatus || 'none'}</span>
+                </td>
+                <td>
+                    <button class="action-btn" onclick='openEditUserModal(${userJson})'>Edit</button>
+                    <button class="action-btn" style="color: #f87171;" onclick="deleteAdminUser('${u._id}')">Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+    list.innerHTML = html;
+}
+
+async function deleteAdminUser(id) {
+    if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+
+    try {
+        const res = await window.RentFlowAPI.delete('/admin/users/' + id);
+        if (res.success) {
+            showToast('User deleted successfully', 'success');
+            loadAdminUsers();
+        } else {
+            throw new Error(res.message);
+        }
+    } catch (err) {
+        console.error('Delete error:', err);
+        showToast('Error deleting user: ' + err.message, 'error');
+    }
+}
+
+function openEditUserModal(user) {
+    document.getElementById('editUserId').value = user._id || '';
+    document.getElementById('editUserName').value = user.name || '';
+    document.getElementById('editUserEmail').value = user.email || '';
+    document.getElementById('editUserRole').value = user.role || 'customer';
+    document.getElementById('editUserKyc').value = user.kycStatus || 'none';
+    document.getElementById('editUserIsPro').checked = !!user.isPro;
+    
+    document.getElementById('editUserModal').classList.add('active');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // User Management hooks
+    const refreshBtn = document.getElementById('refreshUsersBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadAdminUsers);
+    }
+
+    const editForm = document.getElementById('editUserForm');
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editUserId').value;
+            const payload = {
+                name: document.getElementById('editUserName').value,
+                email: document.getElementById('editUserEmail').value,
+                role: document.getElementById('editUserRole').value,
+                kycStatus: document.getElementById('editUserKyc').value,
+                isPro: document.getElementById('editUserIsPro').checked
+            };
+            
+            const btn = editForm.querySelector('button[type="submit"]');
+            const origText = btn.textContent;
+            btn.textContent = 'Saving...';
+            btn.disabled = true;
+
+            try {
+                const res = await window.RentFlowAPI.patch('/admin/users/' + id, payload);
+                if (res.success) {
+                    showToast('User updated successfully', 'success');
+                    document.getElementById('editUserModal').classList.remove('active');
+                    loadAdminUsers();
+                } else {
+                    throw new Error(res.message);
+                }
+            } catch (err) {
+                console.error('Update error:', err);
+                showToast('Error updating user: ' + err.message, 'error');
+            } finally {
+                btn.textContent = origText;
+                btn.disabled = false;
+            }
+        });
+    }
+
+    const closeEditBtn = document.getElementById('closeEditUserBtn');
+    if (closeEditBtn) {
+        closeEditBtn.addEventListener('click', () => {
+            document.getElementById('editUserModal').classList.remove('active');
+        });
+    }
+
+    // Load initial users if we're on the dashboard
+    if (document.getElementById('userManagementList')) {
+        setTimeout(loadAdminUsers, 100);
+    }
+});
+
+// ─── ADMIN FEEDBACK MANAGEMENT (BACKEND API) ─────────────
+async function removeAdminFeedback(id) {
+    if (!confirm('Are you sure you want to remove this feedback?')) return;
+
+    try {
+        const res = await window.RentFlowAPI.delete('/feedback/' + id);
+        if (res.success) {
+            showToast('Feedback removed', 'success');
+            renderFeedbackAndReports();
+        } else {
+            throw new Error(res.message);
+        }
+    } catch (err) {
+        console.error('Delete error:', err);
+        showToast('Error removing feedback: ' + err.message, 'error');
+    }
+}

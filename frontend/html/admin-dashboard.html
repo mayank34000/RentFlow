@@ -39,6 +39,7 @@
         <ul class="navbar-links" id="navLinks">
             <li><a href="admin-dashboard.html" class="active">Dashboard</a></li>
             <li><a href="analytics.html">Analytics</a></li>
+            <li><a href="admin-dashboard.html#user-management">Users</a></li>
             <li><a href="feedback.html">Feedback</a></li>
             <li><a href="profile.html">Profile</a></li>
             <li><a href="login.html" class="logout-link">Logout</a></li>
@@ -216,6 +217,32 @@
                 </div>
             </div>
         </section>
+        <!-- ============ USER MANAGEMENT ============ -->
+        <section id="user-management" class="user-management-section" aria-label="User management">
+            <h2 class="section-title">User Management</h2>
+            <div class="glass-card table-card">
+                <div class="controls-bar" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px;">
+                    <h3 style="font-size: 16px; margin: 0;">All Platform Users</h3>
+                    <button class="action-btn" id="refreshUsersBtn" style="padding: 6px 12px; background: rgba(58, 91, 217, 0.1); color: #3a5bd9; border: 1px solid rgba(58, 91, 217, 0.2); border-radius: 6px; cursor: pointer;">Refresh Data</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="platform-table" id="userManagementTable">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status (Pro/KYC)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userManagementList">
+                            <tr><td colspan="5" style="text-align: center; padding: 20px; color: #9ca3af;">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
         <!-- ============ PREMIUM USERS ============ -->
         <section id="premium-users-section" class="premium-section" aria-label="Premium users">
@@ -312,6 +339,58 @@
             <div class="modal-actions">
                 <button class="btn-cancel" id="closeAdminListingDetailBtn" style="width: 100%;">Close</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal-overlay" id="editUserModal">
+        <div class="modal-content glass-card" style="max-width: 480px; text-align: left;">
+            <h3 style="margin-bottom: 16px;">Edit User</h3>
+            <form id="editUserForm" novalidate style="display: flex; flex-direction: column; gap: 12px;">
+                <input type="hidden" id="editUserId">
+                
+                <div>
+                    <label style="font-size: 13px; color: #9ca3af; display: block; margin-bottom: 4px;">Name</label>
+                    <input type="text" id="editUserName" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: #fff; outline: none;" required>
+                </div>
+                
+                <div>
+                    <label style="font-size: 13px; color: #9ca3af; display: block; margin-bottom: 4px;">Email</label>
+                    <input type="email" id="editUserEmail" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: #fff; outline: none;" required>
+                </div>
+                
+                <div style="display: flex; gap: 12px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 13px; color: #9ca3af; display: block; margin-bottom: 4px;">Role</label>
+                        <select id="editUserRole" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: #fff; outline: none;">
+                            <option value="customer" style="color: #000;">Customer</option>
+                            <option value="seller" style="color: #000;">Seller</option>
+                            <option value="admin" style="color: #000;">Admin</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 13px; color: #9ca3af; display: block; margin-bottom: 4px;">KYC Status</label>
+                        <select id="editUserKyc" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: #fff; outline: none;">
+                            <option value="none" style="color: #000;">None</option>
+                            <option value="pending" style="color: #000;">Pending</option>
+                            <option value="approved" style="color: #000;">Approved</option>
+                            <option value="rejected" style="color: #000;">Rejected</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size: 13px; color: #9ca3af; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 8px;">
+                        <input type="checkbox" id="editUserIsPro" style="accent-color: #3a5bd9; width: 16px; height: 16px;">
+                        <span>Is Pro User?</span>
+                    </label>
+                </div>
+                
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button type="button" class="btn-cancel" id="closeEditUserBtn">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 

@@ -68,6 +68,13 @@ function apiDelete(path) {
   return apiRequest(path, { method: 'DELETE' });
 }
 
+function apiPatch(path, body) {
+  return apiRequest(path, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
 // ─── Auth helpers ───────────────────────────────────────────
 
 /** Save the JWT and user info returned by /api/auth/login */
@@ -101,6 +108,7 @@ window.RentFlowAPI = {
   get: apiGet,
   post: apiPost,
   put: apiPut,
+  patch: apiPatch,
   delete: apiDelete,
   saveAuthSession,
   clearAuthSession,
