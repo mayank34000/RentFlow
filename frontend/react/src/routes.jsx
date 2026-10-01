@@ -1,5 +1,6 @@
 import React from 'react';
 import ContactUs from './contactus';
+import BookingHistory from './booking-history';
 
 const routes = [
   // ==========================================
@@ -30,7 +31,7 @@ const routes = [
   // ==========================================
   // ARYAN'S ROUTES
   // ==========================================
-  { path: '/booking-history', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Booking History</h2><p>Owner: Aryan</p></div>, owner: 'Aryan', title: 'Booking History' },
+  { path: '/booking-history', element: <BookingHistory />, owner: 'Aryan', title: 'Booking History' },
   { path: '/booking', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Booking</h2><p>Owner: Aryan</p></div>, owner: 'Aryan', title: 'Booking' },
   { path: '/contact', element: <ContactUs />, owner: 'Aryan', title: 'Contact' },
 
