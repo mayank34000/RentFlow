@@ -8,8 +8,8 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RentFlow | Analytics</title>
-    <meta name="description" content="RentFlow platform analytics for performance and user interactions.">
+    <title>RentFlow | Analytics Dashboard</title>
+    <meta name="description" content="RentFlow admin analytics dashboard — users, feedback, and platform performance at a glance.">
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -17,6 +17,9 @@
     <!-- Dashboard Styles -->
     <link rel="stylesheet" href="../css/admin-dashboard.css">
     <link rel="stylesheet" href="../css/analytics.css">
+
+    <!-- Chart.js (CDN — no install required) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <script src="../js/theme.js"></script>
@@ -49,206 +52,351 @@
     <!-- ===================== DASHBOARD ===================== -->
     <main class="dashboard">
 
-        <!-- Page Header -->
-        <header class="page-header">
-            <h1>Analytics</h1>
-            <p>Monitor platform performance and understand how users are interacting with RentFlow.</p>
+        <!-- ============ PAGE HEADER ============ -->
+        <header class="page-header analytics-page-header">
+            <div class="page-header-content">
+                <div>
+                    <h1>Analytics Dashboard</h1>
+                    <p>Monitor platform performance and understand how users interact with RentFlow.</p>
+                </div>
+                <div class="header-actions">
+                    <span class="last-updated-label" id="lastUpdatedLabel"></span>
+                    <button class="btn-refresh" id="refreshBtn" aria-label="Refresh analytics data">
+                        <span class="refresh-icon" id="refreshIcon">↻</span>
+                        Refresh Analytics
+                    </button>
+                </div>
+            </div>
         </header>
 
-        <!-- ============ KPI OVERVIEW ============ -->
-        <section class="kpi-grid" id="kpiOverview" aria-label="Key performance indicators">
-            <article class="glass-card kpi-card">
-                <div class="kpi-icon">👥</div>
-                <div class="kpi-value" id="statUsers">-</div>
-                <div class="kpi-label">Total Users</div>
-            </article>
-
-            <article class="glass-card kpi-card">
-                <div class="kpi-icon">📋</div>
-                <div class="kpi-value" id="statListings">-</div>
-                <div class="kpi-label">Total Listings</div>
-            </article>
-
-            <article class="glass-card kpi-card">
-                <div class="kpi-icon">✅</div>
-                <div class="kpi-value" id="statActiveListings">-</div>
-                <div class="kpi-label">Active Listings</div>
-            </article>
-
-            <article class="glass-card kpi-card" style="border: 1px solid rgba(239,68,68,0.25); background: rgba(239,68,68,0.04);">
-                <div class="kpi-icon" style="color:#f87171; background: rgba(239,68,68,0.1);">🚫</div>
-                <div class="kpi-value" id="statBlockedListings" style="color:#f87171;">-</div>
-                <div class="kpi-label">Blocked Listings</div>
-            </article>
-
-            <article class="glass-card kpi-card">
-                <div class="kpi-icon">📦</div>
-                <div class="kpi-value" id="statBookings">-</div>
-                <div class="kpi-label">Total Bookings</div>
-            </article>
-
-            <article class="glass-card kpi-card">
-                <div class="kpi-icon">💰</div>
-                <div class="kpi-value" id="statRevenue">-</div>
-                <div class="kpi-label">Total Revenue</div>
-            </article>
-
-            <article class="glass-card kpi-card" style="border: 1px solid rgba(251,191,36,0.3); background: rgba(251,191,36,0.05);">
-                <div class="kpi-icon" style="color:#fbbf24; background: rgba(251,191,36,0.12);">📈</div>
-                <div class="kpi-value" id="statPlatformFee" style="color:#fbbf24;">-</div>
-                <div class="kpi-label" style="color:rgba(255,255,255,0.8);">Platform Fee Revenue</div>
-            </article>
-
-            <article class="glass-card kpi-card">
-                <div class="kpi-icon">⭐</div>
-                <div class="kpi-value" id="statPremium">-</div>
-                <div class="kpi-label">Premium Users</div>
-            </article>
-        </section>
-
-        <!-- ============ ANALYTICS GRID ============ -->
-        <div class="analytics-grid">
-            
-            <!-- Booking Analytics -->
-            <section class="glass-card analytics-card" aria-label="Booking Analytics">
-                <div class="card-header">
-                    <h2 class="section-title">Booking Trends</h2>
-                    <p class="section-subtitle">Booking activity over time</p>
-                </div>
-                <div class="card-body" id="bookingAnalyticsBody">
-                    <!-- Populated by JS -->
-                </div>
-            </section>
-
-            <!-- Revenue Analytics -->
-            <section class="glass-card analytics-card" aria-label="Revenue Analytics">
-                <div class="card-header">
-                    <h2 class="section-title">Revenue Overview</h2>
-                    <p class="section-subtitle">Financial performance</p>
-                </div>
-                <div class="card-body" id="revenueAnalyticsBody">
-                    <!-- Populated by JS -->
-                </div>
-            </section>
-
-            <!-- Listing Performance -->
-            <section class="glass-card analytics-card full-width" aria-label="Listing Performance">
-                <div class="card-header">
-                    <h2 class="section-title">Top Performing Listings</h2>
-                    <p class="section-subtitle">Based on completed bookings and revenue</p>
-                </div>
-                <div class="table-responsive">
-                    <table class="platform-table" id="listingPerformanceTable">
-                        <thead>
-                            <tr>
-                                <th>Listing Name</th>
-                                <th>Category</th>
-                                <th>Total Bookings</th>
-                                <th>Revenue Generated</th>
-                            </tr>
-                        </thead>
-                        <tbody id="listingPerformanceBody">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Category Distribution -->
-            <section class="glass-card analytics-card" aria-label="Category Distribution">
-                <div class="card-header">
-                    <h2 class="section-title">Category Distribution</h2>
-                    <p class="section-subtitle">Listings by category</p>
-                </div>
-                <div class="card-body" id="categoryAnalyticsBody">
-                    <!-- Populated by JS -->
-                </div>
-            </section>
-
-            <!-- User Overview -->
-            <section class="glass-card analytics-card" aria-label="User Overview">
-                <div class="card-header">
-                    <h2 class="section-title">User Overview</h2>
-                    <p class="section-subtitle">Platform user breakdown</p>
-                </div>
-                <div class="card-body" id="userAnalyticsBody">
-                    <!-- Populated by JS -->
-                </div>
-            </section>
-
-            <!-- Feedback Analytics -->
-            <section class="glass-card analytics-card full-width" aria-label="Feedback Analytics">
-                <div class="card-header">
-                    <h2 class="section-title">Feedback Overview</h2>
-                    <p class="section-subtitle">User satisfaction and ratings</p>
-                </div>
-                <div class="card-body" id="feedbackAnalyticsBody">
-                    <!-- Populated by JS -->
-                </div>
-            </section>
-
+        <!-- ============ LOADING STATE ============ -->
+        <div id="analyticsLoading" class="analytics-loading" aria-live="polite" role="status">
+            <div class="loading-spinner"></div>
+            <p>Loading analytics data…</p>
         </div>
 
-        <!-- ============ LISTING MANAGEMENT ============ -->
-        <section class="analytics-mgmt-section" aria-label="Listing Management">
-            <h2 class="section-title">Listing Management</h2>
-            <p class="section-subtitle" style="margin-bottom: 20px;">Edit or block individual listings from here. Blocked listings are hidden from Browse Rentals.</p>
+        <!-- ============ ERROR STATE ============ -->
+        <div id="analyticsError" class="analytics-error" style="display:none;" role="alert">
+            <div class="error-icon">⚠️</div>
+            <h3>Unable to load analytics</h3>
+            <p id="analyticsErrorMsg">An unexpected error occurred. Please try again.</p>
+            <button class="btn-refresh" id="retryBtn">Retry</button>
+        </div>
 
-            <div class="glass-card table-card">
-                <div class="listing-management-container table-responsive">
-                    <table class="platform-table">
-                        <thead>
-                            <tr>
-                                <th>Listing</th>
-                                <th>Category</th>
-                                <th>Price</th>
-                                <th>Seller</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="analyticsListingMgmtBody">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
+        <!-- ============ ANALYTICS CONTENT ============ -->
+        <div id="analyticsContent" style="display:none;">
+
+            <!-- ─── SECTION 1: KPI CARDS ─── -->
+            <section class="analytics-section" aria-label="Key performance indicators">
+                <div class="section-heading">
+                    <h2 class="section-title">Overview</h2>
+                    <p class="section-subtitle">Key platform metrics from the live database</p>
                 </div>
-            </div>
-        </section>
-
-        <!-- ============ BLOCKED LISTINGS ============ -->
-        <section class="analytics-mgmt-section" aria-label="Blocked Listings">
-            <h2 class="section-title">Blocked Listings</h2>
-            <p class="section-subtitle" style="margin-bottom: 20px;">These listings are not visible to renters and cannot be booked.</p>
-
-            <div id="blockedListingsContainer">
-                <!-- Populated by JS -->
-            </div>
-        </section>
-
-        <!-- ============ PREMIUM USERS ============ -->
-        <section class="analytics-mgmt-section" aria-label="Premium Users">
-            <h2 class="section-title">Premium Users</h2>
-            <p class="section-subtitle" style="margin-bottom: 20px;">Users with an active premium subscription.</p>
-
-            <div class="glass-card table-card">
-                <div class="table-responsive">
-                    <table class="platform-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Status</th>
-                                <th>Expiry Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="analyticsPremiumBody">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
+                <div class="kpi-grid" id="kpiOverview">
+                    <!-- Total Users -->
+                    <article class="glass-card kpi-card" id="kpi-totalUsers">
+                        <div class="kpi-icon">👥</div>
+                        <div class="kpi-value" id="statUsers">—</div>
+                        <div class="kpi-label">Total Users</div>
+                        <div class="kpi-sub" id="kpiSubUsers"></div>
+                    </article>
+                    <!-- Pro Users -->
+                    <article class="glass-card kpi-card kpi-accent-green" id="kpi-proUsers">
+                        <div class="kpi-icon" style="color:#10b981;background:rgba(16,185,129,0.12);">⭐</div>
+                        <div class="kpi-value" id="statPremium">—</div>
+                        <div class="kpi-label">Pro Users</div>
+                        <div class="kpi-sub" id="kpiSubPro"></div>
+                    </article>
+                    <!-- Non-Pro Users -->
+                    <article class="glass-card kpi-card" id="kpi-nonProUsers">
+                        <div class="kpi-icon">👤</div>
+                        <div class="kpi-value" id="statNonPro">—</div>
+                        <div class="kpi-label">Standard Users</div>
+                        <div class="kpi-sub" id="kpiSubNonPro"></div>
+                    </article>
+                    <!-- Total Feedback -->
+                    <article class="glass-card kpi-card" id="kpi-totalFeedback">
+                        <div class="kpi-icon">💬</div>
+                        <div class="kpi-value" id="statFeedback">—</div>
+                        <div class="kpi-label">Total Feedback</div>
+                        <div class="kpi-sub" id="kpiSubFeedback"></div>
+                    </article>
+                    <!-- Average Rating -->
+                    <article class="glass-card kpi-card kpi-accent-yellow" id="kpi-avgRating">
+                        <div class="kpi-icon" style="color:#fbbf24;background:rgba(251,191,36,0.12);">★</div>
+                        <div class="kpi-value" id="statAvgRating">—</div>
+                        <div class="kpi-label">Average Rating</div>
+                        <div class="kpi-sub" id="kpiSubRating"></div>
+                    </article>
+                    <!-- Pending KYC -->
+                    <article class="glass-card kpi-card kpi-accent-red" id="kpi-pendingKyc">
+                        <div class="kpi-icon" style="color:#f87171;background:rgba(239,68,68,0.1);">🪪</div>
+                        <div class="kpi-value" id="statPendingKyc">—</div>
+                        <div class="kpi-label">Pending KYC</div>
+                        <div class="kpi-sub" id="kpiSubKyc"></div>
+                    </article>
                 </div>
-            </div>
-        </section>
+            </section>
+
+            <!-- ─── SECTION 2: USER OVERVIEW ─── -->
+            <section class="analytics-section" aria-label="User overview">
+                <div class="section-heading">
+                    <h2 class="section-title">User Overview</h2>
+                    <p class="section-subtitle">Platform user breakdown from the live database</p>
+                </div>
+                <div class="chart-grid chart-grid-3">
+                    <!-- Role Distribution -->
+                    <div class="glass-card chart-card" aria-label="Users by role">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">Users by Role</h3>
+                            <p class="chart-subtitle">Role distribution across all users</p>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="chartRole" aria-label="Donut chart of user roles"></canvas>
+                        </div>
+                        <div id="chartRoleEmpty" class="chart-empty" style="display:none;">
+                            <span>No role data available</span>
+                        </div>
+                    </div>
+
+                    <!-- KYC Distribution -->
+                    <div class="glass-card chart-card" aria-label="KYC status distribution">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">KYC Status</h3>
+                            <p class="chart-subtitle">Verification status breakdown</p>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="chartKyc" aria-label="Pie chart of KYC status"></canvas>
+                        </div>
+                        <div id="chartKycEmpty" class="chart-empty" style="display:none;">
+                            <span>No KYC data available</span>
+                        </div>
+                    </div>
+
+                    <!-- Pro vs Non-Pro -->
+                    <div class="glass-card chart-card" aria-label="Pro vs Standard users">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">Pro vs Standard</h3>
+                            <p class="chart-subtitle">Premium subscription adoption</p>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="chartPro" aria-label="Bar chart of pro vs standard users"></canvas>
+                        </div>
+                        <div id="chartProEmpty" class="chart-empty" style="display:none;">
+                            <span>No subscription data available</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── SECTION 3: REGISTRATION TREND ─── -->
+            <section class="analytics-section" aria-label="User growth trend">
+                <div class="section-heading">
+                    <h2 class="section-title">User Growth</h2>
+                    <p class="section-subtitle">New user registrations over time</p>
+                </div>
+                <div class="glass-card chart-card chart-card-full" aria-label="Registration trend chart">
+                    <div class="chart-card-header">
+                        <h3 class="chart-title">Registration Trend</h3>
+                        <p class="chart-subtitle">Cumulative daily sign-ups</p>
+                    </div>
+                    <div class="chart-canvas-wrap chart-canvas-tall">
+                        <canvas id="chartRegistration" aria-label="Line chart of registration trend"></canvas>
+                    </div>
+                    <div id="chartRegistrationEmpty" class="chart-empty" style="display:none;">
+                        <span>No registration trend data available</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── SECTION 4: FEEDBACK & RATINGS ─── -->
+            <section class="analytics-section" aria-label="Feedback and ratings">
+                <div class="section-heading">
+                    <h2 class="section-title">Feedback &amp; Ratings</h2>
+                    <p class="section-subtitle">User satisfaction from submitted platform feedback</p>
+                </div>
+                <div class="chart-grid chart-grid-2">
+                    <!-- Rating Distribution Bar -->
+                    <div class="glass-card chart-card" aria-label="Rating distribution">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">Rating Distribution</h3>
+                            <p class="chart-subtitle">Volume of each star rating</p>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="chartRating" aria-label="Bar chart of rating distribution"></canvas>
+                        </div>
+                        <div id="chartRatingEmpty" class="chart-empty" style="display:none;">
+                            <span>No rating data available</span>
+                        </div>
+                    </div>
+
+                    <!-- Rating Donut -->
+                    <div class="glass-card chart-card" aria-label="Rating breakdown donut">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">Rating Breakdown</h3>
+                            <p class="chart-subtitle">Proportional view of all ratings</p>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="chartRatingDonut" aria-label="Donut chart of rating proportions"></canvas>
+                        </div>
+                        <div id="chartRatingDonutEmpty" class="chart-empty" style="display:none;">
+                            <span>No rating data available</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feedback Trend full width -->
+                <div class="glass-card chart-card chart-card-full" style="margin-top:28px;" aria-label="Feedback trend over time">
+                    <div class="chart-card-header">
+                        <h3 class="chart-title">Feedback Trend</h3>
+                        <p class="chart-subtitle">Feedback submissions over time</p>
+                    </div>
+                    <div class="chart-canvas-wrap chart-canvas-tall">
+                        <canvas id="chartFeedbackTrend" aria-label="Line chart of feedback trend"></canvas>
+                    </div>
+                    <div id="chartFeedbackTrendEmpty" class="chart-empty" style="display:none;">
+                        <span>No feedback trend data available</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── SECTION 5: ANALYTICS SUMMARY ─── -->
+            <section class="analytics-section" aria-label="Analytics summary">
+                <div class="section-heading">
+                    <h2 class="section-title">Analytics Summary</h2>
+                    <p class="section-subtitle">Factual observations derived from current data</p>
+                </div>
+                <div id="analyticsSummary" class="glass-card summary-card">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- ─── SECTION 6: LISTING ANALYTICS (storage.js) ─── -->
+            <section class="analytics-section" aria-label="Listing and booking analytics">
+                <div class="section-heading">
+                    <h2 class="section-title">Listing &amp; Booking Analytics</h2>
+                    <p class="section-subtitle">Platform activity data</p>
+                </div>
+                <div class="analytics-grid">
+                    <!-- Booking Analytics -->
+                    <section class="glass-card analytics-card" aria-label="Booking Analytics">
+                        <div class="card-header">
+                            <h2 class="section-title">Booking Trends</h2>
+                            <p class="section-subtitle">Booking activity over time</p>
+                        </div>
+                        <div class="card-body" id="bookingAnalyticsBody">
+                            <!-- Populated by JS -->
+                        </div>
+                    </section>
+
+                    <!-- Revenue Analytics -->
+                    <section class="glass-card analytics-card" aria-label="Revenue Analytics">
+                        <div class="card-header">
+                            <h2 class="section-title">Revenue Overview</h2>
+                            <p class="section-subtitle">Financial performance</p>
+                        </div>
+                        <div class="card-body" id="revenueAnalyticsBody">
+                            <!-- Populated by JS -->
+                        </div>
+                    </section>
+
+                    <!-- Listing Performance -->
+                    <section class="glass-card analytics-card full-width" aria-label="Listing Performance">
+                        <div class="card-header">
+                            <h2 class="section-title">Top Performing Listings</h2>
+                            <p class="section-subtitle">Based on completed bookings and revenue</p>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="platform-table" id="listingPerformanceTable">
+                                <thead>
+                                    <tr>
+                                        <th>Listing Name</th>
+                                        <th>Category</th>
+                                        <th>Total Bookings</th>
+                                        <th>Revenue Generated</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="listingPerformanceBody">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Category Distribution -->
+                    <section class="glass-card analytics-card" aria-label="Category Distribution">
+                        <div class="card-header">
+                            <h2 class="section-title">Category Distribution</h2>
+                            <p class="section-subtitle">Listings by category</p>
+                        </div>
+                        <div class="card-body" id="categoryAnalyticsBody">
+                            <!-- Populated by JS -->
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <!-- ─── SECTION 7: LISTING MANAGEMENT ─── -->
+            <section class="analytics-mgmt-section" aria-label="Listing Management">
+                <h2 class="section-title">Listing Management</h2>
+                <p class="section-subtitle" style="margin-bottom: 20px;">Edit or block individual listings from here. Blocked listings are hidden from Browse Rentals.</p>
+
+                <div class="glass-card table-card">
+                    <div class="listing-management-container table-responsive">
+                        <table class="platform-table">
+                            <thead>
+                                <tr>
+                                    <th>Listing</th>
+                                    <th>Category</th>
+                                    <th>Price</th>
+                                    <th>Seller</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analyticsListingMgmtBody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── SECTION 8: BLOCKED LISTINGS ─── -->
+            <section class="analytics-mgmt-section" aria-label="Blocked Listings">
+                <h2 class="section-title">Blocked Listings</h2>
+                <p class="section-subtitle" style="margin-bottom: 20px;">These listings are not visible to renters and cannot be booked.</p>
+                <div id="blockedListingsContainer">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- ─── SECTION 9: PREMIUM USERS ─── -->
+            <section class="analytics-mgmt-section" aria-label="Premium Users">
+                <h2 class="section-title">Premium Users</h2>
+                <p class="section-subtitle" style="margin-bottom: 20px;">Users with an active premium subscription.</p>
+
+                <div class="glass-card table-card">
+                    <div class="table-responsive">
+                        <table class="platform-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Expiry Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analyticsPremiumBody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </div><!-- /#analyticsContent -->
 
     </main>
 
@@ -307,10 +455,9 @@
     <!-- ===================== TOAST ===================== -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <!-- Shared Storage & Data Helpers -->
+    <!-- Scripts — ORDER MATTERS -->
     <script src="../js/storage.js"></script>
     <script src="../js/api.js"></script>
-    <!-- Analytics JS -->
     <script src="../js/analytics.js"></script>
     <script src="../js/navbar-scroll.js"></script>
 

@@ -1,49 +1,762 @@
 /* ============================================================
-   RentFlow – Analytics JavaScript
-   Uses shared storage.js for all data access.
-   All shared business logic (calculatePlatformFeeRevenue,
-   getPremiumUsers, formatCurrency) lives in storage.js.
+   RentFlow – Analytics Dashboard JavaScript
+   ============================================================
+   Sections:
+   1.  State & Chart Instance Registry
+   2.  Chart.js Global Defaults
+   3.  Loading / Error / Content toggles
+   4.  Last Updated timestamp
+   5.  KPI Cards (backend data)
+   6.  Role Donut Chart
+   7.  KYC Pie/Donut Chart
+   8.  Pro vs Non-Pro Bar Chart
+   9.  Registration Trend Line/Area Chart
+   10. Rating Distribution Bar Chart
+   11. Rating Donut Chart
+   12. Feedback Trend Line/Area Chart
+   13. Analytics Summary
+   14. Booking Analytics (storage.js – teammate)
+   15. Revenue Analytics (storage.js – teammate)
+   16. Listing Performance Table (storage.js – teammate)
+   17. Category Distribution (storage.js – teammate)
+   18. Listing Management Table (storage.js – teammate)
+   19. Blocked Listings (storage.js – teammate)
+   20. Premium Users Table (storage.js – teammate)
+   21. Block / Unblock Actions & Modals
+   22. Toast Notification
+   23. Mobile Menu
+   24. refreshAll (main orchestrator)
+   25. DOMContentLoaded Init
    ============================================================ */
 
-// State for pending block/unblock actions
-let _pendingBlockId = null;
+// ─── 1. STATE & CHART INSTANCE REGISTRY ──────────────────────
+
+let _pendingBlockId   = null;
 let _pendingUnblockId = null;
-let backendAnalytics = null;
+let backendAnalytics  = null; // data from GET /api/admin/analytics/overview
 
-// ─── KPI OVERVIEW ───────────────────────────────────────────
+// All Chart.js instances are stored here.
+// Before recreating any chart, call destroyChart(key).
+const charts = {
+    role:           null,
+    kyc:            null,
+    pro:            null,
+    registration:   null,
+    rating:         null,
+    ratingDonut:    null,
+    feedbackTrend:  null
+};
 
-function renderKPIs() {
-    const listings = getListings();
-    const bookings = getBookings();
-    const revenue = calculateTotalRevenue(bookings);
-    const platformFee = calculatePlatformFeeRevenue(listings);
-    const activeListings = listings.filter(l => (l.status || '').toLowerCase() === 'active');
-    const blockedListings = listings.filter(l => (l.status || '').toLowerCase() === 'blocked');
+// ─── 2. CHART.JS GLOBAL DEFAULTS ────────────────────────────
 
-    const el = id => document.getElementById(id);
+function applyChartDefaults() {
+    if (typeof Chart === 'undefined') return;
 
-    let totalUsersCount = 0;
-    let premiumUsersCount = 0;
-    if (backendAnalytics && backendAnalytics.userStats) {
-        totalUsersCount = backendAnalytics.userStats.totalUsers || 0;
-        premiumUsersCount = backendAnalytics.userStats.proUsers || 0;
-    } else {
-        const users = getUsers();
-        totalUsersCount = users.length;
-        premiumUsersCount = getPremiumUsers(users).length;
-    }
-
-    if (el('statUsers'))           el('statUsers').textContent = totalUsersCount;
-    if (el('statListings'))        el('statListings').textContent = listings.length;
-    if (el('statActiveListings'))  el('statActiveListings').textContent = activeListings.length;
-    if (el('statBlockedListings')) el('statBlockedListings').textContent = blockedListings.length;
-    if (el('statBookings'))        el('statBookings').textContent = bookings.length;
-    if (el('statRevenue'))         el('statRevenue').textContent = formatCurrency(revenue);
-    if (el('statPlatformFee'))     el('statPlatformFee').textContent = formatCurrency(platformFee);
-    if (el('statPremium'))         el('statPremium').textContent = premiumUsersCount;
+    Chart.defaults.color           = 'rgba(148, 163, 184, 0.85)';
+    Chart.defaults.font.family     = "'Inter', 'Manrope', sans-serif";
+    Chart.defaults.font.size       = 12;
+    Chart.defaults.plugins.legend.labels.boxWidth  = 12;
+    Chart.defaults.plugins.legend.labels.padding   = 16;
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(10, 18, 40, 0.92)';
+    Chart.defaults.plugins.tooltip.borderColor      = 'rgba(255,255,255,0.08)';
+    Chart.defaults.plugins.tooltip.borderWidth      = 1;
+    Chart.defaults.plugins.tooltip.padding          = 12;
+    Chart.defaults.plugins.tooltip.titleFont        = { size: 13, weight: '600' };
+    Chart.defaults.plugins.tooltip.bodyFont         = { size: 12 };
+    Chart.defaults.plugins.tooltip.cornerRadius     = 10;
 }
 
-// ─── BOOKING ANALYTICS ──────────────────────────────────────
+// ─── 3. LOADING / ERROR / CONTENT TOGGLES ────────────────────
+
+function showLoading() {
+    setDisplay('analyticsLoading', 'flex');
+    setDisplay('analyticsError',   'none');
+    setDisplay('analyticsContent', 'none');
+}
+
+function showError(message) {
+    setDisplay('analyticsLoading', 'none');
+    setDisplay('analyticsError',   'flex');
+    setDisplay('analyticsContent', 'none');
+    const msgEl = document.getElementById('analyticsErrorMsg');
+    if (msgEl) msgEl.textContent = message || 'An unexpected error occurred. Please try again.';
+}
+
+function showContent() {
+    setDisplay('analyticsLoading', 'none');
+    setDisplay('analyticsError',   'none');
+    setDisplay('analyticsContent', 'block');
+}
+
+function setDisplay(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = value;
+}
+
+// ─── 4. LAST UPDATED TIMESTAMP ───────────────────────────────
+
+function updateLastUpdated() {
+    const el = document.getElementById('lastUpdatedLabel');
+    if (!el) return;
+    const now = new Date();
+    el.textContent = `Last updated: ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+// ─── 5. KPI CARDS ────────────────────────────────────────────
+
+function renderKPIs() {
+    const el  = id => document.getElementById(id);
+
+    // Backend-powered KPIs
+    if (backendAnalytics && backendAnalytics.userStats) {
+        const { totalUsers, proUsers, nonProUsers, kycDistribution } = backendAnalytics.userStats;
+        const total = totalUsers || 0;
+        const pro   = proUsers   || 0;
+        const std   = nonProUsers || (total - pro);
+
+        if (el('statUsers'))  el('statUsers').textContent  = total.toLocaleString();
+        if (el('statPremium')) el('statPremium').textContent = pro.toLocaleString();
+        if (el('statNonPro')) el('statNonPro').textContent  = std.toLocaleString();
+
+        if (el('kpiSubUsers'))  el('kpiSubUsers').textContent  = `Registered on platform`;
+        if (el('kpiSubPro'))    el('kpiSubPro').textContent    = total > 0 ? `${Math.round((pro / total) * 100)}% of users` : '';
+        if (el('kpiSubNonPro')) el('kpiSubNonPro').textContent = total > 0 ? `${Math.round((std / total) * 100)}% of users` : '';
+
+        // Pending KYC from kycDistribution
+        if (kycDistribution && Array.isArray(kycDistribution)) {
+            const pendingEntry = kycDistribution.find(k => (k._id || '').toLowerCase() === 'pending');
+            const pendingCount = pendingEntry ? pendingEntry.count : 0;
+            if (el('statPendingKyc')) el('statPendingKyc').textContent = pendingCount.toLocaleString();
+            if (el('kpiSubKyc'))      el('kpiSubKyc').textContent      = pendingCount > 0 ? 'Awaiting verification' : 'No pending verifications';
+        } else {
+            if (el('statPendingKyc')) el('statPendingKyc').textContent = '—';
+        }
+    }
+
+    if (backendAnalytics && backendAnalytics.feedbackStats) {
+        const { totalFeedback, averageRating } = backendAnalytics.feedbackStats;
+        const count = totalFeedback || 0;
+        const avg   = Number(averageRating || 0).toFixed(1);
+
+        if (el('statFeedback'))  el('statFeedback').textContent  = count.toLocaleString();
+        if (el('statAvgRating')) el('statAvgRating').textContent = avg;
+
+        if (el('kpiSubFeedback')) el('kpiSubFeedback').textContent = count > 0 ? 'User reviews collected' : 'No feedback yet';
+        if (el('kpiSubRating'))   el('kpiSubRating').textContent   = count > 0 ? `out of 5.0 (${count} reviews)` : 'No ratings yet';
+    }
+
+    // Storage.js-powered KPIs (Listing & Booking — teammate data)
+    const listings        = getListings();
+    const bookings        = getBookings();
+    const revenue         = calculateTotalRevenue(bookings);
+    const platformFee     = calculatePlatformFeeRevenue(listings);
+    const activeListings  = listings.filter(l => (l.status || '').toLowerCase() === 'active');
+    const blockedListings = listings.filter(l => (l.status || '').toLowerCase() === 'blocked');
+    const premiumUsersMock = getPremiumUsers(getUsers());
+
+    // If backend didn't populate user counts, fall back to storage.js
+    if (!backendAnalytics || !backendAnalytics.userStats) {
+        const users = getUsers();
+        if (el('statUsers'))  el('statUsers').textContent  = users.length.toLocaleString();
+        if (el('statPremium')) el('statPremium').textContent = premiumUsersMock.length.toLocaleString();
+        if (el('statNonPro')) el('statNonPro').textContent  = (users.length - premiumUsersMock.length).toLocaleString();
+        if (el('statPendingKyc')) el('statPendingKyc').textContent = '—';
+    }
+    if (!backendAnalytics || !backendAnalytics.feedbackStats) {
+        const fb = getFeedback();
+        if (el('statFeedback'))  el('statFeedback').textContent  = fb.length.toLocaleString();
+        if (el('statAvgRating')) el('statAvgRating').textContent = '—';
+    }
+
+    // Hidden elements in old HTML — kept for backward compat if still referenced
+    if (el('statListings'))        el('statListings').textContent        = listings.length;
+    if (el('statActiveListings'))  el('statActiveListings').textContent  = activeListings.length;
+    if (el('statBlockedListings')) el('statBlockedListings').textContent = blockedListings.length;
+    if (el('statBookings'))        el('statBookings').textContent        = bookings.length;
+    if (el('statRevenue'))         el('statRevenue').textContent         = formatCurrency(revenue);
+    if (el('statPlatformFee'))     el('statPlatformFee').textContent     = formatCurrency(platformFee);
+}
+
+// ─── 6. ROLE DONUT CHART ─────────────────────────────────────
+
+function renderRoleChart() {
+    const canvasEl = document.getElementById('chartRole');
+    const emptyEl  = document.getElementById('chartRoleEmpty');
+    destroyChart('role');
+
+    if (!canvasEl) return;
+
+    const dist = backendAnalytics?.userStats?.roleDistribution || [];
+
+    if (!dist.length) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    if (canvasEl) canvasEl.style.display = '';
+    if (emptyEl)  emptyEl.style.display  = 'none';
+
+    const labels = dist.map(r => capitalize(r._id || 'Unknown'));
+    const data   = dist.map(r => r.count || 0);
+
+    if (data.every(v => v === 0)) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    charts.role = new Chart(canvasEl, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'],
+                borderColor:     'rgba(10,18,40,0.8)',
+                borderWidth:     3,
+                hoverOffset:     8
+            }]
+        },
+        options: {
+            responsive:  true,
+            maintainAspectRatio: true,
+            cutout: '62%',
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.label}: ${ctx.parsed} users`
+                    }
+                }
+            },
+            animation: { duration: 800, easing: 'easeInOutQuart' }
+        }
+    });
+}
+
+// ─── 7. KYC PIE/DONUT CHART ──────────────────────────────────
+
+function renderKycChart() {
+    const canvasEl = document.getElementById('chartKyc');
+    const emptyEl  = document.getElementById('chartKycEmpty');
+    destroyChart('kyc');
+
+    if (!canvasEl) return;
+
+    const dist = backendAnalytics?.userStats?.kycDistribution || [];
+
+    if (!dist.length) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    if (canvasEl) canvasEl.style.display = '';
+    if (emptyEl)  emptyEl.style.display  = 'none';
+
+    const kycColors = { pending: '#f59e0b', approved: '#10b981', rejected: '#ef4444', none: '#6b7280' };
+
+    const labels = dist.map(k => capitalize(k._id || 'none'));
+    const data   = dist.map(k => k.count || 0);
+    const colors = dist.map(k => kycColors[(k._id || 'none').toLowerCase()] || '#6366f1');
+
+    if (data.every(v => v === 0)) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    charts.kyc = new Chart(canvasEl, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors,
+                borderColor: 'rgba(10,18,40,0.8)',
+                borderWidth: 3,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '60%',
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.label}: ${ctx.parsed} users`
+                    }
+                }
+            },
+            animation: { duration: 800, easing: 'easeInOutQuart' }
+        }
+    });
+}
+
+// ─── 8. PRO VS NON-PRO BAR CHART ─────────────────────────────
+
+function renderProChart() {
+    const canvasEl = document.getElementById('chartPro');
+    const emptyEl  = document.getElementById('chartProEmpty');
+    destroyChart('pro');
+
+    if (!canvasEl) return;
+
+    const userStats = backendAnalytics?.userStats;
+    const pro = userStats?.proUsers    || 0;
+    const std = userStats?.nonProUsers || (userStats ? (userStats.totalUsers - pro) : 0);
+
+    if (pro === 0 && std === 0) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    if (canvasEl) canvasEl.style.display = '';
+    if (emptyEl)  emptyEl.style.display  = 'none';
+
+    charts.pro = new Chart(canvasEl, {
+        type: 'bar',
+        data: {
+            labels: ['Standard', 'Pro / Premium'],
+            datasets: [{
+                label: 'Users',
+                data: [std, pro],
+                backgroundColor: ['rgba(99, 102, 241, 0.7)', 'rgba(16, 185, 129, 0.8)'],
+                borderColor:     ['#6366f1', '#10b981'],
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.parsed.y} users`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { color: 'rgba(148,163,184,0.8)' }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: {
+                        color: 'rgba(148,163,184,0.8)',
+                        precision: 0
+                    }
+                }
+            },
+            animation: { duration: 700 }
+        }
+    });
+}
+
+// ─── 9. REGISTRATION TREND LINE/AREA CHART ───────────────────
+
+function renderRegistrationTrend() {
+    const canvasEl = document.getElementById('chartRegistration');
+    const emptyEl  = document.getElementById('chartRegistrationEmpty');
+    destroyChart('registration');
+
+    if (!canvasEl) return;
+
+    const trend = backendAnalytics?.userStats?.registrationTrend || [];
+
+    if (!trend.length) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    if (canvasEl) canvasEl.style.display = '';
+    if (emptyEl)  emptyEl.style.display  = 'none';
+
+    // Show at most last 60 data points to stay readable
+    const recent = trend.slice(-60);
+    const labels = recent.map(t => formatDateLabel(t._id));
+    const data   = recent.map(t => t.count || 0);
+
+    charts.registration = new Chart(canvasEl, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'New Registrations',
+                data,
+                borderColor:     '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                pointBackgroundColor: '#3b82f6',
+                pointBorderColor:    'rgba(10,18,40,0.8)',
+                pointRadius:     data.length > 30 ? 2 : 4,
+                pointHoverRadius: 7,
+                borderWidth:  2.5,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: items => items[0].label,
+                        label: ctx  => ` ${ctx.parsed.y} sign-ups`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: {
+                        color: 'rgba(148,163,184,0.8)',
+                        maxTicksLimit: 12,
+                        maxRotation: 45
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: {
+                        color: 'rgba(148,163,184,0.8)',
+                        precision: 0
+                    }
+                }
+            },
+            animation: { duration: 900 }
+        }
+    });
+}
+
+// ─── 10. RATING DISTRIBUTION BAR CHART ──────────────────────
+
+function renderRatingChart() {
+    const canvasEl = document.getElementById('chartRating');
+    const emptyEl  = document.getElementById('chartRatingEmpty');
+    destroyChart('rating');
+
+    if (!canvasEl) return;
+
+    const dist = backendAnalytics?.feedbackStats?.ratingDistribution || [];
+
+    // Build a 1–5 map
+    const map = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    dist.forEach(r => { if (map[r._id] !== undefined) map[r._id] = r.count || 0; });
+    const total = Object.values(map).reduce((a, b) => a + b, 0);
+
+    if (total === 0) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    if (canvasEl) canvasEl.style.display = '';
+    if (emptyEl)  emptyEl.style.display  = 'none';
+
+    const labels = ['1 ★', '2 ★', '3 ★', '4 ★', '5 ★'];
+    const data   = [map[1], map[2], map[3], map[4], map[5]];
+    const colors = [
+        'rgba(239,68,68,0.75)',
+        'rgba(249,115,22,0.75)',
+        'rgba(234,179,8,0.75)',
+        'rgba(34,197,94,0.75)',
+        'rgba(16,185,129,0.85)'
+    ];
+
+    charts.rating = new Chart(canvasEl, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Reviews',
+                data,
+                backgroundColor: colors,
+                borderColor:     colors.map(c => c.replace('0.75', '1').replace('0.85', '1')),
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            indexAxis: 'x',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.parsed.y} reviews`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { color: 'rgba(148,163,184,0.8)' }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: {
+                        color: 'rgba(148,163,184,0.8)',
+                        precision: 0
+                    }
+                }
+            },
+            animation: { duration: 700 }
+        }
+    });
+}
+
+// ─── 11. RATING DONUT CHART ─────────────────────────────────
+
+function renderRatingDonutChart() {
+    const canvasEl = document.getElementById('chartRatingDonut');
+    const emptyEl  = document.getElementById('chartRatingDonutEmpty');
+    destroyChart('ratingDonut');
+
+    if (!canvasEl) return;
+
+    const dist = backendAnalytics?.feedbackStats?.ratingDistribution || [];
+    const map  = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    dist.forEach(r => { if (map[r._id] !== undefined) map[r._id] = r.count || 0; });
+    const total = Object.values(map).reduce((a, b) => a + b, 0);
+
+    if (total === 0) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    if (canvasEl) canvasEl.style.display = '';
+    if (emptyEl)  emptyEl.style.display  = 'none';
+
+    charts.ratingDonut = new Chart(canvasEl, {
+        type: 'doughnut',
+        data: {
+            labels: ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
+            datasets: [{
+                data:  [map[1], map[2], map[3], map[4], map[5]],
+                backgroundColor: [
+                    'rgba(239,68,68,0.8)',
+                    'rgba(249,115,22,0.8)',
+                    'rgba(234,179,8,0.8)',
+                    'rgba(34,197,94,0.8)',
+                    'rgba(16,185,129,0.9)'
+                ],
+                borderColor: 'rgba(10,18,40,0.8)',
+                borderWidth: 3,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '58%',
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.label}: ${ctx.parsed} reviews`
+                    }
+                }
+            },
+            animation: { duration: 800, easing: 'easeInOutQuart' }
+        }
+    });
+}
+
+// ─── 12. FEEDBACK TREND LINE/AREA CHART ─────────────────────
+
+function renderFeedbackTrendChart() {
+    const canvasEl = document.getElementById('chartFeedbackTrend');
+    const emptyEl  = document.getElementById('chartFeedbackTrendEmpty');
+    destroyChart('feedbackTrend');
+
+    if (!canvasEl) return;
+
+    const trend = backendAnalytics?.feedbackStats?.feedbackTrend || [];
+
+    if (!trend.length) {
+        if (canvasEl) canvasEl.style.display = 'none';
+        if (emptyEl)  emptyEl.style.display  = 'flex';
+        return;
+    }
+
+    if (canvasEl) canvasEl.style.display = '';
+    if (emptyEl)  emptyEl.style.display  = 'none';
+
+    const recent = trend.slice(-60);
+    const labels = recent.map(t => formatDateLabel(t._id));
+    const data   = recent.map(t => t.count || 0);
+
+    charts.feedbackTrend = new Chart(canvasEl, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Feedback Submitted',
+                data,
+                borderColor:     '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                pointBackgroundColor: '#10b981',
+                pointBorderColor:    'rgba(10,18,40,0.8)',
+                pointRadius:     data.length > 30 ? 2 : 4,
+                pointHoverRadius: 7,
+                borderWidth:  2.5,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: items => items[0].label,
+                        label: ctx  => ` ${ctx.parsed.y} submissions`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: {
+                        color: 'rgba(148,163,184,0.8)',
+                        maxTicksLimit: 12,
+                        maxRotation: 45
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: {
+                        color: 'rgba(148,163,184,0.8)',
+                        precision: 0
+                    }
+                }
+            },
+            animation: { duration: 900 }
+        }
+    });
+}
+
+// ─── 13. ANALYTICS SUMMARY ───────────────────────────────────
+
+function renderSummary() {
+    const container = document.getElementById('analyticsSummary');
+    if (!container) return;
+
+    const facts = [];
+
+    if (backendAnalytics && backendAnalytics.userStats) {
+        const { totalUsers, roleDistribution, proUsers, nonProUsers, kycDistribution } = backendAnalytics.userStats;
+
+        // Largest role
+        if (Array.isArray(roleDistribution) && roleDistribution.length) {
+            const topRole = roleDistribution.reduce((a, b) => ((b.count || 0) > (a.count || 0) ? b : a), {});
+            if (topRole._id) {
+                facts.push({
+                    icon: '👤',
+                    label: 'Largest User Role',
+                    value: capitalize(topRole._id),
+                    sub:   `${topRole.count} users`
+                });
+            }
+        }
+
+        // Pro percentage
+        if (totalUsers > 0) {
+            const proPct = Math.round(((proUsers || 0) / totalUsers) * 100);
+            facts.push({
+                icon: '⭐',
+                label: 'Pro User Adoption',
+                value: `${proPct}%`,
+                sub:   `${proUsers || 0} of ${totalUsers} users`
+            });
+        }
+
+        // Most common KYC status
+        if (Array.isArray(kycDistribution) && kycDistribution.length) {
+            const topKyc = kycDistribution.reduce((a, b) => ((b.count || 0) > (a.count || 0) ? b : a), {});
+            if (topKyc._id) {
+                facts.push({
+                    icon: '🪪',
+                    label: 'Most Common KYC Status',
+                    value: capitalize(topKyc._id),
+                    sub:   `${topKyc.count} users`
+                });
+            }
+        }
+    }
+
+    if (backendAnalytics && backendAnalytics.feedbackStats) {
+        const { averageRating, totalFeedback, ratingDistribution } = backendAnalytics.feedbackStats;
+
+        if (totalFeedback > 0) {
+            facts.push({
+                icon: '★',
+                label: 'Average Platform Rating',
+                value: Number(averageRating || 0).toFixed(2),
+                sub:   `out of 5.00 across ${totalFeedback} reviews`
+            });
+        }
+
+        // Most common rating
+        if (Array.isArray(ratingDistribution) && ratingDistribution.length) {
+            const topRating = ratingDistribution.reduce((a, b) => ((b.count || 0) > (a.count || 0) ? b : a), {});
+            if (topRating._id) {
+                facts.push({
+                    icon: '💬',
+                    label: 'Most Frequent Rating',
+                    value: `${topRating._id} Star${topRating._id !== 1 ? 's' : ''}`,
+                    sub:   `${topRating.count} reviews`
+                });
+            }
+        }
+    }
+
+    if (!facts.length) {
+        container.innerHTML = `
+            <div class="summary-empty">
+                <span>No summary data available — connect the backend to see insights.</span>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '<div class="summary-grid">';
+    facts.forEach(f => {
+        html += `
+            <div class="summary-fact">
+                <div class="summary-fact-icon">${f.icon}</div>
+                <div class="summary-fact-body">
+                    <div class="summary-fact-label">${f.label}</div>
+                    <div class="summary-fact-value">${f.value}</div>
+                    ${f.sub ? `<div class="summary-fact-sub">${f.sub}</div>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ─── 14. BOOKING ANALYTICS (storage.js) ─────────────────────
 
 function renderBookingAnalytics() {
     const container = document.getElementById('bookingAnalyticsBody');
@@ -51,12 +764,7 @@ function renderBookingAnalytics() {
     const bookings = getBookings();
 
     if (bookings.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📦</div>
-                <div class="empty-state-text">No booking data available yet.</div>
-            </div>
-        `;
+        container.innerHTML = emptyStateHtml('📦', 'No booking data available yet.');
         return;
     }
 
@@ -71,7 +779,7 @@ function renderBookingAnalytics() {
     let html = `<div class="bar-chart">`;
     for (const [status, count] of Object.entries(statusCounts)) {
         const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-        const fillClass = (status === 'Confirmed' || status === 'Completed') ? 'bar-fill lime-accent' : 'bar-fill';
+        const fillClass  = (status === 'Confirmed' || status === 'Completed') ? 'bar-fill lime-accent' : 'bar-fill';
         html += `
             <div class="bar-row">
                 <div class="bar-label">${status}</div>
@@ -84,7 +792,7 @@ function renderBookingAnalytics() {
     container.innerHTML = html;
 }
 
-// ─── REVENUE ANALYTICS ──────────────────────────────────────
+// ─── 15. REVENUE ANALYTICS (storage.js) ─────────────────────
 
 function renderRevenueAnalytics() {
     const container = document.getElementById('revenueAnalyticsBody');
@@ -92,18 +800,12 @@ function renderRevenueAnalytics() {
     const bookings = getBookings();
 
     if (bookings.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">💰</div>
-                <div class="empty-state-text">No revenue data available yet.</div>
-            </div>
-        `;
+        container.innerHTML = emptyStateHtml('💰', 'No revenue data available yet.');
         return;
     }
 
     let totalRevenue = 0;
     let validBookingsCount = 0;
-
     bookings.forEach(b => {
         const status = (b.status || '').toLowerCase();
         if (status === 'confirmed' || status === 'completed') {
@@ -113,14 +815,13 @@ function renderRevenueAnalytics() {
         }
     });
 
-    const avgBooking = validBookingsCount > 0 ? Math.round(totalRevenue / validBookingsCount) : 0;
-    const listings = getListings();
+    const avgBooking  = validBookingsCount > 0 ? Math.round(totalRevenue / validBookingsCount) : 0;
+    const listings    = getListings();
     const platformFee = calculatePlatformFeeRevenue(listings);
 
     container.innerHTML = `
         <div class="revenue-highlight">₹${totalRevenue.toLocaleString('en-IN')}</div>
         <div class="trend-badge trend-positive">+ Active Revenue</div>
-        
         <div class="revenue-stats">
             <div class="stat-item">
                 <span class="stat-label">Valid Bookings</span>
@@ -138,7 +839,7 @@ function renderRevenueAnalytics() {
     `;
 }
 
-// ─── LISTING PERFORMANCE ────────────────────────────────────
+// ─── 16. LISTING PERFORMANCE TABLE (storage.js) ─────────────
 
 function renderListingPerformance() {
     const tbody = document.getElementById('listingPerformanceBody');
@@ -147,34 +848,23 @@ function renderListingPerformance() {
     const listings = getListings();
 
     if (listings.length === 0) {
-        tbody.innerHTML = `
-            <tr><td colspan="4">
-                <div class="empty-state">
-                    <div class="empty-state-icon">📋</div>
-                    <div class="empty-state-text">No listing data available yet.</div>
-                </div>
-            </td></tr>
-        `;
+        tbody.innerHTML = `<tr><td colspan="4">${emptyStateHtml('📋', 'No listing data available yet.')}</td></tr>`;
         return;
     }
 
     const performance = {};
     listings.forEach(l => {
         performance[l.id] = {
-            name: l.title || l.name || 'Unknown Listing',
+            name:     l.title || l.name || 'Unknown Listing',
             category: l.category || 'Uncategorized',
-            status: l.status || 'Unknown',
-            price: parseFloat(l.price || l.basePrice || 0),
             bookings: 0,
-            revenue: 0
+            revenue:  0
         };
     });
-
     bookings.forEach(b => {
         const listingId = b.listingId || '';
-        const status = (b.status || '').toLowerCase();
-        const amount = parseFloat(b.grandTotal || b.amount || b.totalPrice || b.price || 0);
-
+        const status    = (b.status || '').toLowerCase();
+        const amount    = parseFloat(b.grandTotal || b.amount || b.totalPrice || b.price || 0);
         if (performance[listingId]) {
             performance[listingId].bookings++;
             if (status === 'confirmed' || status === 'completed') {
@@ -189,32 +879,21 @@ function renderListingPerformance() {
         .slice(0, 5);
 
     if (sorted.length === 0) {
-        tbody.innerHTML = `
-            <tr><td colspan="4">
-                <div class="empty-state">
-                    <div class="empty-state-icon">📉</div>
-                    <div class="empty-state-text">No booking activity for current listings.</div>
-                </div>
-            </td></tr>
-        `;
+        tbody.innerHTML = `<tr><td colspan="4">${emptyStateHtml('📉', 'No booking activity for current listings.')}</td></tr>`;
         return;
     }
 
-    let html = '';
-    sorted.forEach(item => {
-        html += `
-            <tr>
-                <td><strong>${item.name}</strong></td>
-                <td>${item.category}</td>
-                <td>${item.bookings}</td>
-                <td>₹${item.revenue.toLocaleString('en-IN')}</td>
-            </tr>
-        `;
-    });
-    tbody.innerHTML = html;
+    tbody.innerHTML = sorted.map(item => `
+        <tr>
+            <td><strong>${item.name}</strong></td>
+            <td>${item.category}</td>
+            <td>${item.bookings}</td>
+            <td>₹${item.revenue.toLocaleString('en-IN')}</td>
+        </tr>
+    `).join('');
 }
 
-// ─── CATEGORY DISTRIBUTION ──────────────────────────────────
+// ─── 17. CATEGORY DISTRIBUTION (storage.js) ─────────────────
 
 function renderCategoryDistribution() {
     const container = document.getElementById('categoryAnalyticsBody');
@@ -222,12 +901,7 @@ function renderCategoryDistribution() {
     const listings = getListings();
 
     if (listings.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">🏷️</div>
-                <div class="empty-state-text">No categories available yet.</div>
-            </div>
-        `;
+        container.innerHTML = emptyStateHtml('🏷️', 'No categories available yet.');
         return;
     }
 
@@ -237,7 +911,7 @@ function renderCategoryDistribution() {
         categories[cat] = (categories[cat] || 0) + 1;
     });
 
-    const total = listings.length;
+    const total      = listings.length;
     const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]);
 
     let html = `<div class="bar-chart">`;
@@ -255,315 +929,35 @@ function renderCategoryDistribution() {
     container.innerHTML = html;
 }
 
-// ─── USER OVERVIEW ──────────────────────────────────────────
-
-function renderUserOverview() {
-    const container = document.getElementById('userAnalyticsBody');
-    if (!container) return;
-
-    if (backendAnalytics && backendAnalytics.userStats) {
-        const { totalUsers, roleDistribution, kycDistribution, proUsers, nonProUsers, registrationTrend } = backendAnalytics.userStats;
-
-        if (totalUsers === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">👥</div>
-                    <div class="empty-state-text">No user data available yet.</div>
-                </div>
-            `;
-            return;
-        }
-
-        let html = `<div class="bar-chart">`;
-        
-        roleDistribution.forEach(r => {
-            const roleName = r._id ? r._id.charAt(0).toUpperCase() + r._id.slice(1).toLowerCase() : 'Unknown';
-            const count = r.count || 0;
-            const percentage = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0;
-            html += `
-                <div class="bar-row">
-                    <div class="bar-label" style="text-align: left;">${roleName}</div>
-                    <div class="bar-track"><div class="bar-fill" style="width: ${percentage}%;"></div></div>
-                    <div class="bar-value">${count}</div>
-                </div>
-            `;
-        });
-
-        const premiumPct = totalUsers > 0 ? Math.round((proUsers / totalUsers) * 100) : 0;
-        html += `
-            <div class="bar-row">
-                <div class="bar-label" style="text-align: left;">⭐ Premium</div>
-                <div class="bar-track"><div class="bar-fill lime-accent" style="width: ${premiumPct}%;"></div></div>
-                <div class="bar-value">${proUsers}</div>
-            </div>
-        `;
-        html += `</div>`;
-        
-        if (kycDistribution && kycDistribution.length > 0) {
-            html += `<div style="margin-top:24px;"><strong style="font-size:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">KYC Status</strong><div class="bar-chart" style="margin-top:12px;">`;
-            kycDistribution.forEach(k => {
-                const kycName = k._id ? k._id.charAt(0).toUpperCase() + k._id.slice(1).toLowerCase() : 'None';
-                const count = k.count || 0;
-                const pct = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0;
-                html += `
-                    <div class="bar-row">
-                        <div class="bar-label" style="text-align:left;font-size:12px;">${kycName}</div>
-                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
-                        <div class="bar-value">${count}</div>
-                    </div>
-                `;
-            });
-            html += `</div></div>`;
-        }
-
-        if (registrationTrend && registrationTrend.length > 0) {
-            html += `<div style="margin-top:24px;"><strong style="font-size:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">Registration Trend</strong><div class="bar-chart" style="margin-top:12px; max-height: 200px; overflow-y: auto;">`;
-            const recentTrend = registrationTrend.slice(-30);
-            const maxCount = Math.max(...recentTrend.map(t => t.count), 1);
-            
-            recentTrend.forEach(t => {
-                const pct = Math.round((t.count / maxCount) * 100);
-                html += `
-                    <div class="bar-row">
-                        <div class="bar-label" style="text-align:left;width:100px;font-size:12px;">${t._id}</div>
-                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
-                        <div class="bar-value">${t.count}</div>
-                    </div>
-                `;
-            });
-            html += `</div></div>`;
-        }
-
-        container.innerHTML = html;
-        return;
-    }
-
-    const users = getUsers();
-    if (users.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">👥</div>
-                <div class="empty-state-text">No user data available yet.</div>
-            </div>
-        `;
-        return;
-    }
-
-    const roles = { 'Customer': 0, 'Seller': 0, 'Admin': 0 };
-    const total = users.length;
-    users.forEach(u => {
-        const role = u.role ? u.role.charAt(0).toUpperCase() + u.role.slice(1).toLowerCase() : 'Customer';
-        if (roles[role] !== undefined) { roles[role]++; } else { roles[role] = 1; }
-    });
-
-    const premiumCount = getPremiumUsers(users).length;
-
-    let html = `<div class="bar-chart">`;
-    for (const [role, count] of Object.entries(roles)) {
-        const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-        html += `
-            <div class="bar-row">
-                <div class="bar-label" style="text-align: left;">${role}</div>
-                <div class="bar-track"><div class="bar-fill" style="width: ${percentage}%;"></div></div>
-                <div class="bar-value">${count}</div>
-            </div>
-        `;
-    }
-    const premiumPct = total > 0 ? Math.round((premiumCount / total) * 100) : 0;
-    html += `
-        <div class="bar-row">
-            <div class="bar-label" style="text-align: left;">⭐ Premium</div>
-            <div class="bar-track"><div class="bar-fill lime-accent" style="width: ${premiumPct}%;"></div></div>
-            <div class="bar-value">${premiumCount}</div>
-        </div>
-    `;
-    html += `</div>`;
-    container.innerHTML = html;
-}
-
-// ─── FEEDBACK ANALYTICS ─────────────────────────────────────
-
-function renderFeedbackAnalytics() {
-    const container = document.getElementById('feedbackAnalyticsBody');
-    if (!container) return;
-
-    if (backendAnalytics && backendAnalytics.feedbackStats) {
-        const { totalFeedback, averageRating, ratingDistribution, feedbackTrend } = backendAnalytics.feedbackStats;
-        
-        if (totalFeedback === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">💬</div>
-                    <div class="empty-state-text">No feedback submitted yet.</div>
-                </div>
-            `;
-            return;
-        }
-
-        const avgRating = Number(averageRating).toFixed(1);
-        const fullStars = Math.round(parseFloat(avgRating));
-        let starsHtml = '';
-        for (let i = 1; i <= 5; i++) { starsHtml += (i <= fullStars) ? '★' : '☆'; }
-
-        let html = `
-            <div class="rating-overview">
-                <div class="average-rating">
-                    <div class="average-score">${avgRating}</div>
-                    <div class="average-stars">${starsHtml}</div>
-                    <div class="rating-total">Based on ${totalFeedback} reviews</div>
-                </div>
-                <div class="bar-chart" style="flex: 1; margin-top: 0;">
-        `;
-
-        const distributionMap = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-        if (ratingDistribution) {
-            ratingDistribution.forEach(r => {
-                if (distributionMap[r._id] !== undefined) {
-                    distributionMap[r._id] = r.count;
-                }
-            });
-        }
-
-        for (let i = 5; i >= 1; i--) {
-            const count = distributionMap[i];
-            const percentage = totalFeedback > 0 ? Math.round((count / totalFeedback) * 100) : 0;
-            const fillClass = i >= 4 ? 'bar-fill lime-accent' : 'bar-fill';
-            html += `
-                <div class="bar-row">
-                    <div class="bar-label" style="width: 60px;">${i} Stars</div>
-                    <div class="bar-track"><div class="${fillClass}" style="width: ${percentage}%;"></div></div>
-                    <div class="bar-value">${count}</div>
-                </div>
-            `;
-        }
-        html += `</div></div>`;
-        
-        if (feedbackTrend && feedbackTrend.length > 0) {
-            html += `<div style="margin-top:24px;"><strong style="font-size:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">Feedback Trend</strong><div class="bar-chart" style="margin-top:12px; max-height: 200px; overflow-y: auto;">`;
-            const recentTrend = feedbackTrend.slice(-30);
-            const maxCount = Math.max(...recentTrend.map(t => t.count), 1);
-            
-            recentTrend.forEach(t => {
-                const pct = Math.round((t.count / maxCount) * 100);
-                html += `
-                    <div class="bar-row">
-                        <div class="bar-label" style="text-align:left;width:100px;font-size:12px;">${t._id}</div>
-                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
-                        <div class="bar-value">${t.count}</div>
-                    </div>
-                `;
-            });
-            html += `</div></div>`;
-        }
-
-        container.innerHTML = html;
-        return;
-    }
-
-    const feedback = getFeedback();
-
-    if (feedback.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">💬</div>
-                <div class="empty-state-text">No feedback submitted yet.</div>
-            </div>
-        `;
-        return;
-    }
-
-    let totalRating = 0;
-    const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    const categoryCounts = {};
-
-    feedback.forEach(fb => {
-        const r = parseInt(fb.rating) || 0;
-        if (r >= 1 && r <= 5) { ratingCounts[r]++; totalRating += r; }
-        const cat = fb.type || 'Other';
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-    });
-
-    const totalCount = feedback.length;
-    const avgRating = totalCount > 0 ? (totalRating / totalCount).toFixed(1) : '0.0';
-    const fullStars = Math.round(parseFloat(avgRating));
-    let starsHtml = '';
-    for (let i = 1; i <= 5; i++) { starsHtml += (i <= fullStars) ? '★' : '☆'; }
-
-    let html = `
-        <div class="rating-overview">
-            <div class="average-rating">
-                <div class="average-score">${avgRating}</div>
-                <div class="average-stars">${starsHtml}</div>
-                <div class="rating-total">Based on ${totalCount} reviews</div>
-            </div>
-            <div class="bar-chart" style="flex: 1; margin-top: 0;">
-    `;
-
-    for (let i = 5; i >= 1; i--) {
-        const count = ratingCounts[i];
-        const percentage = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0;
-        const fillClass = i >= 4 ? 'bar-fill lime-accent' : 'bar-fill';
-        html += `
-            <div class="bar-row">
-                <div class="bar-label" style="width: 60px;">${i} Stars</div>
-                <div class="bar-track"><div class="${fillClass}" style="width: ${percentage}%;"></div></div>
-                <div class="bar-value">${count}</div>
-            </div>
-        `;
-    }
-
-    html += `</div></div>`;
-
-    if (Object.keys(categoryCounts).length > 0) {
-        html += `<div style="margin-top:24px;"><strong style="font-size:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">By Category</strong><div class="bar-chart" style="margin-top:12px;">`;
-        const catTotal = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
-        Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]).forEach(([cat, count]) => {
-            const pct = catTotal > 0 ? Math.round((count / catTotal) * 100) : 0;
-            html += `
-                <div class="bar-row">
-                    <div class="bar-label" style="text-align:left;width:140px;font-size:12px;">${cat}</div>
-                    <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
-                    <div class="bar-value">${count}</div>
-                </div>
-            `;
-        });
-        html += `</div></div>`;
-    }
-
-    container.innerHTML = html;
-}
-
-// ─── LISTING MANAGEMENT (Admin) ─────────────────────────────
+// ─── 18. LISTING MANAGEMENT TABLE (storage.js) ───────────────
 
 function renderListingManagement() {
     const tbody = document.getElementById('analyticsListingMgmtBody');
     if (!tbody) return;
 
     const listings = getListings();
-
     if (listings.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#9ca3af;">No listings found.</td></tr>`;
         return;
     }
 
-    let html = '';
-    listings.forEach(listing => {
-        const title = listing.title || listing.name || 'Unknown';
-        const price = listing.price || listing.basePrice || 0;
-        const status = listing.status || 'Unknown';
+    tbody.innerHTML = listings.map(listing => {
+        const title      = listing.title || listing.name || 'Unknown';
+        const price      = listing.price || listing.basePrice || 0;
+        const status     = listing.status || 'Unknown';
         const sellerName = listing.seller?.name || '—';
-        const isBlocked = status.toLowerCase() === 'blocked';
+        const isBlocked  = status.toLowerCase() === 'blocked';
 
         let badgeClass = 'badge-normal';
-        if (status === 'Active') badgeClass = 'badge-low';
-        if (status === 'Blocked') badgeClass = 'badge-blocked';
-        if (status === 'Inactive' || status === 'Pending') badgeClass = 'badge-orange';
+        if (status === 'Active')                            badgeClass = 'badge-low';
+        if (status === 'Blocked')                           badgeClass = 'badge-blocked';
+        if (status === 'Inactive' || status === 'Pending')  badgeClass = 'badge-orange';
 
         const blockBtn = isBlocked
             ? `<button class="action-btn" onclick="openUnblockModal('${listing.id}')">Unblock</button>`
-            : `<button class="action-btn btn-block-text" onclick="openBlockModal('${listing.id}')">Block Listing</button>`;
+            : `<button class="action-btn btn-block-text" onclick="openBlockModal('${listing.id}')">Block</button>`;
 
-        html += `
+        return `
             <tr>
                 <td><strong>${title}</strong><br><small style="color:#9ca3af">${listing.id}</small></td>
                 <td>${listing.category || 'Other'}</td>
@@ -576,48 +970,37 @@ function renderListingManagement() {
                 </td>
             </tr>
         `;
-    });
-
-    tbody.innerHTML = html;
+    }).join('');
 }
 
-// ─── BLOCKED LISTINGS SECTION ───────────────────────────────
+// ─── 19. BLOCKED LISTINGS (storage.js) ──────────────────────
 
 function renderBlockedListings() {
     const container = document.getElementById('blockedListingsContainer');
     if (!container) return;
 
-    const listings = getListings();
-    const blocked = listings.filter(l => (l.status || '').toLowerCase() === 'blocked');
+    const blocked = getListings().filter(l => (l.status || '').toLowerCase() === 'blocked');
 
     if (blocked.length === 0) {
         container.innerHTML = `
-            <div class="glass-card" style="padding: 32px; text-align: center; color: var(--text-secondary);">
-                <div style="font-size: 32px; opacity: 0.4; margin-bottom: 12px;">✅</div>
-                <p style="font-size: 15px;">No blocked listings at the moment.</p>
+            <div class="glass-card" style="padding:32px; text-align:center; color:var(--text-secondary);">
+                <div style="font-size:32px; opacity:0.4; margin-bottom:12px;">✅</div>
+                <p style="font-size:15px;">No blocked listings at the moment.</p>
             </div>
         `;
         return;
     }
 
     let html = `<div class="glass-card table-card"><div class="table-responsive"><table class="platform-table">
-        <thead>
-            <tr>
-                <th>Listing</th>
-                <th>Category</th>
-                <th>Seller / Host</th>
-                <th>Price</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>`;
+        <thead><tr>
+            <th>Listing</th><th>Category</th><th>Seller / Host</th>
+            <th>Price</th><th>Status</th><th>Actions</th>
+        </tr></thead><tbody>`;
 
     blocked.forEach(listing => {
-        const title = listing.title || listing.name || 'Unknown';
-        const price = listing.price || listing.basePrice || 0;
+        const title      = listing.title || listing.name || 'Unknown';
+        const price      = listing.price || listing.basePrice || 0;
         const sellerName = listing.seller?.name || '—';
-
         html += `
             <tr>
                 <td><strong>${title}</strong><br><small style="color:#9ca3af">${listing.id}</small></td>
@@ -637,64 +1020,52 @@ function renderBlockedListings() {
     container.innerHTML = html;
 }
 
-// ─── PREMIUM USERS (Analytics) ──────────────────────────────
+// ─── 20. PREMIUM USERS TABLE (storage.js) ───────────────────
 
 function renderPremiumUsersAnalytics() {
     const tbody = document.getElementById('analyticsPremiumBody');
     if (!tbody) return;
 
-    const allUsers = getUsers();
-    const premiumUsers = getPremiumUsers(allUsers);
+    const premiumUsers = getPremiumUsers(getUsers());
 
     if (premiumUsers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#9ca3af;">No premium users found.</td></tr>`;
         return;
     }
 
-    let html = '';
-    premiumUsers.forEach(u => {
+    tbody.innerHTML = premiumUsers.map(u => {
         const expiryDate = u.premiumExpiryDate
             ? new Date(u.premiumExpiryDate).toLocaleDateString('en-IN')
             : '—';
-
-        html += `
+        return `
             <tr>
                 <td><strong>${u.username || 'Unknown'}</strong></td>
                 <td>${u.useremail || '—'}</td>
                 <td><span class="badge badge-low">Premium Active</span></td>
                 <td>${expiryDate}</td>
-                <td>
-                    <button class="action-btn" onclick="openPremiumDetailModal('${u.useremail}')">View Details</button>
-                </td>
+                <td><button class="action-btn" onclick="openPremiumDetailModal('${u.useremail}')">View Details</button></td>
             </tr>
         `;
-    });
-
-    tbody.innerHTML = html;
+    }).join('');
 }
 
-// ─── BLOCK / UNBLOCK ACTIONS ────────────────────────────────
+// ─── 21. BLOCK / UNBLOCK ACTIONS & MODALS ───────────────────
 
 function openBlockModal(id) {
     _pendingBlockId = id;
     const modal = document.getElementById('blockListingModal');
     if (modal) modal.classList.add('active');
 }
-
 function closeBlockModal() {
     _pendingBlockId = null;
-    const modal = document.getElementById('blockListingModal');
-    if (modal) modal.classList.remove('active');
+    document.getElementById('blockListingModal')?.classList.remove('active');
 }
-
 function confirmBlock() {
     if (!_pendingBlockId) return;
     const allListings = getListings();
-    const listing = allListings.find(l => l.id === _pendingBlockId);
+    const listing     = allListings.find(l => l.id === _pendingBlockId);
     if (listing) {
-        if (listing.status !== 'Blocked') {
-            listing.previousStatus = listing.status;
-        }
+        if (listing.status !== 'Blocked') listing.previousStatus = listing.status;
         listing.status = 'Blocked';
         saveListings(allListings);
         dispatchStorageUpdate(STORAGE_KEYS.LISTINGS);
@@ -706,23 +1077,19 @@ function confirmBlock() {
 
 function openUnblockModal(id) {
     _pendingUnblockId = id;
-    const modal = document.getElementById('unblockListingModal');
-    if (modal) modal.classList.add('active');
+    document.getElementById('unblockListingModal')?.classList.add('active');
 }
-
 function closeUnblockModal() {
     _pendingUnblockId = null;
-    const modal = document.getElementById('unblockListingModal');
-    if (modal) modal.classList.remove('active');
+    document.getElementById('unblockListingModal')?.classList.remove('active');
 }
-
 function confirmUnblock() {
     if (!_pendingUnblockId) return;
-    const allListings = getListings();
-    const listing = allListings.find(l => l.id === _pendingUnblockId);
+    const allListings     = getListings();
+    const listing         = allListings.find(l => l.id === _pendingUnblockId);
+    const validStatuses   = ['Active', 'Inactive', 'Pending', 'Disabled'];
     if (listing) {
-        const validStatuses = ['Active', 'Inactive', 'Pending', 'Disabled'];
-        const prev = listing.previousStatus;
+        const prev    = listing.previousStatus;
         listing.status = (prev && prev !== 'Blocked' && validStatuses.includes(prev)) ? prev : 'Active';
         delete listing.previousStatus;
         saveListings(allListings);
@@ -733,95 +1100,62 @@ function confirmUnblock() {
     closeUnblockModal();
 }
 
-// ─── LISTING DETAIL MODAL ─────────────────────────────────────
-
 function openListingDetailModal(id) {
-    const listings = getListings();
-    const listing = listings.find(l => l.id === id);
+    const listing = getListings().find(l => l.id === id);
     if (!listing) return;
 
     const row = (label, value) => `
         <div class="premium-detail-row">
             <span class="premium-detail-label">${label}</span>
-            <span class="premium-detail-value" style="text-align: right;">${value}</span>
+            <span class="premium-detail-value" style="text-align:right;">${value}</span>
         </div>
     `;
-
     let html = '';
     const imgUrl = listing.images?.[0] || listing.imageUrl;
-    if (imgUrl) {
-        html += `<div style="text-align: center; margin-bottom: 16px;"><img src="${imgUrl}" alt="${listing.title || listing.name || 'Listing'}" style="max-width: 100%; max-height: 180px; border-radius: 8px; object-fit: cover;"></div>`;
-    }
-
-    if (listing.id) html += row('Listing ID', listing.id);
+    if (imgUrl) html += `<div style="text-align:center;margin-bottom:16px;"><img src="${imgUrl}" alt="${listing.title || 'Listing'}" style="max-width:100%;max-height:180px;border-radius:8px;object-fit:cover;"></div>`;
+    if (listing.id)                      html += row('Listing ID', listing.id);
     const title = listing.title || listing.name;
-    if (title) html += row('Title', title);
-    if (listing.category) html += row('Category', listing.category);
+    if (title)                           html += row('Title', title);
+    if (listing.category)                html += row('Category', listing.category);
     if (listing.description || listing.desc) html += row('Description', listing.description || listing.desc);
-
     const price = listing.price || listing.basePrice;
     if (price !== undefined && price !== null) {
-        const period = listing.period ? ` / ${listing.period}` : '';
-        html += row('Price', `₹${Number(price).toLocaleString('en-IN')}${period}`);
+        html += row('Price', `₹${Number(price).toLocaleString('en-IN')}${listing.period ? ' / ' + listing.period : ''}`);
     }
-
-    const location = listing.location || listing.city || listing.seller?.city || listing.seller?.address;
+    const location = listing.location || listing.city || listing.seller?.city;
     if (location) html += row('Location', location);
-
     const sellerName = typeof listing.seller === 'object' ? listing.seller?.name : listing.seller;
     if (sellerName) html += row('Seller', sellerName);
-
     if (listing.status) {
-        let badgeClass = 'badge-normal';
-        if (listing.status === 'Active') badgeClass = 'badge-low';
-        if (listing.status === 'Blocked') badgeClass = 'badge-blocked';
-        if (listing.status === 'Inactive' || listing.status === 'Pending') badgeClass = 'badge-orange';
-        html += row('Status', `<span class="badge ${badgeClass}">${listing.status.toUpperCase()}</span>`);
+        let bc = 'badge-normal';
+        if (listing.status === 'Active')   bc = 'badge-low';
+        if (listing.status === 'Blocked')  bc = 'badge-blocked';
+        if (listing.status === 'Inactive' || listing.status === 'Pending') bc = 'badge-orange';
+        html += row('Status', `<span class="badge ${bc}">${listing.status.toUpperCase()}</span>`);
     }
-
-    if (listing.availability !== undefined) html += row('Availability', listing.availability ? 'Available' : 'Unavailable');
 
     const content = document.getElementById('listingDetailContent');
     if (content) content.innerHTML = html;
-
-    const modal = document.getElementById('listingDetailModal');
-    if (modal) modal.classList.add('active');
+    document.getElementById('listingDetailModal')?.classList.add('active');
 }
-
 function closeListingDetailModal() {
-    const modal = document.getElementById('listingDetailModal');
-    if (modal) modal.classList.remove('active');
+    document.getElementById('listingDetailModal')?.classList.remove('active');
 }
-
-// ─── PREMIUM USER DETAIL MODAL ───────────────────────────────
 
 function openPremiumDetailModal(email) {
-    const allUsers = getUsers();
-    const user = allUsers.find(u => u.useremail === email);
+    const allUsers  = getUsers();
+    const user      = allUsers.find(u => u.useremail === email);
     if (!user) return;
 
-    const allBookings = getBookings();
+    const allBookings  = getBookings();
     const userBookings = allBookings.filter(b =>
         b.renterEmail === user.useremail || b.renterName === user.username
     );
-
-    const totalSpent = userBookings.reduce((sum, b) => {
+    const totalSpent   = userBookings.reduce((sum, b) => {
         const status = (b.status || '').toLowerCase();
-        if (status === 'confirmed' || status === 'completed') {
-            return sum + parseFloat(b.grandTotal || b.amount || 0);
-        }
-        return sum;
+        return (status === 'confirmed' || status === 'completed')
+            ? sum + parseFloat(b.grandTotal || b.amount || 0) : sum;
     }, 0);
-
-    const purchaseDate = user.premiumPurchaseDate
-        ? new Date(user.premiumPurchaseDate).toLocaleDateString('en-IN')
-        : null;
-    const expiryDate = user.premiumExpiryDate
-        ? new Date(user.premiumExpiryDate).toLocaleDateString('en-IN')
-        : '—';
-    const registeredDate = user.createdAt
-        ? new Date(user.createdAt).toLocaleDateString('en-IN')
-        : null;
 
     const row = (label, value) => `
         <div class="premium-detail-row">
@@ -829,52 +1163,45 @@ function openPremiumDetailModal(email) {
             <span class="premium-detail-value">${value}</span>
         </div>
     `;
-
     let html = '';
-    html += row('Name', user.username || '—');
-    html += row('Email', user.useremail || '—');
+    html += row('Name',         user.username || '—');
+    html += row('Email',        user.useremail || '—');
     if (user.userphone) html += row('Phone', user.userphone);
-    html += row('Role', user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : '—');
-    html += row('Membership', '<span class="badge badge-low">Premium Active</span>');
-    if (purchaseDate) html += row('Premium Since', purchaseDate);
-    html += row('Premium Expires', expiryDate);
-    if (registeredDate) html += row('Registered', registeredDate);
+    html += row('Role',         user.role ? capitalize(user.role) : '—');
+    html += row('Membership',   '<span class="badge badge-low">Premium Active</span>');
+    const purchaseDate = user.premiumPurchaseDate ? new Date(user.premiumPurchaseDate).toLocaleDateString('en-IN') : null;
+    if (purchaseDate)   html += row('Premium Since',  purchaseDate);
+    html += row('Premium Expires', user.premiumExpiryDate ? new Date(user.premiumExpiryDate).toLocaleDateString('en-IN') : '—');
+    const regDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN') : null;
+    if (regDate)        html += row('Registered', regDate);
     html += row('Total Bookings', userBookings.length);
-    html += row('Total Spent', `₹${totalSpent.toLocaleString('en-IN')}`);
+    html += row('Total Spent',   `₹${totalSpent.toLocaleString('en-IN')}`);
 
     const content = document.getElementById('premiumDetailContent');
     if (content) content.innerHTML = html;
-
-    const modal = document.getElementById('premiumDetailModal');
-    if (modal) modal.classList.add('active');
+    document.getElementById('premiumDetailModal')?.classList.add('active');
 }
-
 function closePremiumDetailModal() {
-    const modal = document.getElementById('premiumDetailModal');
-    if (modal) modal.classList.remove('active');
+    document.getElementById('premiumDetailModal')?.classList.remove('active');
 }
 
-// ─── TOAST ──────────────────────────────────────────────────
+// ─── 22. TOAST ──────────────────────────────────────────────
 
 function showToast(message) {
     const container = document.getElementById('toastContainer');
     if (!container) return;
-
     const toast = document.createElement('div');
-    toast.className = 'toast-message';
+    toast.className   = 'toast-message';
     toast.textContent = message;
     container.appendChild(toast);
-
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
         toast.classList.remove('show');
-        setTimeout(() => {
-            if (container.contains(toast)) container.removeChild(toast);
-        }, 300);
+        setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 300);
     }, 3000);
 }
 
-// ─── MOBILE MENU ────────────────────────────────────────────
+// ─── 23. MOBILE MENU ────────────────────────────────────────
 
 function initMobileMenu() {
     const toggle = document.getElementById('menuToggle');
@@ -887,47 +1214,33 @@ function initMobileMenu() {
         toggle.classList.remove('open');
         toggle.setAttribute('aria-expanded', 'false');
     };
-
     toggle.addEventListener('click', () => {
         const isOpen = links.classList.toggle('open');
         toggle.classList.toggle('open', isOpen);
         toggle.setAttribute('aria-expanded', String(isOpen));
     });
-
-    links.querySelectorAll('a').forEach(link => {
-        link.addEventListener('click', closeMenu);
-    });
-
+    links.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMenu));
     if (navbar) {
-        const syncScrolledState = () => {
-            navbar.classList.toggle('scrolled', window.scrollY > 50);
-        };
-        syncScrolledState();
-        window.addEventListener('scroll', syncScrolledState, { passive: true });
+        const syncScrolled = () => navbar.classList.toggle('scrolled', window.scrollY > 50);
+        syncScrolled();
+        window.addEventListener('scroll', syncScrolled, { passive: true });
     }
 }
 
 // ─── MODAL WIRING ────────────────────────────────────────────
 
 function attachModalListeners() {
-    const cancelBlock   = document.getElementById('cancelBlockBtn');
-    const confirmBlock  = document.getElementById('confirmBlockBtn');
-    const cancelUnblock = document.getElementById('cancelUnblockBtn');
-    const confirmUnblock = document.getElementById('confirmUnblockBtn');
-    const closePremium  = document.getElementById('closePremiumDetailBtn');
-    const closeListing  = document.getElementById('closeListingDetailBtn');
-
-    if (cancelBlock)    cancelBlock.addEventListener('click', closeBlockModal);
-    if (confirmBlock)   confirmBlock.addEventListener('click', confirmBlock_handler);
-    if (cancelUnblock)  cancelUnblock.addEventListener('click', closeUnblockModal);
-    if (confirmUnblock) confirmUnblock.addEventListener('click', confirmUnblock_handler);
-    if (closePremium)   closePremium.addEventListener('click', closePremiumDetailModal);
-    if (closeListing)   closeListing.addEventListener('click', closeListingDetailModal);
+    document.getElementById('cancelBlockBtn')    ?.addEventListener('click', closeBlockModal);
+    document.getElementById('confirmBlockBtn')   ?.addEventListener('click', confirmBlock);
+    document.getElementById('cancelUnblockBtn')  ?.addEventListener('click', closeUnblockModal);
+    document.getElementById('confirmUnblockBtn') ?.addEventListener('click', confirmUnblock);
+    document.getElementById('closePremiumDetailBtn')?.addEventListener('click', closePremiumDetailModal);
+    document.getElementById('closeListingDetailBtn')?.addEventListener('click', closeListingDetailModal);
 
     ['blockListingModal', 'unblockListingModal', 'premiumDetailModal', 'listingDetailModal'].forEach(id => {
         const modal = document.getElementById(id);
         if (modal) {
-            modal.addEventListener('click', (e) => {
+            modal.addEventListener('click', e => {
                 if (e.target === modal) {
                     modal.classList.remove('active');
                     _pendingBlockId = null;
@@ -938,12 +1251,35 @@ function attachModalListeners() {
     });
 }
 
-function confirmBlock_handler() { confirmBlock(); }
-function confirmUnblock_handler() { confirmUnblock(); }
+// ─── 24. DESTROY A CHART SAFELY ─────────────────────────────
 
-// ─── REFRESH ALL ─────────────────────────────────────────────
+function destroyChart(key) {
+    if (charts[key]) {
+        charts[key].destroy();
+        charts[key] = null;
+    }
+}
+
+function destroyAllCharts() {
+    Object.keys(charts).forEach(key => destroyChart(key));
+}
+
+// ─── REFRESH BUTTON SPIN STATE ───────────────────────────────
+
+function setRefreshSpinning(spinning) {
+    const icon = document.getElementById('refreshIcon');
+    const btn  = document.getElementById('refreshBtn');
+    if (icon) icon.classList.toggle('spinning', spinning);
+    if (btn)  btn.disabled = spinning;
+}
+
+// ─── 25. REFRESH ALL (main orchestrator) ─────────────────────
 
 async function refreshAll() {
+    setRefreshSpinning(true);
+
+    // Attempt to fetch backend analytics
+    let fetchError = null;
     try {
         if (window.RentFlowAPI && window.RentFlowAPI.isLoggedIn()) {
             const res = await window.RentFlowAPI.get('/admin/analytics/overview');
@@ -951,60 +1287,118 @@ async function refreshAll() {
                 backendAnalytics = res.data;
             }
         }
-    } catch (e) {
-        console.error("Failed to fetch backend analytics:", e);
+    } catch (err) {
+        console.error('Analytics API error:', err);
+        fetchError = err;
     }
-    
+
+    // Destroy old Chart.js instances before redrawing
+    destroyAllCharts();
+
+    // Render all sections
     renderKPIs();
+    renderRoleChart();
+    renderKycChart();
+    renderProChart();
+    renderRegistrationTrend();
+    renderRatingChart();
+    renderRatingDonutChart();
+    renderFeedbackTrendChart();
+    renderSummary();
+
+    // Storage.js sections (teammate data — always render)
     renderBookingAnalytics();
     renderRevenueAnalytics();
     renderListingPerformance();
     renderCategoryDistribution();
-    renderUserOverview();
-    renderFeedbackAnalytics();
     renderListingManagement();
     renderBlockedListings();
     renderPremiumUsersAnalytics();
+
+    updateLastUpdated();
+    setRefreshSpinning(false);
+
+    // If we had a fetch error AND no backend analytics, show error overlay
+    // (but keep the page usable for the storage.js sections)
+    if (fetchError && !backendAnalytics) {
+        showError('Unable to load live analytics from the backend. Showing local data only.');
+        showContent(); // Still show content section
+    } else {
+        showContent();
+    }
 }
 
-// ─── INITIALISE ─────────────────────────────────────────────
+// ─── UTILITIES ──────────────────────────────────────────────
+
+function capitalize(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function formatDateLabel(rawDate) {
+    if (!rawDate) return '';
+    // rawDate might be "2024-03-15" or "2024-03" — keep as-is, just clean up
+    return String(rawDate).trim();
+}
+
+function emptyStateHtml(icon, text) {
+    return `
+        <div class="empty-state">
+            <div class="empty-state-icon">${icon}</div>
+            <div class="empty-state-text">${text}</div>
+        </div>
+    `;
+}
+
+// ─── DOMContentLoaded INIT ───────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-    // SECURITY CHECK: Only allow admins
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const currentUserRaw = localStorage.getItem('current_user');
-    let isAdmin = false;
-    
-    if (isLoggedIn === 'true' && currentUserRaw) {
+    // Security: check admin status (legacy + JWT paths)
+    const isLoggedIn       = localStorage.getItem('isLoggedIn');
+    const currentUserRaw   = localStorage.getItem('current_user');
+    const hasToken         = !!localStorage.getItem('rf_token');
+    let   isAdmin          = false;
+
+    if (hasToken) {
+        // JWT users: treated as potentially admin (server middleware will verify)
+        isAdmin = true;
+    } else if (isLoggedIn === 'true' && currentUserRaw) {
         try {
             const currentUser = JSON.parse(currentUserRaw);
-            if (currentUser.useremail === "admin@rentflow.com" || currentUser.role === "admin") {
+            if (currentUser.useremail === 'admin@rentflow.com' || currentUser.role === 'admin') {
                 isAdmin = true;
             }
         } catch (e) {
-            console.error("Error parsing current_user:", e);
+            console.error('Error parsing current_user:', e);
         }
     }
-    
+
     if (!isAdmin) {
-        window.location.href = "login.html";
+        window.location.href = 'login.html';
         return;
     }
 
+    // Apply Chart.js global defaults
+    applyChartDefaults();
+
+    // Show loading, then load data
+    showLoading();
     refreshAll();
+
+    // Wire up refresh button
+    document.getElementById('refreshBtn') ?.addEventListener('click', refreshAll);
+    document.getElementById('retryBtn')   ?.addEventListener('click', () => { showLoading(); refreshAll(); });
+
     initMobileMenu();
     attachModalListeners();
 
     // Cross-tab storage changes
     window.addEventListener('storage', (e) => {
-        if (e.key === STORAGE_KEYS.USERS || e.key === STORAGE_KEYS.LISTINGS ||
-            e.key === STORAGE_KEYS.BOOKINGS || e.key === STORAGE_KEYS.FEEDBACK) {
+        if ([STORAGE_KEYS.USERS, STORAGE_KEYS.LISTINGS, STORAGE_KEYS.BOOKINGS, STORAGE_KEYS.FEEDBACK].includes(e.key)) {
             refreshAll();
         }
     });
 
     // Same-tab updates dispatched by dispatchStorageUpdate()
-    window.addEventListener('rentiq_storage_update', () => {
-        refreshAll();
-    });
+    window.addEventListener('rentiq_storage_update', () => { refreshAll(); });
 });
