@@ -662,25 +662,56 @@ document.addEventListener('DOMContentLoaded', () => {
     attachModalListeners();
 });
 
-// ─── ADMIN USER MANAGEMENT (BACKEND API) ────────────────────
+// ─── ADMIN USER MANAGEMENT + KYC (BACKEND API) ──────────────
+
+// Stores the full unfiltered list so filter tabs work client-side
+let _allAdminUsers = [];
+let _activeKycFilter = 'all';
+
 async function loadAdminUsers() {
     const list = document.getElementById('userManagementList');
     if (!list) return;
 
     try {
-        list.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #9ca3af;">Loading users...</td></tr>';
-        
-        // Use RentFlowAPI
+        list.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #9ca3af;">Loading users...</td></tr>';
+
         const res = await window.RentFlowAPI.get('/admin/users');
         if (res && res.success) {
-            renderAdminUsers(res.users);
+            _allAdminUsers = res.users || [];
+            renderAdminUsers(_allAdminUsers);
+            loadKycSummary(); // refresh KYC summary strip from analytics
         } else {
             throw new Error(res.message || 'Failed to fetch users');
         }
     } catch (err) {
         console.error('Error loading users:', err);
-        list.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #f87171;">Error loading users. <button onclick="loadAdminUsers()" class="action-btn">Retry</button></td></tr>`;
+        list.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #f87171;">Failed to load users. <button onclick="loadAdminUsers()" class="action-btn">Retry</button></td></tr>`;
         showToast('Error loading users: ' + err.message, 'error');
+    }
+}
+
+async function loadKycSummary() {
+    try {
+        const res = await window.RentFlowAPI.get('/admin/analytics/overview');
+        if (!res || !res.success) return;
+
+        const kycDist = (res.data && res.data.userStats && res.data.userStats.kycDistribution) || [];
+        const counts = { none: 0, pending: 0, approved: 0, rejected: 0 };
+        kycDist.forEach(item => {
+            if (item._id in counts) counts[item._id] = item.count;
+        });
+
+        const setPending  = document.getElementById('kycCountPending');
+        const setApproved = document.getElementById('kycCountApproved');
+        const setRejected = document.getElementById('kycCountRejected');
+        const setNone     = document.getElementById('kycCountNone');
+
+        if (setPending)  setPending.textContent  = counts.pending;
+        if (setApproved) setApproved.textContent = counts.approved;
+        if (setRejected) setRejected.textContent = counts.rejected;
+        if (setNone)     setNone.textContent     = counts.none;
+    } catch (err) {
+        console.error('KYC summary error:', err);
     }
 }
 
@@ -688,16 +719,22 @@ function renderAdminUsers(users) {
     const list = document.getElementById('userManagementList');
     if (!list) return;
 
-    if (!users || users.length === 0) {
-        list.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #9ca3af;">No users found.</td></tr>';
+    // Apply active filter
+    const filtered = _activeKycFilter === 'all'
+        ? users
+        : users.filter(u => (u.kycStatus || 'none') === _activeKycFilter);
+
+    if (!filtered || filtered.length === 0) {
+        const msg = _activeKycFilter === 'all' ? 'No users found.' : `No users with KYC status "${_activeKycFilter}".`;
+        list.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #9ca3af;">${msg}</td></tr>`;
         return;
     }
 
     let html = '';
-    users.forEach(u => {
+    filtered.forEach(u => {
         const avatar = u.avatar || 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(u.name || 'User');
-        
-        // stringify safely for the onclick handler
+
+        // Safe JSON for onclick
         const userJson = JSON.stringify({
             _id: u._id,
             name: u.name,
@@ -707,6 +744,25 @@ function renderAdminUsers(users) {
             isPro: u.isPro
         }).replace(/'/g, "&#39;");
 
+        // KYC badge + quick-action buttons
+        const kyc = u.kycStatus || 'none';
+        let kycBadgeClass = 'badge-normal';
+        if (kyc === 'approved') kycBadgeClass = 'badge-low';
+        else if (kyc === 'pending') kycBadgeClass = 'badge-orange';
+        else if (kyc === 'rejected') kycBadgeClass = 'badge-high';
+
+        // Only show contextually useful quick-action KYC buttons
+        let kycActions = '';
+        if (kyc === 'pending' || kyc === 'none') {
+            kycActions += `<button class="action-btn" style="color:#34d399; border-color:rgba(52,211,153,0.3);" onclick="quickUpdateKyc('${u._id}','approved')">Approve</button>`;
+        }
+        if (kyc === 'pending' || kyc === 'approved') {
+            kycActions += `<button class="action-btn" style="color:#f87171; border-color:rgba(248,113,113,0.3);" onclick="quickUpdateKyc('${u._id}','rejected')">Reject</button>`;
+        }
+        if (kyc === 'approved' || kyc === 'rejected') {
+            kycActions += `<button class="action-btn" style="color:#fbbf24; border-color:rgba(251,191,36,0.3);" onclick="quickUpdateKyc('${u._id}','pending')">Set Pending</button>`;
+        }
+
         html += `
             <tr>
                 <td>
@@ -715,13 +771,14 @@ function renderAdminUsers(users) {
                         <strong style="color:#fff;">${u.name || 'Unknown'}</strong>
                     </div>
                 </td>
-                <td>${u.email || 'N/A'}</td>
+                <td style="font-size:13px; color:#9ca3af;">${u.email || 'N/A'}</td>
                 <td><span class="badge badge-normal" style="text-transform: capitalize;">${u.role || 'customer'}</span></td>
+                <td><span class="badge ${u.isPro ? 'badge-low' : 'badge-normal'}">${u.isPro ? '⭐ Pro' : 'Standard'}</span></td>
                 <td>
-                    <span class="badge ${u.isPro ? 'badge-low' : 'badge-normal'}">${u.isPro ? 'Pro' : 'Standard'}</span>
-                    <span class="badge ${u.kycStatus === 'approved' ? 'badge-low' : (u.kycStatus === 'pending' ? 'badge-orange' : 'badge-normal')}">${u.kycStatus || 'none'}</span>
+                    <span class="badge ${kycBadgeClass}" style="text-transform: capitalize; min-width: 70px; text-align: center;">${kyc}</span>
                 </td>
-                <td>
+                <td style="white-space: nowrap;">
+                    ${kycActions}
                     <button class="action-btn" onclick='openEditUserModal(${userJson})'>Edit</button>
                     <button class="action-btn" style="color: #f87171;" onclick="deleteAdminUser('${u._id}')">Delete</button>
                 </td>
@@ -729,6 +786,40 @@ function renderAdminUsers(users) {
         `;
     });
     list.innerHTML = html;
+}
+
+// Quick KYC status update — reuses existing PATCH /api/admin/users/:id
+async function quickUpdateKyc(userId, newStatus) {
+    const confirmMap = {
+        rejected: `Reject this user's KYC? This will mark them as rejected.`,
+        approved: null, // no confirm needed for approval
+        pending:  'Reset KYC status to Pending?'
+    };
+    const msg = confirmMap[newStatus];
+    if (msg && !confirm(msg)) return;
+
+    try {
+        const res = await window.RentFlowAPI.patch('/admin/users/' + userId, { kycStatus: newStatus });
+        if (res && res.success) {
+            // Update the local cache so re-render is instant
+            const idx = _allAdminUsers.findIndex(u => u._id === userId);
+            if (idx !== -1) _allAdminUsers[idx].kycStatus = newStatus;
+
+            renderAdminUsers(_allAdminUsers);
+            loadKycSummary(); // refresh the summary strip counts
+
+            const labels = { approved: 'approved ✅', rejected: 'rejected ❌', pending: 'set to pending ⏳' };
+            showToast(`KYC ${labels[newStatus] || 'updated'} successfully`, 'success');
+        } else {
+            throw new Error(res.message || 'Update failed');
+        }
+    } catch (err) {
+        console.error('KYC update error:', err);
+        const friendlyMsg = err.message.includes('401') || err.message.includes('403')
+            ? 'You do not have permission to perform this action.'
+            : 'KYC update failed: ' + err.message;
+        showToast(friendlyMsg, 'error');
+    }
 }
 
 async function deleteAdminUser(id) {
@@ -755,17 +846,38 @@ function openEditUserModal(user) {
     document.getElementById('editUserRole').value = user.role || 'customer';
     document.getElementById('editUserKyc').value = user.kycStatus || 'none';
     document.getElementById('editUserIsPro').checked = !!user.isPro;
-    
+
     document.getElementById('editUserModal').classList.add('active');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // User Management hooks
+    // Refresh button
     const refreshBtn = document.getElementById('refreshUsersBtn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', loadAdminUsers);
     }
 
+    // KYC filter tabs
+    const filterTabs = document.getElementById('kycFilterTabs');
+    if (filterTabs) {
+        filterTabs.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-filter]');
+            if (!btn) return;
+
+            // Update active style
+            filterTabs.querySelectorAll('.kyc-tab').forEach(t => {
+                t.style.background = 'rgba(0,0,0,0.1)';
+                t.style.opacity = '0.6';
+            });
+            btn.style.background = 'rgba(58,91,217,0.35)';
+            btn.style.opacity = '1';
+
+            _activeKycFilter = btn.dataset.filter;
+            renderAdminUsers(_allAdminUsers);
+        });
+    }
+
+    // Edit user form submit
     const editForm = document.getElementById('editUserForm');
     if (editForm) {
         editForm.addEventListener('submit', async (e) => {
@@ -778,7 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 kycStatus: document.getElementById('editUserKyc').value,
                 isPro: document.getElementById('editUserIsPro').checked
             };
-            
+
             const btn = editForm.querySelector('button[type="submit"]');
             const origText = btn.textContent;
             btn.textContent = 'Saving...';
@@ -810,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Load initial users if we're on the dashboard
+    // Initial load
     if (document.getElementById('userManagementList')) {
         setTimeout(loadAdminUsers, 100);
     }

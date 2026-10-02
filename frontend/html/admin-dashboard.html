@@ -219,12 +219,41 @@
         </section>
         <!-- ============ USER MANAGEMENT ============ -->
         <section id="user-management" class="user-management-section" aria-label="User management">
-            <h2 class="section-title">User Management</h2>
-            <div class="glass-card table-card">
-                <div class="controls-bar" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px;">
-                    <h3 style="font-size: 16px; margin: 0;">All Platform Users</h3>
-                    <button class="action-btn" id="refreshUsersBtn" style="padding: 6px 12px; background: rgba(58, 91, 217, 0.1); color: #3a5bd9; border: 1px solid rgba(58, 91, 217, 0.2); border-radius: 6px; cursor: pointer;">Refresh Data</button>
+            <h2 class="section-title">User Management &amp; KYC</h2>
+
+            <!-- KYC Summary Strip (populated from analytics API) -->
+            <div class="kyc-summary-strip" id="kycSummaryStrip" style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                <div class="glass-card kpi-card kyc-kpi-card" style="flex: 1; min-width: 130px; padding: 16px; text-align: center;">
+                    <div style="font-size: 22px; font-weight: 700; color: #fbbf24;" id="kycCountPending">-</div>
+                    <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">⏳ Pending KYC</div>
                 </div>
+                <div class="glass-card kpi-card kyc-kpi-card" style="flex: 1; min-width: 130px; padding: 16px; text-align: center;">
+                    <div style="font-size: 22px; font-weight: 700; color: #34d399;" id="kycCountApproved">-</div>
+                    <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">✅ Approved KYC</div>
+                </div>
+                <div class="glass-card kpi-card kyc-kpi-card" style="flex: 1; min-width: 130px; padding: 16px; text-align: center;">
+                    <div style="font-size: 22px; font-weight: 700; color: #f87171;" id="kycCountRejected">-</div>
+                    <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">❌ Rejected KYC</div>
+                </div>
+                <div class="glass-card kpi-card kyc-kpi-card" style="flex: 1; min-width: 130px; padding: 16px; text-align: center;">
+                    <div style="font-size: 22px; font-weight: 700; color: #94a3b8;" id="kycCountNone">-</div>
+                    <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">— No KYC</div>
+                </div>
+            </div>
+
+            <div class="glass-card table-card">
+                <!-- Controls: filter tabs + refresh -->
+                <div class="controls-bar" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div id="kycFilterTabs" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button class="kyc-tab kyc-tab-active" data-filter="all" style="padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); background: rgba(58,91,217,0.3); color: #fff; cursor: pointer; font-size: 13px;">All Users</button>
+                        <button class="kyc-tab" data-filter="pending" style="padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(251,191,36,0.3); background: rgba(251,191,36,0.08); color: #fbbf24; cursor: pointer; font-size: 13px;">⏳ Pending</button>
+                        <button class="kyc-tab" data-filter="approved" style="padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(52,211,153,0.3); background: rgba(52,211,153,0.08); color: #34d399; cursor: pointer; font-size: 13px;">✅ Approved</button>
+                        <button class="kyc-tab" data-filter="rejected" style="padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); color: #f87171; cursor: pointer; font-size: 13px;">❌ Rejected</button>
+                        <button class="kyc-tab" data-filter="none" style="padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(148,163,184,0.2); background: rgba(148,163,184,0.05); color: #94a3b8; cursor: pointer; font-size: 13px;">— None</button>
+                    </div>
+                    <button class="action-btn" id="refreshUsersBtn" style="padding: 6px 12px; background: rgba(58, 91, 217, 0.1); color: #3a5bd9; border: 1px solid rgba(58, 91, 217, 0.2); border-radius: 6px; cursor: pointer;">↺ Refresh</button>
+                </div>
+
                 <div class="table-responsive">
                     <table class="platform-table" id="userManagementTable">
                         <thead>
@@ -232,12 +261,13 @@
                                 <th>User</th>
                                 <th>Email</th>
                                 <th>Role</th>
-                                <th>Status (Pro/KYC)</th>
+                                <th>Pro</th>
+                                <th>KYC Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="userManagementList">
-                            <tr><td colspan="5" style="text-align: center; padding: 20px; color: #9ca3af;">Loading users...</td></tr>
+                            <tr><td colspan="6" style="text-align: center; padding: 20px; color: #9ca3af;">Loading users...</td></tr>
                         </tbody>
                     </table>
                 </div>

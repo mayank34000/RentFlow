@@ -467,7 +467,8 @@ body {
     color: var(--accent-blue-light);
 }
 
-.badge-blocked {
+.badge-blocked,
+.badge-high {
     background: rgba(239, 68, 68, 0.12);
     border-color: rgba(239, 68, 68, 0.3);
     color: #f87171;
