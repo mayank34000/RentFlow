@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let lastScrollTop = window.scrollY || document.documentElement.scrollTop;
     const header = document.getElementById("site-header");
     
-    if (header) {
+    if (header && !window.__DISABLE_LEGACY_NAVBAR_SCROLL__) {
         window.addEventListener("scroll", () => {
             const scrollTop = window.scrollY || document.documentElement.scrollTop;
             

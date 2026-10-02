@@ -1,60 +1,125 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+'use strict';
 
-const authRoutes = require('./routes/auth');
-const adminRoutes = require('./routes/admin');
-const feedbackRoutes = require('./routes/feedback');
+/**
+ * RentFlow — Express Application Entry Point
+ *
+ * Responsibilities of this file (keep it focused):
+ *   1. Load environment variables
+ *   2. Connect to the database
+ *   3. Configure Express middleware (JSON, CORS)
+ *   4. Mount API routes
+ *   5. Register health, 404, and error handlers
+ *   6. Start the HTTP server
+ */
+
+// ── 1. Environment variables ──────────────────────────────────────────────────
+require('dotenv').config();
+
+// ── 2. Core dependencies ──────────────────────────────────────────────────────
+const express   = require('express');
+const cors      = require('cors');
+const mongoose  = require('mongoose');
+const connectDB = require('./config/db');
+const http      = require('http');
+const { Server } = require('socket.io');
 const errorHandler = require('./middleware/errorHandler');
 
+// ── 3. App setup ──────────────────────────────────────────────────────────────
 const app = express();
+const httpServer = http.createServer(app);
+const defaultOrigins = 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:5501,http://127.0.0.1:5501,http://127.0.0.1:5500';
 
-// ─── Middleware ──────────────────────────────────────────────
-app.use(cors());
-app.use(express.json());
-
-// ─── Routes ─────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/feedback', feedbackRoutes);
-
-// Health check — useful for quickly confirming the server is running
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'RentFlow API is running.' });
-});
-
-// ─── 404 handler for unknown routes ─────────────────────────
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found.' });
-});
-
-// ─── Central error handler (must be last) ───────────────────
-app.use(errorHandler);
-
-// ─── Database + Server startup ───────────────────────────────
-const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-  console.error('ERROR: MONGODB_URI is not set in .env');
-  process.exit(1);
+function getAllowedOrigins() {
+    const originsString = process.env.CORS_ORIGIN || defaultOrigins;
+    return originsString.split(',').map(o => o.trim());
 }
 
+const originCallback = (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = getAllowedOrigins();
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+    } else {
+        // Disallowed origin should simply receive no Access-Control-Allow-Origin header, not a 500
+        callback(null, false);
+    }
+};
+
+// CORS — allow the configured origin
+app.use(cors({ origin: originCallback, credentials: true }));
+
+// Socket.IO configuration
+const io = new Server(httpServer, {
+    cors: { origin: originCallback, methods: ['GET', 'POST'] }
+});
+require('./sockets/chatSocket')(io);
+
+// Parse incoming JSON request bodies
+app.use(express.json());
+
+// ── 4. API Routes ─────────────────────────────────────────────────────────────
+// User-facing routes (from main)
+app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/contact', require('./routes/contact'));
+app.use('/api/chat', require('./routes/chat'));
+
+// Admin & Auth routes (from feature/admin)
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/feedback', require('./routes/feedback'));
+
+
+// ── 5a. Health check ──────────────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+    let dbStatus;
+
+    if (!process.env.MONGO_URI) {
+        dbStatus = 'not_configured';
+    } else {
+        const state = mongoose.connection.readyState;
+        dbStatus = state === 1 ? 'connected' : 'disconnected';
+    }
+
+    res.json({
+        success: true,
+        message: 'Server is running',
+        database: dbStatus,
+    });
+});
+
+// ── 5b. 404 handler ───────────────────────────────────────────────────────────
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'Route not found',
+    });
+});
+
+// ── 5c. Global error handler ──────────────────────────────────────────────────
+app.use(errorHandler);
+
+// ── 6. Start server ───────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+
+// Validate JWT_SECRET for auth/admin routes
 if (!process.env.JWT_SECRET) {
   console.error('ERROR: JWT_SECRET is not set in .env');
   process.exit(1);
 }
 
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB Atlas');
-    app.listen(PORT, () => {
-      console.log(`RentFlow API running on http://localhost:${PORT}`);
+const startServer = async () => {
+    // Attempt DB connection first
+    await connectDB();
+
+    httpServer.listen(PORT, () => {
+        console.log(`[Server] RentFlow API running on http://localhost:${PORT}`);
+        console.log(`[Server] Environment : ${process.env.NODE_ENV || 'development'}`);
+        console.log(`[Server] CORS origin  : ${getAllowedOrigins().join(', ')}`);
+        console.log(`[Server] Health check : http://localhost:${PORT}/api/health`);
     });
-  })
-  .catch((err) => {
-    console.error('MongoDB connection failed:', err.message);
-    process.exit(1);
-  });
+};
+
+startServer();

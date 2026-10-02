@@ -2,6 +2,10 @@ import React from 'react';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Analytics from './pages/admin/Analytics';
 import Feedback from './pages/admin/Feedback';
+import ContactUs from './contactus';
+import BookingHistory from './booking-history';
+import Chat from './chat';
+import BookingPage from './booking';
 
 const routes = [
   // ==========================================
@@ -32,9 +36,10 @@ const routes = [
   // ==========================================
   // ARYAN'S ROUTES
   // ==========================================
-  { path: '/booking-history', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Booking History</h2><p>Owner: Aryan</p></div>, owner: 'Aryan', title: 'Booking History' },
-  { path: '/booking', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Booking</h2><p>Owner: Aryan</p></div>, owner: 'Aryan', title: 'Booking' },
-  { path: '/contact', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Contact</h2><p>Owner: Aryan</p></div>, owner: 'Aryan', title: 'Contact' },
+  { path: '/booking-history', element: <BookingHistory />, owner: 'Aryan', title: 'Booking History' },
+  { path: '/booking', element: <BookingPage />, owner: 'Aryan', title: 'Booking' },
+  { path: '/contact', element: <ContactUs />, owner: 'Aryan', title: 'Contact' },
+  { path: '/chat', element: <Chat />, owner: 'Aryan', title: 'Chat' },
 
   // ==========================================
   // COMMON / FALLBACK

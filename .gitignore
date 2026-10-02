@@ -1,5 +1,19 @@
 .DS_Store
 ._*
 
+# Environment Variables
+.env
+backend/.env
+frontend/react/.env
+
 # Node.js dependencies
 node_modules/
+backend/node_modules/
+frontend/react/node_modules/
+
+# Builds
+frontend/react/dist/
+
+# Uploads
+backend/uploads/returns/*
+!backend/uploads/returns/.gitkeep
