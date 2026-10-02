@@ -100,6 +100,9 @@ export default function BookingHistory() {
     const [receiptModal, setReceiptModal] = useState({ show: false, booking: null });
     const [pdfGenerating, setPdfGenerating] = useState(false);
 
+    // ── Return modal state ────────────────────────────────────────────────────
+    const [returnModal, setReturnModal] = useState({ show: false, bookingId: null, file: null, note: '', loading: false, error: '' });
+
     const navigate = useNavigate();
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -241,12 +244,19 @@ export default function BookingHistory() {
             currency: 'INR',
             name: 'RentFlow',
             description: 'Payment for ' + booking.itemTitle,
-            handler: function(response) {
+            handler: async function(response) {
                 console.log('Successful Payment ID:', response.razorpay_payment_id);
-                // Note: In the real flow, payment should go through the backend
-                // PATCH /api/bookings/:id/pay endpoint. This Razorpay UI handler
-                // is preserved from the existing code for UI continuity.
-                alert('Payment Successful! Rental is now Active.');
+                try {
+                    const { data } = await apiRequest(`/api/bookings/${bookingId}/pay`, { method: 'PATCH' });
+                    if (data?.success) {
+                        alert('Payment Successful! A receipt has been sent to your email.');
+                        window.location.reload();
+                    } else {
+                        alert('Payment recorded locally but failed on server: ' + data?.message);
+                    }
+                } catch (err) {
+                    alert('Error verifying payment with server: ' + err.message);
+                }
             },
             prefill: { name: 'User', email: 'user@example.com', contact: '9999999999' },
             theme: { color: '#2563eb' }
@@ -260,6 +270,37 @@ export default function BookingHistory() {
             rzp.open();
         } catch {
             alert('Failed to load payment gateway.');
+        }
+    };
+
+    // ── Return Item ───────────────────────────────────────────────────────────
+
+    const submitReturn = async (e) => {
+        e.preventDefault();
+        if (!returnModal.bookingId) return;
+
+        setReturnModal(prev => ({ ...prev, loading: true, error: '' }));
+
+        try {
+            const formData = new FormData();
+            if (returnModal.note) formData.append('returnNote', returnModal.note);
+            if (returnModal.file) formData.append('returnPhoto', returnModal.file);
+
+            const { data } = await apiRequest(`/api/bookings/${returnModal.bookingId}/return`, {
+                method: 'PATCH',
+                body: formData
+            });
+
+            if (data?.success) {
+                setReturnModal({ show: false, bookingId: null, file: null, note: '', loading: false, error: '' });
+                window.location.reload();
+            } else {
+                setReturnModal(prev => ({ ...prev, error: data?.message || 'Failed to return item.' }));
+            }
+        } catch (err) {
+            setReturnModal(prev => ({ ...prev, error: err.message || 'An error occurred.' }));
+        } finally {
+            setReturnModal(prev => ({ ...prev, loading: false }));
         }
     };
 
@@ -604,6 +645,15 @@ export default function BookingHistory() {
                                                     Pay Now
                                                 </button>
                                             )}
+                                            {item.status === 'Active' && (
+                                                <button
+                                                    className="btn-primary"
+                                                    style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#a855f7', borderColor: '#a855f7' }}
+                                                    onClick={() => setReturnModal({ show: true, bookingId: item.id, file: null, note: '', loading: false, error: '' })}
+                                                >
+                                                    Return Item
+                                                </button>
+                                            )}
                                             <button
                                                 className="btn-receipt"
                                                 onClick={() => setReceiptModal({ show: true, booking: item })}
@@ -713,6 +763,55 @@ export default function BookingHistory() {
                     >
                         {pdfGenerating ? 'Generating PDF...' : 'Download Invoice'}
                     </button>
+                </div>
+            </div>
+
+            {/* ── Return Modal ── */}
+            <div
+                className={`modal-backdrop${returnModal.show ? ' show' : ''}`}
+                id="return-modal"
+                onClick={e => { if (e.target.id === 'return-modal') setReturnModal(m => ({ ...m, show: false })); }}
+            >
+                <div className="modal-card">
+                    <button className="modal-close" onClick={() => setReturnModal(m => ({ ...m, show: false }))} disabled={returnModal.loading}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+
+                    <h3 className="modal-title">Return Item</h3>
+                    {returnModal.error && (
+                        <div style={{ color: '#ef4444', marginBottom: 15, fontSize: '0.9rem' }}>{returnModal.error}</div>
+                    )}
+                    <form onSubmit={submitReturn}>
+                        <div style={{ marginBottom: 15 }}>
+                            <label style={{ display: 'block', marginBottom: 5, color: '#b0b8c6', fontSize: '0.9rem' }}>Return Photo (Required)</label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                required
+                                onChange={e => setReturnModal(prev => ({ ...prev, file: e.target.files[0] }))}
+                                style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: 'block', marginBottom: 5, color: '#b0b8c6', fontSize: '0.9rem' }}>Return Note (Optional)</label>
+                            <textarea
+                                rows="3"
+                                placeholder="Condition of the item upon return..."
+                                value={returnModal.note}
+                                onChange={e => setReturnModal(prev => ({ ...prev, note: e.target.value }))}
+                                style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }}
+                            ></textarea>
+                        </div>
+                        <button
+                            type="submit"
+                            className="btn-primary-full"
+                            disabled={returnModal.loading}
+                        >
+                            {returnModal.loading ? 'Submitting...' : 'Confirm Return'}
+                        </button>
+                    </form>
                 </div>
             </div>
         </>
