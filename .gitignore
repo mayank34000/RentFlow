@@ -1,5 +1,13 @@
 .DS_Store
 ._*
 
+# Backend
+.env
+node_modules/
+
+# Uploads
+backend/uploads/returns/*
+!backend/uploads/returns/.gitkeep
+
 # Node.js dependencies
 node_modules/
