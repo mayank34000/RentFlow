@@ -1,0 +1,25 @@
+{
+  "name": "rentflow-backend",
+  "version": "1.0.0",
+  "description": "RentFlow backend API — Express + MongoDB",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.4.5",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.12",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
