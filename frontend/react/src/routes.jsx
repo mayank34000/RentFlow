@@ -3,6 +3,7 @@ import ContactUs from './contactus';
 import BookingHistory from './booking-history';
 import Chat from './chat';
 import BookingPage from './booking';
+import HomePage from './HomePage';
 
 const routes = [
   // ==========================================
@@ -24,7 +25,7 @@ const routes = [
   // ==========================================
   { path: '/create-listing', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Create Listing</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Create Listing' },
   { path: '/edit-listing', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Edit Listing</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Edit Listing' },
-  { path: '/', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Home</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Home' },
+  { path: '/', element: <HomePage />, owner: 'Madhav', title: 'Home' },
   { path: '/premium', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Premium</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Premium' },
   { path: '/about', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>About</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'About' },
   { path: '/policy', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Policy</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Policy' },
