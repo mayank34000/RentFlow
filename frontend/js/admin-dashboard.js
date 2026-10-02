@@ -29,13 +29,23 @@ let listingToRemove = null;
 
 // ─── KPI RENDERING ──────────────────────────────────────────
 
-function renderKPIs() {
-    const users = getUsers();
+async function renderKPIs() {
+    let analyticsData = null;
+    try {
+        if (window.RentFlowAPI) {
+            const res = await window.RentFlowAPI.get('/admin/analytics/overview');
+            if (res.success) {
+                analyticsData = res.data;
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching analytics for KPIs:', e);
+    }
+
     const listings = getListings();
     const bookings = getBookings();
     const revenue = calculateTotalRevenue(bookings);
     const platformFee = calculatePlatformFeeRevenue(listings);
-    const premiumUsers = getPremiumUsers(users);
 
     const kpiUsers = document.getElementById('kpiUsers');
     const kpiSellers = document.getElementById('kpiSellers');
@@ -45,16 +55,31 @@ function renderKPIs() {
     const kpiPlatformFee = document.getElementById('kpiPlatformFee');
     const kpiPremium = document.getElementById('kpiPremium');
 
-    if (kpiUsers) kpiUsers.textContent = users.length;
-    if (kpiSellers) {
-        const sellerCount = users.filter(u => (u.role || '').toLowerCase() === 'seller').length;
-        kpiSellers.textContent = sellerCount;
+    if (analyticsData && analyticsData.userStats) {
+        if (kpiUsers) kpiUsers.textContent = analyticsData.userStats.totalUsers || 0;
+        if (kpiPremium) kpiPremium.textContent = analyticsData.userStats.proUsers || 0;
+        if (kpiSellers) {
+            const roles = analyticsData.userStats.roleDistribution || [];
+            const sellerRole = roles.find(r => (r._id || '').toLowerCase() === 'seller');
+            kpiSellers.textContent = sellerRole ? sellerRole.count : 0;
+        }
+    } else {
+        const users = getUsers();
+        if (kpiUsers) kpiUsers.textContent = users.length;
+        if (kpiSellers) {
+            const sellerCount = users.filter(u => (u.role || '').toLowerCase() === 'seller').length;
+            kpiSellers.textContent = sellerCount;
+        }
+        if (kpiPremium) {
+            const premiumUsers = getPremiumUsers(users);
+            kpiPremium.textContent = premiumUsers.length;
+        }
     }
+
     if (kpiListings) kpiListings.textContent = listings.length;
     if (kpiBookings) kpiBookings.textContent = bookings.length;
     if (kpiRevenue) kpiRevenue.textContent = formatCurrency(revenue);
     if (kpiPlatformFee) kpiPlatformFee.textContent = formatCurrency(platformFee);
-    if (kpiPremium) kpiPremium.textContent = premiumUsers.length;
 }
 
 // ─── RENDER FUNCTIONS ────────────────────────────────────────
@@ -305,28 +330,53 @@ function renderActivity() {
         </div>
     `).join('');
 }
-function renderPremiumUsers() {
+async function renderPremiumUsers() {
     const list = document.getElementById('premiumList');
     if (!list) return;
 
-    const allUsers = getUsers();
-    const premiumUsers = getPremiumUsers(allUsers);
+    let allUsers = [];
+    let useBackend = false;
+    try {
+        if (window.RentFlowAPI) {
+            const res = await window.RentFlowAPI.get('/admin/users');
+            if (res.success) {
+                allUsers = res.users || [];
+                useBackend = true;
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching users for premium list:', e);
+    }
+
+    let premiumUsers;
+    if (useBackend) {
+        // Backend users: filter by isPro flag
+        premiumUsers = allUsers.filter(u => u.isPro === true);
+    } else {
+        // Fallback to storage.js mock
+        premiumUsers = getPremiumUsers(getUsers());
+    }
+
     let html = '';
 
     if (premiumUsers.length === 0) {
         html = '<tr><td colspan="6" style="text-align:center; padding:20px;">No premium users found.</td></tr>';
     } else {
         premiumUsers.forEach(u => {
-            const purchaseDate = u.premiumPurchaseDate ? new Date(u.premiumPurchaseDate).toLocaleDateString('en-IN') : '—';
-            const expiryDate = u.premiumExpiryDate ? new Date(u.premiumExpiryDate).toLocaleDateString('en-IN') : '—';
+            // Support both backend users (email) and mock users (useremail)
+            const email       = u.email || u.useremail || '';
+            const displayName = u.name  || u.username  || 'Unknown';
+            const joinDate    = u.createdAt || u.premiumPurchaseDate || u.date;
+            const purchaseDate = joinDate ? new Date(joinDate).toLocaleDateString('en-IN') : '—';
+            const expiryDate  = u.premiumExpiryDate ? new Date(u.premiumExpiryDate).toLocaleDateString('en-IN') : '—';
             html += `
                 <tr>
-                    <td><strong>${u.username || 'Unknown'}</strong></td>
-                    <td>${u.useremail}</td>
+                    <td><strong>${displayName}</strong></td>
+                    <td>${email}</td>
                     <td><span class="badge badge-low">Premium Active</span></td>
                     <td>${purchaseDate}</td>
                     <td>${expiryDate}</td>
-                    <td><button class="action-btn" onclick="openAdminPremiumDetailModal('${u.useremail}')">View Details</button></td>
+                    <td><button class="action-btn" onclick="openAdminPremiumDetailModal('${email}')">View Details</button></td>
                 </tr>
             `;
         });
@@ -493,9 +543,18 @@ function attachFilterListeners() {
     if (sortSelect) sortSelect.addEventListener('change', renderListings);
 }
 
-function openAdminPremiumDetailModal(email) {
-    const allUsers = getUsers();
-    const user = allUsers.find(u => u.useremail === email);
+async function openAdminPremiumDetailModal(email) {
+    let allUsers = [];
+    try {
+        if (window.RentFlowAPI) {
+            const res = await window.RentFlowAPI.get('/admin/users');
+            if (res.success) allUsers = res.users;
+        }
+    } catch (e) {
+        allUsers = getUsers();
+    }
+    
+    const user = allUsers.find(u => u.email === email || u.useremail === email);
     if (!user) return;
 
     const allBookings = getBookings();
