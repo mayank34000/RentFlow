@@ -1,0 +1,99 @@
+/* ========================================
+   LIGHT THEME – STANDALONE
+   ========================================
+   This file is used by pages that don't
+   include index.css (signup, login).
+   It provides basic light-theme overrides.
+======================================== */
+
+body.light-theme {
+    background: #f0f2f5;
+    color: #111827;
+}
+
+body.light-theme::before {
+    background: rgba(240, 242, 245, 0.85);
+}
+
+body.light-theme .bg-video {
+    opacity: 0.04;
+    filter: brightness(1.2) contrast(0.9) saturate(0.5);
+}
+
+/* Signup/Login Container */
+body.light-theme #container {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .logo {
+    color: #111827;
+}
+
+body.light-theme .title {
+    color: #111827;
+}
+
+body.light-theme .subtitle {
+    color: #6b7280;
+}
+
+body.light-theme .input-field label {
+    color: #374151;
+}
+
+body.light-theme .input-field input {
+    background: #f5f5f5;
+    border-color: #ddd;
+    color: #333;
+}
+
+body.light-theme .input-field input:focus {
+    border-color: #3a5bd9;
+    background: #ffffff;
+}
+
+body.light-theme .input-field input::placeholder {
+    color: #9ca3af;
+}
+
+body.light-theme .primary-btn {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+body.light-theme .primary-btn:hover {
+    background: #1e3a8a;
+}
+
+body.light-theme .social-btn {
+    background: #f5f5f5;
+    border-color: #e5e7eb;
+    color: #374151;
+}
+
+body.light-theme .social-btn:hover {
+    background: #eef0f3;
+}
+
+body.light-theme .divider {
+    color: #9ca3af;
+}
+
+body.light-theme .divider::before,
+body.light-theme .divider::after {
+    background: #e5e7eb;
+}
+
+body.light-theme .terms-label {
+    color: #6b7280;
+}
+
+body.light-theme .login-link {
+    color: #6b7280;
+}
+
+body.light-theme .error-msg {
+    color: #dc2626;
+}

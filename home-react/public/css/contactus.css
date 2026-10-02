@@ -1,0 +1,464 @@
+/* ========================================
+   GLOBAL STYLES & RESET
+======================================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+    color: #ffffff;
+    background-color: #0a0e17;
+    overflow-x: hidden;
+}
+
+/* ========================================
+   BACKGROUND & OVERLAYS
+======================================== */
+
+.bg-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: -2;
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 14, 23, 0.75);
+    z-index: -1;
+}
+
+/* ========================================
+   LAYOUT & CONTAINERS
+======================================== */
+
+.page-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    padding: 100px 24px 60px;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.page-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 12px;
+}
+
+.page-subtitle {
+    font-size: 16px;
+    color: #b0b8c6;
+    margin-bottom: 48px;
+    line-height: 1.5;
+}
+
+/* ========================================
+   CONTACT CARDS (GLASSMORPHISM)
+======================================== */
+
+.contact-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+    margin-bottom: 48px;
+}
+
+.contact-card {
+    background: rgba(18, 23, 43, 0.72);
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.contact-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    border-color: rgba(58, 91, 217, 0.4);
+}
+
+.contact-icon {
+    width: 56px;
+    height: 56px;
+    background: rgba(58, 91, 217, 0.15);
+    color: #3a5bd9;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.contact-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.contact-card p {
+    font-size: 14px;
+    color: #8b93a1;
+}
+
+/* ========================================
+   FAQ ACCORDION
+======================================== */
+
+.faq-section {
+    background: rgba(18, 23, 43, 0.72);
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 32px;
+}
+
+.faq-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.accordion-item {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.accordion-header {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.accordion-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.accordion-icon {
+    transition: transform 0.3s ease;
+    color: #3a5bd9;
+}
+
+.accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.accordion-content-inner {
+    padding: 0 20px 20px 20px;
+    font-size: 14px;
+    color: #b0b8c6;
+    line-height: 1.6;
+}
+
+/* Active State */
+.accordion-item.active .accordion-icon {
+    transform: rotate(180deg);
+}
+
+.accordion-item.active .accordion-content {
+    max-height: 500px; /* Arbitrary large number for CSS transition */
+}
+
+/* ========================================
+   CONTACT FORM MODAL
+======================================== */
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.modal-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background: rgba(18, 23, 43, 0.95);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    width: 90%;
+    max-width: 480px;
+    padding: 32px;
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.modal-backdrop.show .modal-card {
+    transform: translateY(0);
+}
+
+.modal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: #8b93a1;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.modal-close:hover {
+    color: #fff;
+}
+
+.modal-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    font-family: 'Manrope', sans-serif;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #b0b8c6;
+    margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    border-color: #3a5bd9;
+}
+
+.btn-primary-full {
+    width: 100%;
+    background: #3a5bd9;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 8px;
+}
+
+.btn-primary-full:hover {
+    background: #2a46b3;
+}
+
+/* ========================================
+   TOAST NOTIFICATIONS
+======================================== */
+
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 2000;
+}
+
+.toast {
+    background: rgba(18, 23, 43, 0.9);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(58, 91, 217, 0.5);
+    border-left: 4px solid #3a5bd9;
+    padding: 16px 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+/* ========================================
+   LIGHT THEME OVERRIDES
+======================================== */
+
+body.light-theme {
+    background-color: #f0f2f5;
+    color: #111827;
+}
+
+body.light-theme .bg-video {
+    opacity: 0.1;
+}
+
+body.light-theme .overlay {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+body.light-theme .page-title {
+    color: #111827;
+}
+
+body.light-theme .page-subtitle {
+    color: #4b5563;
+}
+
+body.light-theme .contact-card {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-theme .contact-card:hover {
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+body.light-theme .contact-card h3 {
+    color: #111827;
+}
+
+body.light-theme .contact-card p {
+    color: #6b7280;
+}
+
+body.light-theme .faq-section {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-theme .faq-title {
+    color: #111827;
+}
+
+body.light-theme .accordion-item {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-theme .accordion-header {
+    color: #111827;
+}
+
+body.light-theme .accordion-header:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+body.light-theme .accordion-content-inner {
+    color: #4b5563;
+}
+
+body.light-theme .modal-backdrop {
+    background: rgba(255, 255, 255, 0.6);
+}
+
+body.light-theme .modal-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.1);
+}
+
+body.light-theme .modal-title {
+    color: #111827;
+}
+
+body.light-theme .modal-close {
+    color: #6b7280;
+}
+
+body.light-theme .modal-close:hover {
+    color: #111827;
+}
+
+body.light-theme .form-group label {
+    color: #4b5563;
+}
+
+body.light-theme .form-group input,
+body.light-theme .form-group textarea {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #111827;
+}
+
+body.light-theme .toast {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #111827;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}

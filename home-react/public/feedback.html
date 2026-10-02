@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (localStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RentFlow | Feedback</title>
+    <meta name="description" content="Share your rental experience and help us improve RentFlow.">
+
+    <!-- Fonts (same as login/signup/admin) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../css/feedback.css">
+</head>
+<body>
+    <script src="../js/theme.js"></script>
+
+    <!-- Background Video -->
+    <video class="bg-video" autoplay muted loop playsinline>
+        <source src="../assets/video.mp4" type="video/mp4">
+    </video>
+    <div class="overlay"></div>
+
+    <!-- ===================== NAVBAR ===================== -->
+    <nav class="navbar" id="navbar">
+        <a href="index.html" class="navbar-brand" aria-label="RentFlow Home">
+            <span class="brand-rent">Rent</span><span class="brand-flow">Flow</span>
+        </a>
+
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+
+        <ul class="navbar-links" id="navLinks">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="booking.html">Explore Rentals</a></li>
+            <li><a href="booking-history.html">My Rentals</a></li>
+            <li><a href="feedback.html" class="active">Feedback</a></li>
+            <li><a href="profile.html">Profile</a></li>
+        </ul>
+    </nav>
+
+    <!-- ===================== MAIN CONTENT ===================== -->
+    <main class="feedback-page">
+
+        <!-- Page Header -->
+        <header class="page-header">
+            <h1>Share Your Feedback</h1>
+            <p>Tell us how your rental experience went. Your feedback helps us improve RentFlow.</p>
+        </header>
+
+        <div class="feedback-layout">
+            <!-- Left: Form -->
+            <section class="feedback-form-section">
+                <div class="glass-card form-card">
+                    <form id="feedbackForm" novalidate>
+                        
+                        <div class="form-group">
+                            <label for="fbName">Name <span class="required">*</span></label>
+                            <input type="text" id="fbName" class="form-control" placeholder="Your name" autocomplete="name">
+                            <span class="field-error" id="errName"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fbEmail">Email <span class="required">*</span></label>
+                            <input type="email" id="fbEmail" class="form-control" placeholder="Your email" autocomplete="email">
+                            <span class="field-error" id="errEmail"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fbType">Feedback Type <span class="required">*</span></label>
+                            <select id="fbType" class="form-control">
+                                <option value="" disabled selected>Select a type...</option>
+                                <option value="General Feedback">General Feedback</option>
+                                <option value="Booking Experience">Booking Experience</option>
+                                <option value="Listing Experience">Listing Experience</option>
+                                <option value="Website Experience">Website Experience</option>
+                                <option value="Bug Report">Bug Report</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <span class="field-error" id="errType"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Rating <span class="required">*</span></label>
+                            <p class="rating-subtitle">How was your experience?</p>
+                            <div class="star-rating" id="starRating">
+                                <span class="star" data-value="1">☆</span>
+                                <span class="star" data-value="2">☆</span>
+                                <span class="star" data-value="3">☆</span>
+                                <span class="star" data-value="4">☆</span>
+                                <span class="star" data-value="5">☆</span>
+                            </div>
+                            <span class="field-error" id="errRating"></span>
+                            <input type="hidden" id="fbRating" value="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fbMessage">Feedback Message <span class="required">*</span></label>
+                            <textarea id="fbMessage" class="form-control" rows="5" placeholder="Tell us what you liked or what we could improve..."></textarea>
+                            <span class="field-error" id="errMessage"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fbBookingId">Booking ID <span class="optional">(Optional)</span></label>
+                            <input type="text" id="fbBookingId" class="form-control" placeholder="e.g. BK-1021">
+                        </div>
+
+                        <button type="submit" class="btn-submit">Submit Feedback</button>
+
+                    </form>
+                </div>
+            </section>
+
+            <!-- Right: Recent Feedback -->
+            <section class="recent-feedback-section">
+                <h2 class="section-title">Recent Feedback</h2>
+                <div class="glass-card feedback-list-card">
+                    <div id="feedbackListContainer" class="feedback-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- ===================== TOAST ===================== -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Shared Storage & Data Helpers -->
+    <script src="../js/storage.js"></script>
+    <!-- Feedback JS -->
+    <script src="../js/feedback.js"></script>
+
+                            <footer class="site-footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <div class="logo">Rent<span>Flow</span></div>
+                    <p>Smart dynamic rental platform.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-col">
+                        <p class="footer-col-title">Platform</p>
+                        <a href="index.html">Home</a>
+                        <a href="booking.html">Explore Rentals</a>
+                        <a href="create_listings.html">Post Listing</a>
+                        <a href="premium.html">Pricing</a>
+                    </div>
+                    <div class="footer-col">
+                        <p class="footer-col-title">User</p>
+                        <a href="profile.html">Profile</a>
+                        <a href="booking-history.html">My Rentals</a>
+                                                                    </div>
+                    <div class="footer-col">
+                        <p class="footer-col-title">Company</p>
+                        <a href="about.html">About Us</a>
+                        <a href="contact.html">Contact & FAQ</a>
+                        <a href="feedback.html">Feedback</a>
+                    <a href="policy.html">Privacy Policy</a>
+                        </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>©2026 RentFlow. All rights reserved.</p>
+                <p class="footer-tech">Built by Team RentFlow· Secured by Razorpay</p>
+            </div>
+        </footer>
+    <script src="../js/navbar-scroll.js"></script>
+</body>
+</html>
+

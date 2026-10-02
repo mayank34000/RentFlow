@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (localStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="RentFlow Seller Dashboard — List your items for rent, track pricing breakdown, manage active listings, and auto-sync with platform bookings." />
+    <title>Create & Manage Listings — RentFlow</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    
+    <link rel="stylesheet" href="../css/index.css" />
+    <link rel="stylesheet" href="../css/create_listings.css" />
+</head>
+<body>
+    <script src="../js/theme.js"></script>
+
+    <video class="bg-video" autoplay muted loop playsinline>
+        <source src="../assets/video.mp4" type="video/mp4">
+    </video>
+    <div class="overlay"></div>
+
+    <div class="page-wrapper">
+
+        <header class="site-header" id="site-header">
+            <a href="index.html" class="logo">Rent<span>Flow</span></a>
+            <nav class="nav-links" id="main-nav">
+                <a href="index.html">Home</a>
+                <a href="booking.html">Explore Rentals</a>
+                <a href="booking-history.html">My Rentals</a>
+                <a href="create_listings.html" class="active" style="color: var(--accent-blue-bright); font-weight: 700;">Post Listing</a>
+                <a href="about.html">About</a>
+                <a href="contact.html">Contact & FAQ</a>
+            </nav>
+            
+            <!-- DYNAMIC AUTH / PROFILE SECTION -->
+            <div class="nav-cta" id="auth-buttons">
+                <a href="login.html" class="btn-ghost" id="nav-login">Log In</a>
+                <a href="signup.html" class="btn-nav-primary" id="nav-signup">Get Started</a>
+            </div>
+
+            <div class="nav-cta" id="user-profile" style="display: none; align-items: center; gap: 15px;">
+                <a href="profile.html" style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-decoration: none;">
+                    <div style="width: 32px; height: 32px; background: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);">
+                        <img id="nav-profile-img" src="../assets/profile.png" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <span id="profile-name" style="font-weight: 600; color: #fff;"></span>
+                </a>
+                <button id="logout-btn" class="btn-ghost" style="padding: 8px 16px; border: 1px solid rgba(255,255,255,0.2);">Logout</button>
+            </div>
+            <!-- END DYNAMIC SECTION -->
+
+            <button class="hamburger" id="hamburger" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+        </header>
+
+        <main class="create-listing-container">
+
+            <div class="page-header-block">
+                <h1 class="page-title">Add a New Listing</h1>
+                <p class="page-subtitle">
+                    Fill out the details below to list your item for rent.
+                </p>
+            </div>
+
+            <div class="two-panel-grid">
+
+                <div class="glass-panel">
+                    <div class="panel-heading">
+                        <span>Listing Details</span>
+                    </div>
+
+                    <div class="duplicate-warning-banner" id="duplicate-warning" style="display: none;">
+                        <div>
+                            <strong>Note:</strong> A listing with a similar title already exists in your account.
+                        </div>
+                    </div>
+
+                    <form id="listing-form" class="listing-form">
+
+                        <div class="form-section-title">Product Details</div>
+
+                        <div class="form-group">
+                            <label for="item-title">Title *</label>
+                            <input type="text" id="item-title" class="form-input" placeholder="e.g. Sony Alpha A7 III Camera" required />
+                        </div>
+
+                        <div class="form-group-row">
+                            <div class="form-group">
+                                <label for="item-category">Category *</label>
+                                <select id="item-category" class="form-select" required>
+                                    <option value="Electronics">Electronics</option>
+                                    <option value="Vehicles">Vehicles</option>
+                                    <option value="Fashion">Fashion</option>
+                                    <option value="Tools">Tools</option>
+                                    <option value="Real Estate">Property</option>
+                                    <option value="Sports">Sports</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="item-period">Rent Cycle *</label>
+                                <select id="item-period" class="form-select" required>
+                                    <option value="day">Per Day</option>
+                                    <option value="week">Per Week</option>
+                                    <option value="month">Per Month</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="item-desc">Description</label>
+                            <textarea id="item-desc" class="form-textarea" placeholder="Describe the item condition, what's included, rental rules, etc."></textarea>
+                        </div>
+
+                        <div class="form-section-title">Photos (Max 4)</div>
+                        <div class="dropzone-container" id="dropzone">
+                            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Click to Browse or Drag &amp; Drop Photos</div>
+                            <div class="dropzone-hint">First photo will be shown as the main listing cover.</div>
+                            <input type="file" id="image-input" accept="image/*" multiple max="4" style="display: none;" />
+                        </div>
+                        <div class="image-preview-grid" id="image-preview-grid"></div>
+
+                        <div class="form-section-title">Contact Information</div>
+
+                        <div class="form-group-row">
+                            <div class="form-group">
+                                <label for="seller-name">Your Name *</label>
+                                <input type="text" id="seller-name" class="form-input" placeholder="e.g. Rahul Sharma" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="seller-phone">Phone Number *</label>
+                                <input type="tel" id="seller-phone" class="form-input" placeholder="e.g. 9876543210" required />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="seller-city">City / Location *</label>
+                            <div class="city-location-wrapper">
+                                <svg class="city-location-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                <input type="text" id="seller-city" class="form-input city-location-input" placeholder="e.g. Mumbai" required />
+                                <button type="button" id="city-auto-locate-btn" class="city-locate-btn" title="Use your current location">
+                                    📍 Current Location
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Pricing &amp; Payout Summary</div>
+
+                        <div class="form-group">
+                            <label for="item-price">Rental Rate (₹) *</label>
+                            <input type="number" id="item-price" class="form-input" placeholder="1500" min="50" step="10" value="1500" required />
+                        </div>
+
+                        <div class="pricing-breakdown-card">
+                            <div class="price-row">
+                                <span>Renter Display Rate:</span>
+                                <strong id="calc-user-price">₹1,500</strong>
+                            </div>
+                            <div class="price-row">
+                                <span>Platform Service Fee (2%):</span>
+                                <span id="calc-commission" style="color: var(--text-secondary);">- ₹30</span>
+                            </div>
+                            <div class="price-row">
+                                <span>Refundable Deposit:</span>
+                                <strong id="calc-security">₹150</strong>
+                            </div>
+                            <div class="price-row total-payout">
+                                <span>Your Net Payout:</span>
+                                <strong id="calc-net" style="color: #60a5fa; font-size: 16px;">₹1,470</strong>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 8px;">
+                            <input type="checkbox" id="auto-renew" style="width: 16px; height: 16px; accent-color: var(--accent-blue);" checked />
+                            <label for="auto-renew" style="cursor: pointer; font-size: 14px; color: var(--text-secondary);">Keep listing active automatically after 30 days</label>
+                        </div>
+
+                        <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; margin-top: 14px; font-size: 15px; justify-content: center;">
+                            Publish Listing
+                        </button>
+                    </form>
+                </div>
+
+                <div class="sticky-preview-wrapper">
+                    <div class="glass-panel" style="padding: 24px;">
+                        <div class="panel-heading" style="margin-bottom: 16px;">
+                            <span>Live Preview</span>
+                        </div>
+
+                        <div class="preview-card">
+                            <div class="preview-image-container">
+                                <img id="prev-img" src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=600&q=80" alt="Product Preview" />
+                                <span class="preview-category-chip" id="prev-category">Electronics</span>
+                            </div>
+                            <div class="preview-body">
+                                <h3 class="preview-title" id="prev-title">Sony Alpha A7 III Camera</h3>
+                                <p class="preview-desc" id="prev-desc">Description of your item will appear here.</p>
+                                
+                                <div class="preview-seller-info">
+                                    <div class="preview-avatar" id="prev-avatar">R</div>
+                                    <div class="preview-seller-details">
+                                        <span class="preview-seller-name" id="prev-seller-name">Rahul Sharma</span>
+                                        <span class="preview-seller-sub" id="prev-seller-city">Mumbai</span>
+                                    </div>
+                                </div>
+
+                                <div class="preview-pricing-line">
+                                    <div>
+                                        <span class="preview-price-display" id="prev-price">₹1,500</span>
+                                        <span class="preview-price-period">/<span id="prev-period">day</span></span>
+                                    </div>
+                                    <div class="preview-security-note" id="prev-security">Deposit: ₹150</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <section class="dashboard-section" style="margin-top: 40px;" id="pending-requests-section">
+                <div class="dashboard-header">
+                    <div>
+                        <h2 class="dashboard-title">Pending Requests</h2>
+                        <p style="font-size: 14px; color: var(--text-secondary);">Manage incoming booking requests for your items.</p>
+                    </div>
+                    <div style="font-size: 14px; color: var(--text-primary); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);">
+                        Pending: <span id="pending-requests-count">0</span>
+                    </div>
+                </div>
+                <div class="listings-grid" id="pending-requests-grid">
+                    <!-- Dynamically populated via JS -->
+                </div>
+            </section>
+
+            <section class="dashboard-section" id="settlements-section">
+                <div class="dashboard-header">
+                    <div>
+                        <h2 class="dashboard-title">Completed Rentals (Settlements)</h2>
+                        <p style="font-size: 14px; color: var(--text-secondary);">Confirm item returns and settle wallet payouts.</p>
+                    </div>
+                    <div style="font-size: 14px; color: var(--text-primary); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);">
+                        To Settle: <span id="completed-settlements-count">0</span>
+                    </div>
+                </div>
+                <div class="listings-grid" id="completed-settlements-grid">
+                    <!-- Dynamically populated via JS -->
+                </div>
+            </section>
+
+            <section class="dashboard-section">
+                <div class="dashboard-header">
+                    <div>
+                        <h2 class="dashboard-title">My Listings</h2>
+                        <p style="font-size: 14px; color: var(--text-secondary);">Manage your currently listed items.</p>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" id="api-sync-btn" class="btn-primary" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; background: linear-gradient(135deg, var(--accent-blue-bright), #1d4ed8); border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #fff;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                            <span>Sync 200+ API Products</span>
+                        </button>
+                        <div style="font-size: 14px; color: var(--text-primary); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);">
+                            Total Listings: <span id="total-listings-count">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="listings-grid" id="my-listings-grid">
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="success-modal">
+        <div class="success-modal-card">
+            <div class="success-icon-wrap">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Listing Published!</h2>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5;">
+                Your item has been successfully added to RentFlow and is now available for browsing.
+            </p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button type="button" class="btn-primary" onclick="closeSuccessModal()" style="padding: 10px 24px; font-size: 14px;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/index.js"></script>
+    <script src="../js/create_listings.js"></script>
+                        <footer class="site-footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <div class="logo">Rent<span>Flow</span></div>
+                    <p>Smart dynamic rental platform.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-col">
+                        <p class="footer-col-title">Platform</p>
+                        <a href="index.html">Home</a>
+                        <a href="booking.html">Explore Rentals</a>
+                        <a href="create_listings.html">Post Listing</a>
+                        <a href="premium.html">Pricing</a>
+                    </div>
+                    <div class="footer-col">
+                        <p class="footer-col-title">User</p>
+                        <a href="profile.html">Profile</a>
+                        <a href="booking-history.html">My Rentals</a>
+                                                                    </div>
+                    <div class="footer-col">
+                        <p class="footer-col-title">Company</p>
+                        <a href="about.html">About Us</a>
+                        <a href="contact.html">Contact & FAQ</a>
+                        <a href="feedback.html">Feedback</a>
+                    <a href="policy.html">Privacy Policy</a>
+                        </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>©2026 RentFlow. All rights reserved.</p>
+                <p class="footer-tech">Built by Team RentFlow· Secured by Razorpay</p>
+            </div>
+        </footer>
+    <script src="../js/navbar-scroll.js"></script>
+</body>
+</html>
+

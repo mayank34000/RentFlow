@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (localStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RentFlow | Analytics</title>
+    <meta name="description" content="RentFlow platform analytics for performance and user interactions.">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Dashboard Styles -->
+    <link rel="stylesheet" href="../css/admin-dashboard.css">
+    <link rel="stylesheet" href="../css/analytics.css">
+</head>
+<body>
+    <script src="../js/theme.js"></script>
+
+    <!-- Background Video -->
+    <video class="bg-video" autoplay muted loop playsinline>
+        <source src="../assets/video.mp4" type="video/mp4">
+    </video>
+    <div class="overlay"></div>
+
+    <!-- ===================== NAVBAR ===================== -->
+    <nav class="navbar" id="navbar">
+        <a href="admin-dashboard.html" class="navbar-brand" aria-label="RentFlow Admin Dashboard">
+            <span class="brand-rent">Rent</span><span class="brand-flow">Flow</span>
+        </a>
+
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+
+        <ul class="navbar-links" id="navLinks">
+            <li><a href="admin-dashboard.html">Dashboard</a></li>
+            <li><a href="analytics.html" class="active">Analytics</a></li>
+            <li><a href="feedback.html">Feedback</a></li>
+            <li><a href="profile.html">Profile</a></li>
+            <li><a href="login.html" class="logout-link">Logout</a></li>
+        </ul>
+    </nav>
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <main class="dashboard">
+
+        <!-- Page Header -->
+        <header class="page-header">
+            <h1>Analytics</h1>
+            <p>Monitor platform performance and understand how users are interacting with RentFlow.</p>
+        </header>
+
+        <!-- ============ KPI OVERVIEW ============ -->
+        <section class="kpi-grid" id="kpiOverview" aria-label="Key performance indicators">
+            <article class="glass-card kpi-card">
+                <div class="kpi-icon">👥</div>
+                <div class="kpi-value" id="statUsers">-</div>
+                <div class="kpi-label">Total Users</div>
+            </article>
+
+            <article class="glass-card kpi-card">
+                <div class="kpi-icon">📋</div>
+                <div class="kpi-value" id="statListings">-</div>
+                <div class="kpi-label">Total Listings</div>
+            </article>
+
+            <article class="glass-card kpi-card">
+                <div class="kpi-icon">✅</div>
+                <div class="kpi-value" id="statActiveListings">-</div>
+                <div class="kpi-label">Active Listings</div>
+            </article>
+
+            <article class="glass-card kpi-card" style="border: 1px solid rgba(239,68,68,0.25); background: rgba(239,68,68,0.04);">
+                <div class="kpi-icon" style="color:#f87171; background: rgba(239,68,68,0.1);">🚫</div>
+                <div class="kpi-value" id="statBlockedListings" style="color:#f87171;">-</div>
+                <div class="kpi-label">Blocked Listings</div>
+            </article>
+
+            <article class="glass-card kpi-card">
+                <div class="kpi-icon">📦</div>
+                <div class="kpi-value" id="statBookings">-</div>
+                <div class="kpi-label">Total Bookings</div>
+            </article>
+
+            <article class="glass-card kpi-card">
+                <div class="kpi-icon">💰</div>
+                <div class="kpi-value" id="statRevenue">-</div>
+                <div class="kpi-label">Total Revenue</div>
+            </article>
+
+            <article class="glass-card kpi-card" style="border: 1px solid rgba(251,191,36,0.3); background: rgba(251,191,36,0.05);">
+                <div class="kpi-icon" style="color:#fbbf24; background: rgba(251,191,36,0.12);">📈</div>
+                <div class="kpi-value" id="statPlatformFee" style="color:#fbbf24;">-</div>
+                <div class="kpi-label" style="color:rgba(255,255,255,0.8);">Platform Fee Revenue</div>
+            </article>
+
+            <article class="glass-card kpi-card">
+                <div class="kpi-icon">⭐</div>
+                <div class="kpi-value" id="statPremium">-</div>
+                <div class="kpi-label">Premium Users</div>
+            </article>
+        </section>
+
+        <!-- ============ ANALYTICS GRID ============ -->
+        <div class="analytics-grid">
+            
+            <!-- Booking Analytics -->
+            <section class="glass-card analytics-card" aria-label="Booking Analytics">
+                <div class="card-header">
+                    <h2 class="section-title">Booking Trends</h2>
+                    <p class="section-subtitle">Booking activity over time</p>
+                </div>
+                <div class="card-body" id="bookingAnalyticsBody">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Revenue Analytics -->
+            <section class="glass-card analytics-card" aria-label="Revenue Analytics">
+                <div class="card-header">
+                    <h2 class="section-title">Revenue Overview</h2>
+                    <p class="section-subtitle">Financial performance</p>
+                </div>
+                <div class="card-body" id="revenueAnalyticsBody">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Listing Performance -->
+            <section class="glass-card analytics-card full-width" aria-label="Listing Performance">
+                <div class="card-header">
+                    <h2 class="section-title">Top Performing Listings</h2>
+                    <p class="section-subtitle">Based on completed bookings and revenue</p>
+                </div>
+                <div class="table-responsive">
+                    <table class="platform-table" id="listingPerformanceTable">
+                        <thead>
+                            <tr>
+                                <th>Listing Name</th>
+                                <th>Category</th>
+                                <th>Total Bookings</th>
+                                <th>Revenue Generated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listingPerformanceBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Category Distribution -->
+            <section class="glass-card analytics-card" aria-label="Category Distribution">
+                <div class="card-header">
+                    <h2 class="section-title">Category Distribution</h2>
+                    <p class="section-subtitle">Listings by category</p>
+                </div>
+                <div class="card-body" id="categoryAnalyticsBody">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- User Overview -->
+            <section class="glass-card analytics-card" aria-label="User Overview">
+                <div class="card-header">
+                    <h2 class="section-title">User Overview</h2>
+                    <p class="section-subtitle">Platform user breakdown</p>
+                </div>
+                <div class="card-body" id="userAnalyticsBody">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Feedback Analytics -->
+            <section class="glass-card analytics-card full-width" aria-label="Feedback Analytics">
+                <div class="card-header">
+                    <h2 class="section-title">Feedback Overview</h2>
+                    <p class="section-subtitle">User satisfaction and ratings</p>
+                </div>
+                <div class="card-body" id="feedbackAnalyticsBody">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ============ LISTING MANAGEMENT ============ -->
+        <section class="analytics-mgmt-section" aria-label="Listing Management">
+            <h2 class="section-title">Listing Management</h2>
+            <p class="section-subtitle" style="margin-bottom: 20px;">Edit or block individual listings from here. Blocked listings are hidden from Browse Rentals.</p>
+
+            <div class="glass-card table-card">
+                <div class="listing-management-container table-responsive">
+                    <table class="platform-table">
+                        <thead>
+                            <tr>
+                                <th>Listing</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Seller</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analyticsListingMgmtBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ BLOCKED LISTINGS ============ -->
+        <section class="analytics-mgmt-section" aria-label="Blocked Listings">
+            <h2 class="section-title">Blocked Listings</h2>
+            <p class="section-subtitle" style="margin-bottom: 20px;">These listings are not visible to renters and cannot be booked.</p>
+
+            <div id="blockedListingsContainer">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- ============ PREMIUM USERS ============ -->
+        <section class="analytics-mgmt-section" aria-label="Premium Users">
+            <h2 class="section-title">Premium Users</h2>
+            <p class="section-subtitle" style="margin-bottom: 20px;">Users with an active premium subscription.</p>
+
+            <div class="glass-card table-card">
+                <div class="table-responsive">
+                    <table class="platform-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Expiry Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analyticsPremiumBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===================== MODALS ===================== -->
+
+    <!-- Block Listing Confirmation -->
+    <div class="modal-overlay" id="blockListingModal">
+        <div class="modal-content glass-card">
+            <h3>Block this listing?</h3>
+            <p>Blocked listings will no longer be visible to renters and cannot be booked. The listing record will be retained.</p>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="cancelBlockBtn">Cancel</button>
+                <button class="btn-danger" id="confirmBlockBtn">Block Listing</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unblock Listing Confirmation -->
+    <div class="modal-overlay" id="unblockListingModal">
+        <div class="modal-content glass-card">
+            <h3>Unblock this listing?</h3>
+            <p>Users will be able to browse and book this listing again.</p>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="cancelUnblockBtn">Cancel</button>
+                <button class="btn-danger" id="confirmUnblockBtn" style="background: var(--accent-blue-bright);">Unblock Listing</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Premium User Details -->
+    <div class="modal-overlay" id="premiumDetailModal">
+        <div class="modal-content glass-card" style="max-width: 480px;">
+            <h3>Premium User Details</h3>
+            <div id="premiumDetailContent" style="margin: 16px 0;">
+                <!-- Populated by JS -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="closePremiumDetailBtn" style="width: 100%;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Listing Details -->
+    <div class="modal-overlay" id="listingDetailModal">
+        <div class="modal-content glass-card" style="max-width: 500px;">
+            <h3>Listing Details</h3>
+            <div id="listingDetailContent" style="margin: 16px 0;">
+                <!-- Populated by JS -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="closeListingDetailBtn" style="width: 100%;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== TOAST ===================== -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Shared Storage & Data Helpers -->
+    <script src="../js/storage.js"></script>
+    <!-- Analytics JS -->
+    <script src="../js/analytics.js"></script>
+    <script src="../js/navbar-scroll.js"></script>
+
+</body>
+</html>

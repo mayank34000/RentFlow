@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RentFlow Premium</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../css/premium.css">
+</head>
+<body>
+    <script src="../js/theme.js"></script>
+
+    <div class="premium-container">
+        <div class="premium-header">
+            <h1>Rent<span>Flow</span> Premium</h1>
+            <p>Unlock the full potential of your rental experience with direct access to owners, verified badges, and priority booking benefits.</p>
+        </div>
+
+        <div class="pricing-card">
+            <div class="plan-badge">PREMIUM PASS</div>
+            <h2>Monthly Subscription</h2>
+            <div class="price">₹300<span>/month</span></div>
+            <ul class="benefits">
+                <li>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Direct Owner Connect (Reveal Numbers)
+                </li>
+                <li>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Direct Booking Requests
+                </li>
+                <li>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Verified Premium Badge on Profile
+                </li>
+                <li>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Priority 24/7 Support
+                </li>
+            </ul>
+            <button class="btn-upgrade" id="upgrade-btn">Subscribe with Razorpay</button>
+            <div style="margin-top: 20px; text-align: center;">
+                <a href="index.html" class="back-link">← Back to Home</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Official Razorpay SDK -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="../js/premium.js"></script>
+                        
+    <script src="../js/navbar-scroll.js"></script>
+</body>
+</html>

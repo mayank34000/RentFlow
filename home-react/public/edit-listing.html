@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (localStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RentFlow | Edit Listing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/admin-dashboard.css">
+    <style>
+        .edit-page-wrap {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+        }
+
+        .edit-back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            margin-bottom: 28px;
+            transition: color 0.2s;
+        }
+
+        .edit-back-link:hover { color: var(--text-primary); }
+
+        .edit-header {
+            margin-bottom: 32px;
+        }
+
+        .edit-header h1 {
+            font-family: var(--font-display);
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .edit-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .edit-meta-item {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .edit-form-card {
+            padding: 32px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 15px;
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-blue-bright);
+        }
+
+        .form-control[readonly] {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 32px;
+            padding-top: 28px;
+            border-top: 1px solid var(--border);
+        }
+
+        .btn-save {
+            flex: 1;
+            padding: 14px 20px;
+            background: var(--accent-blue-bright);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: var(--font-body);
+            transition: opacity 0.2s;
+        }
+
+        .btn-save:hover { opacity: 0.9; }
+
+        .btn-cancel-edit {
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: var(--font-body);
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .btn-cancel-edit:hover { background: rgba(255,255,255,0.08); }
+
+        .status-info-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 28px;
+            font-size: 14px;
+        }
+
+        .status-info-box .label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .status-notice-blocked {
+            padding: 12px 16px;
+            background: rgba(239, 68, 68, 0.06);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 10px;
+            font-size: 13px;
+            color: #f87171;
+            margin-bottom: 24px;
+        }
+
+        #edit-status-message {
+            margin-top: 16px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+        }
+
+        #edit-status-message.success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #34d399;
+        }
+
+        #edit-status-message.error {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+            .edit-form-card { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <script src="../js/theme.js"></script>
+
+    <video class="bg-video" autoplay muted loop playsinline>
+        <source src="../assets/video.mp4" type="video/mp4">
+    </video>
+    <div class="overlay"></div>
+
+    <nav class="navbar" id="navbar">
+        <a href="admin-dashboard.html" class="navbar-brand" aria-label="RentFlow Admin">
+            <span class="brand-rent">Rent</span><span class="brand-flow">Flow</span>
+        </a>
+        <ul class="navbar-links" id="navLinks">
+            <li><a href="admin-dashboard.html">Dashboard</a></li>
+            <li><a href="analytics.html">Analytics</a></li>
+            <li><a href="feedback.html">Feedback</a></li>
+            <li><a href="profile.html">Profile</a></li>
+            <li><a href="login.html" class="logout-link">Logout</a></li>
+        </ul>
+    </nav>
+
+    <main class="dashboard">
+        <div class="edit-page-wrap">
+            <a href="javascript:history.back()" class="edit-back-link">← Back</a>
+
+            <div class="edit-header">
+                <h1>Edit Listing</h1>
+                <div class="edit-meta">
+                    <span class="edit-meta-item">ID: <strong id="edit-listing-id">—</strong></span>
+                    <span class="edit-meta-item">Seller: <strong id="edit-seller-name">—</strong></span>
+                </div>
+            </div>
+
+            <div class="status-info-box">
+                <span class="label">Current Status:</span>
+                <span id="edit-current-status-badge" class="badge badge-normal">—</span>
+            </div>
+
+            <div id="edit-blocked-notice" class="status-notice-blocked" style="display:none;">
+                This listing is currently <strong>Blocked</strong>. Saving edits will not change its blocked status.
+            </div>
+
+            <div class="glass-card edit-form-card">
+                <form id="edit-form" novalidate>
+                    <div class="form-group">
+                        <label for="edit-title">Title *</label>
+                        <input type="text" id="edit-title" class="form-control" placeholder="Listing title" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-category">Category</label>
+                            <select id="edit-category" class="form-control">
+                                <option value="">Select category</option>
+                                <option value="Camera Gear">Camera Gear</option>
+                                <option value="Vehicle">Vehicle</option>
+                                <option value="Venue">Venue</option>
+                                <option value="Outdoor">Outdoor</option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Tools">Tools</option>
+                                <option value="Furniture">Furniture</option>
+                                <option value="Sports">Sports</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit-city">Location (City)</label>
+                            <input type="text" id="edit-city" class="form-control" placeholder="City">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-price">Price (₹) *</label>
+                            <input type="number" id="edit-price" class="form-control" placeholder="0" min="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit-period">Per</label>
+                            <select id="edit-period" class="form-control">
+                                <option value="day">Day</option>
+                                <option value="hour">Hour</option>
+                                <option value="week">Week</option>
+                                <option value="month">Month</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-description">Description</label>
+                        <textarea id="edit-description" class="form-control" rows="4" placeholder="Describe the listing..."></textarea>
+                    </div>
+
+                    <div id="edit-status-message"></div>
+
+                    <div class="form-actions">
+                        <a href="javascript:history.back()" class="btn-cancel-edit">Cancel</a>
+                        <button type="submit" class="btn-save" id="save-btn">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/storage.js"></script>
+    <script src="../js/edit-listing.js"></script>
+    <script src="../js/navbar-scroll.js"></script>
+</body>
+</html>
