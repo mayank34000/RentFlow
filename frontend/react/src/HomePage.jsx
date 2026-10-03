@@ -302,6 +302,8 @@ function useScrollDirection() {
 function RentFlowIntroVideo() {
   const [stage, setStage] = useState('playing'); // 'playing' | 'fading' | 'hidden'
   const [progress, setProgress] = useState(0);
+  const [timeStr, setTimeStr] = useState('0:00 / 0:06');
+  const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef(null);
 
   const finishIntro = () => {
@@ -316,11 +318,26 @@ function RentFlowIntroVideo() {
 
   const handleTimeUpdate = () => {
     if (videoRef.current && videoRef.current.duration) {
-      const p = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+      const cur = videoRef.current.currentTime;
+      const dur = videoRef.current.duration;
+      const p = (cur / dur) * 100;
       setProgress(p);
-      if (videoRef.current.currentTime >= videoRef.current.duration - 0.15) {
+
+      const curSec = Math.min(6, Math.floor(cur));
+      const durSec = Math.max(6, Math.floor(dur) || 6);
+      setTimeStr(`0:0${curSec} / 0:0${durSec}`);
+
+      if (cur >= dur - 0.15) {
         finishIntro();
       }
+    }
+  };
+
+  const toggleSound = (e) => {
+    e.stopPropagation();
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
     }
   };
 
@@ -345,7 +362,7 @@ function RentFlowIntroVideo() {
           ref={videoRef}
           className="home-intro-video"
           autoPlay
-          muted
+          muted={isMuted}
           playsInline
           onTimeUpdate={handleTimeUpdate}
           onEnded={finishIntro}
@@ -357,25 +374,72 @@ function RentFlowIntroVideo() {
         <div className="home-intro-wm-guard" />
       </div>
 
+      {/* Top Left: Futuristic Brand Tag */}
       <div className="home-intro-top-tag">
         <span className="home-intro-dot" />
-        <span>RENTFLOW</span>
+        <span className="home-intro-brand-txt">RENTFLOW</span>
+        <span className="home-intro-badge-pill">CINEMATIC</span>
       </div>
 
+      {/* Top Right: Skip Intro Button with animated vibrant gradient and shimmer */}
       <button className="home-intro-skip-btn" onClick={finishIntro} aria-label="Skip Intro">
-        Skip Intro
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="5 4 15 12 5 4" />
-          <line x1="19" y1="5" x2="19" y2="19" />
-        </svg>
+        <span className="home-intro-skip-glow-ring" />
+        <span className="home-intro-skip-shimmer" />
+        <span className="home-intro-skip-label">Skip Intro</span>
+        <span className="home-intro-skip-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5 4 15 12 5 4" fill="currentColor" fillOpacity="0.4" />
+            <line x1="19" y1="5" x2="19" y2="19" />
+          </svg>
+        </span>
       </button>
 
-      <div className="home-intro-progress-wrap">
-        <div
-          className="home-intro-progress-bar"
-          style={{ width: `${Math.min(100, Math.max(progress, 0))}%` }}
-        />
+      {/* Center Floating Futuristic Laser HUD Progress Bar */}
+      <div className="home-intro-hud-container">
+        <div className="home-intro-hud-meta">
+          <div className="home-intro-hud-left">
+            <span className="home-intro-hud-sparkle">✦</span>
+            <span className="home-intro-hud-title">EXPERIENCE RENTFLOW</span>
+          </div>
+          <div className="home-intro-hud-right">
+            <span className="home-intro-hud-time">{timeStr}</span>
+          </div>
+        </div>
+
+        <div className="home-intro-laser-track">
+          <div
+            className="home-intro-laser-beam"
+            style={{ width: `${Math.min(100, Math.max(progress, 0))}%` }}
+          >
+            <span className="home-intro-laser-spark" />
+          </div>
+        </div>
       </div>
+
+      {/* Bottom Right: Audio / 4K Shield Badge masking corner watermark */}
+      <button
+        className="home-intro-audio-btn"
+        onClick={toggleSound}
+        aria-label={isMuted ? 'Unmute intro video' : 'Mute intro video'}
+        title={isMuted ? 'Click to enable audio' : 'Audio enabled'}
+      >
+        <span className="home-intro-audio-icon">
+          {isMuted ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <line x1="23" y1="9" x2="17" y2="15" />
+              <line x1="17" y1="9" x2="23" y2="15" />
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+            </svg>
+          )}
+        </span>
+        <span className="home-intro-audio-label">{isMuted ? 'Sound Off' : 'Sound On'}</span>
+        <span className="home-intro-audio-badge">4K HDR</span>
+      </button>
     </div>
   );
 }
