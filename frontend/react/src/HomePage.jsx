@@ -299,28 +299,82 @@ function useScrollDirection() {
 // 3. SUBCOMPONENTS
 // ============================================================================
 
-function IntroRReveal() {
-  const [stage, setStage] = useState('active');
+function RentFlowIntroVideo() {
+  const [stage, setStage] = useState('playing'); // 'playing' | 'fading' | 'hidden'
+  const [progress, setProgress] = useState(0);
+  const videoRef = useRef(null);
+
+  const finishIntro = () => {
+    setStage(prev => {
+      if (prev === 'hidden') return prev;
+      setTimeout(() => {
+        setStage('hidden');
+      }, 850);
+      return 'fading';
+    });
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration) {
+      const p = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+      setProgress(p);
+      if (videoRef.current.currentTime >= videoRef.current.duration - 0.15) {
+        finishIntro();
+      }
+    }
+  };
 
   useEffect(() => {
-    const t1 = setTimeout(() => setStage('zooming'), 150);
-    const t2 = setTimeout(() => setStage('hidden'), 1600);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+    // Safety fallback: ensure home page appears even if autoplay is blocked
+    const safetyTimer = setTimeout(() => {
+      finishIntro();
+    }, 7500);
+
+    return () => clearTimeout(safetyTimer);
   }, []);
 
   if (stage === 'hidden') return null;
 
   return (
-    <div className={`home-intro-overlay ${stage}`}>
-      <div className="home-intro-content">
-        <div className="home-intro-r-glow" />
-        <div className="home-intro-r-badge">
-          <span>R</span>
-        </div>
-        <div className="home-intro-brand">RENTFLOW</div>
+    <div className={`home-intro-overlay ${stage === 'fading' ? 'fading' : ''}`}>
+      <div className="home-intro-video-wrapper">
+        <video
+          ref={videoRef}
+          className="home-intro-video"
+          autoPlay
+          muted
+          playsInline
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={finishIntro}
+        >
+          <source src="/assets/rentflow_intro.mp4" type="video/mp4" />
+          <source src="./assets/rentflow_intro.mp4" type="video/mp4" />
+        </video>
+        <div className="home-intro-cinematic-vignette" />
+        <div className="home-intro-wm-guard" />
+      </div>
+
+      <div className="home-intro-top-tag">
+        <span className="home-intro-dot" />
+        <span>RENTFLOW</span>
+      </div>
+
+      <button className="home-intro-skip-btn" onClick={finishIntro} aria-label="Skip Intro">
+        Skip Intro
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="5 4 15 12 5 4" />
+          <line x1="19" y1="5" x2="19" y2="19" />
+        </svg>
+      </button>
+
+      <div className="home-intro-progress-wrap">
+        <div
+          className="home-intro-progress-bar"
+          style={{ width: `${Math.min(100, Math.max(progress, 0))}%` }}
+        />
       </div>
     </div>
   );
@@ -1046,7 +1100,7 @@ export default function HomePage() {
 
   return (
     <div className="home-wrapper">
-      <IntroRReveal />
+      <RentFlowIntroVideo />
       <video className="home-bg-video" autoPlay muted loop playsInline>
         <source src="/assets/video.mp4" type="video/mp4" />
         <source src="./assets/video.mp4" type="video/mp4" />
