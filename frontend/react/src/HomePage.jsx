@@ -496,17 +496,17 @@ function HeroCircleFeatureMix() {
   return (
     <div className="home-hero-r-mix-container">
       <div className="home-r-circle-wrap">
-        <svg className="home-r-svg-ring" viewBox="0 0 400 400">
-          <circle cx="200" cy="200" r="180" className="home-r-ring-bg" />
+        <svg className="home-r-svg-ring" viewBox="0 0 580 580">
+          <circle cx="290" cy="290" r="235" className="home-r-ring-bg" />
           <circle
-            cx="200"
-            cy="200"
-            r="180"
+            cx="290"
+            cy="290"
+            r="235"
             className="home-r-ring-active"
             style={{
               stroke: current.accentColor || '#3b82f6',
-              strokeDasharray: '1130',
-              strokeDashoffset: 1130 - (1130 / FEATURES_DATA.length) * (activeFeature + 1),
+              strokeDasharray: '1476',
+              strokeDashoffset: 1476 - (1476 / FEATURES_DATA.length) * (activeFeature + 1),
               filter: `drop-shadow(0 0 16px ${current.accentColor || '#3b82f6'})`,
             }}
           />
@@ -527,7 +527,7 @@ function HeroCircleFeatureMix() {
         <div className={`home-r-nodes-orbit ${converged ? 'converged' : 'scattered'}`}>
           {FEATURES_DATA.map((feat, idx) => {
             const angle = (idx / FEATURES_DATA.length) * 360 - 90;
-            const radius = 230;
+            const radius = 250;
             const scatterRadius = 450;
             const targetX = radius * Math.cos((angle * Math.PI) / 180);
             const targetY = radius * Math.sin((angle * Math.PI) / 180);
@@ -542,7 +542,7 @@ function HeroCircleFeatureMix() {
                 key={feat.id}
                 className={`home-r-node ${isActive ? 'active' : ''}`}
                 style={{
-                  transform: `translate(${posX}px, ${posY}px) scale(${converged ? (isActive ? 1.12 : 1) : 0.4})`,
+                  transform: `translate(calc(${posX}px - 50%), calc(${posY}px - 50%)) scale(${converged ? (isActive ? 1.08 : 1) : 0.4})`,
                   opacity: converged ? 1 : 0,
                   transitionDelay: `${idx * 0.12}s`,
                 }}
