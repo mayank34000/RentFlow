@@ -303,7 +303,6 @@ function RentFlowIntroVideo() {
   const [stage, setStage] = useState('playing'); // 'playing' | 'fading' | 'hidden'
   const [progress, setProgress] = useState(0);
   const [timeStr, setTimeStr] = useState('0:00 / 0:06');
-  const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef(null);
 
   const finishIntro = () => {
@@ -333,14 +332,6 @@ function RentFlowIntroVideo() {
     }
   };
 
-  const toggleSound = (e) => {
-    e.stopPropagation();
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(videoRef.current.muted);
-    }
-  };
-
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.play().catch(() => {});
@@ -362,7 +353,7 @@ function RentFlowIntroVideo() {
           ref={videoRef}
           className="home-intro-video"
           autoPlay
-          muted={isMuted}
+          muted
           playsInline
           onTimeUpdate={handleTimeUpdate}
           onEnded={finishIntro}
@@ -415,31 +406,6 @@ function RentFlowIntroVideo() {
           </div>
         </div>
       </div>
-
-      {/* Bottom Right: Audio / 4K Shield Badge masking corner watermark */}
-      <button
-        className="home-intro-audio-btn"
-        onClick={toggleSound}
-        aria-label={isMuted ? 'Unmute intro video' : 'Mute intro video'}
-        title={isMuted ? 'Click to enable audio' : 'Audio enabled'}
-      >
-        <span className="home-intro-audio-icon">
-          {isMuted ? (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <line x1="23" y1="9" x2="17" y2="15" />
-              <line x1="17" y1="9" x2="23" y2="15" />
-            </svg>
-          ) : (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-            </svg>
-          )}
-        </span>
-        <span className="home-intro-audio-label">{isMuted ? 'Sound Off' : 'Sound On'}</span>
-        <span className="home-intro-audio-badge">4K HDR</span>
-      </button>
     </div>
   );
 }
