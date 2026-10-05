@@ -19,7 +19,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.4.5",
     "multer": "^2.4.0",
-    "nodemailer": "^10.0.12",
+    "nodemailer": "^10.0.15",
     "socket.io": "^4.8.4"
   },
   "devDependencies": {
