@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { apiRequest } from './services/api';
 import "./styles/auth.css";
 
 /* Put your video in /public/videos/ (or change these paths) */
-const HERO_VIDEO = '/videos/signup-hero.mp4';
-const HERO_POSTER = '/videos/signup-hero.jpg'; // optional still frame
+const HERO_VIDEO = './assets/auth.mp4';
+const HERO_POSTER = '';
+
+/* Google's real button renders at a fixed size (400 x 40 with size="large").
+   We keep it invisible, stretch it over our own full-width button, and let it
+   receive the click, so the sign-in flow (and the credential) stays the same. */
+const GOOGLE_BTN_WIDTH = 400;
+const GOOGLE_BTN_HEIGHT = 40;
+const CUSTOM_BTN_HEIGHT = 46;
 
 /* ---------- Small inline icons ---------- */
 const HomeLogo = () => (
@@ -101,6 +108,28 @@ const Signup = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
+
+    /* Measure the row so the invisible Google button can be stretched to fit */
+    const socialRowRef = useRef(null);
+    const [rowWidth, setRowWidth] = useState(GOOGLE_BTN_WIDTH);
+
+    useEffect(() => {
+        const el = socialRowRef.current;
+        if (!el) return undefined;
+
+        const updateWidth = () => {
+            setRowWidth(Math.max(1, Math.floor(el.clientWidth)));
+        };
+
+        updateWidth();
+
+        if (typeof ResizeObserver === 'undefined') return undefined;
+
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(el);
+
+        return () => observer.disconnect();
+    }, []);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -339,40 +368,65 @@ const Signup = () => {
 
                                 {/* SOCIAL BUTTONS */}
                                 <div className="signup-social-row">
-                                    <GoogleLogin
-    onSuccess={async (credentialResponse) => {
-        try {
-            setError('');
-            setLoading(true);
+                                    <div
+                                        className={`google-custom${loading ? ' is-disabled' : ''}`}
+                                        ref={socialRowRef}
+                                        style={{ height: CUSTOM_BTN_HEIGHT }}
+                                    >
+                                        {/* What the user sees */}
+                                        <div className="google-custom-visual" aria-hidden="true">
+                                            <span className="google-custom-icon"><GoogleIcon /></span>
+                                            <span>Sign up with Google</span>
+                                        </div>
 
-            const response = await apiRequest('/api/auth/google', {
-                method: 'POST',
-                body: {
-                    credential: credentialResponse.credential,
-                },
-            });
+                                        {/* The real Google button: invisible, scaled to cover ours */}
+                                        <div
+                                            className="google-custom-hit"
+                                            style={{
+                                                width: GOOGLE_BTN_WIDTH,
+                                                height: GOOGLE_BTN_HEIGHT,
+                                                transform: `scale(${rowWidth / GOOGLE_BTN_WIDTH}, ${CUSTOM_BTN_HEIGHT / GOOGLE_BTN_HEIGHT})`,
+                                            }}
+                                        >
+                                            <GoogleLogin
+                                                text="signup_with"
+                                                size="large"
+                                                width={GOOGLE_BTN_WIDTH}
+                                                onSuccess={async (credentialResponse) => {
+                                                    try {
+                                                        setError('');
+                                                        setLoading(true);
 
-            const { token, user } = response.data;
+                                                        const response = await apiRequest('/api/auth/google', {
+                                                            method: 'POST',
+                                                            body: {
+                                                                credential: credentialResponse.credential,
+                                                            },
+                                                        });
 
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
+                                                        const { token, user } = response.data;
 
-            navigate('/');
-        } catch (err) {
-            console.error('Google signup error:', err);
+                                                        localStorage.setItem('token', token);
+                                                        localStorage.setItem('user', JSON.stringify(user));
 
-            setError(
-                err.message ||
-                'Google signup failed. Please try again.'
-            );
-        } finally {
-            setLoading(false);
-        }
-    }}
-    onError={() => {
-        setError('Google signup failed. Please try again.');
-    }}
-/>
+                                                        navigate('/');
+                                                    } catch (err) {
+                                                        console.error('Google signup error:', err);
+
+                                                        setError(
+                                                            err.message ||
+                                                            'Google signup failed. Please try again.'
+                                                        );
+                                                    } finally {
+                                                        setLoading(false);
+                                                    }
+                                                }}
+                                                onError={() => {
+                                                    setError('Google signup failed. Please try again.');
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
 
                                     {/* <button type="button" className="social-button">
                                         <span className="social-icon"><FacebookIcon /></span>

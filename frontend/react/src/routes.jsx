@@ -15,6 +15,12 @@ const routes = [
   { path: '/login', element: <Login />, owner: 'Dhruv', title: 'Login' },
   { path: '/signup', element: <Signup />, owner: 'Dhruv', title: 'Signup' },
   { path: '/profile', element: <Profile />, owner: 'Dhruv', title: 'Profile' },
+  { path: '/settings', element: <Profile />, owner: 'Dhruv', title: 'Settings' },
+  { path: '/dashboard', element: <Profile />, owner: 'Dhruv', title: 'Dashboard' },
+  { path: '/listings', element: <Profile />, owner: 'Dhruv', title: 'Listings' },
+  { path: '/bookings', element: <Profile />, owner: 'Dhruv', title: 'Bookings' },
+  { path: '/messages', element: <Profile />, owner: 'Dhruv', title: 'Messages' },
+  { path: '/reviews', element: <Profile />, owner: 'Dhruv', title: 'Reviews' },
 
   // ==========================================
   // MAYANK'S ROUTES

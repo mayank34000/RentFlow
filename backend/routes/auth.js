@@ -4,6 +4,8 @@ const {
     signup,
     login,
     getMe,
+    updateProfile,
+    uploadProfileImage,
     googleLogin,
     sendOtp,
     verifyOtp,
@@ -13,7 +15,7 @@ const {
 } = require('../controllers/authController');
 
 const authenticateToken = require('../middleware/authMiddleware');
-
+const { profileUpload } = require('../middleware/upload');
 const router = express.Router();
 
 // POST /api/auth/signup
@@ -30,6 +32,12 @@ router.post('/send-otp', sendOtp);
 
 // GET /api/auth/me
 router.get('/me', authenticateToken, getMe);
+
+// PUT /api/auth/profile
+router.put('/me', authenticateToken, updateProfile);
+
+// POST /api/auth/profile-image
+router.post('/me/profile-image', authenticateToken, profileUpload.single('profileImage'), uploadProfileImage);
 
 // POST /api/auth/verify-otp
 router.post('/verify-otp', verifyOtp);

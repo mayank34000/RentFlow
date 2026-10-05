@@ -41,6 +41,36 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: '',
         },
+
+        dateOfBirth: {
+            type: Date,
+            default: null,
+        },
+
+        country: {
+            type: String,
+            trim: true,
+            default: 'India',
+        },
+
+        state: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+
+        city: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+
+        address: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+            default: '',
+        },
     },
     {
         timestamps: true,

@@ -13,6 +13,9 @@ const googleClient = new OAuth2Client(
     process.env.VITE_GOOGLE_CLIENT_ID
 );
 
+const cloudinary = require('../config/cloudinary');
+const { profileUpload } = require('../middleware/upload');
+
 const signup = async (req, res) => {
     try {
         const { name, email, password, phone } = req.body;
@@ -164,6 +167,71 @@ const getMe = async (req, res) => {
         }
 
         return res.status(200).json({
+    user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        profileImage: user.profileImage,
+        dateOfBirth: user.dateOfBirth,
+        country: user.country,
+        state: user.state,
+        city: user.city,
+        address: user.address,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+    },
+});
+    } catch (error) {
+        console.error('[Auth] Get current user error:', error);
+
+        return res.status(500).json({
+            message: 'Unable to fetch user profile.',
+        });
+    }
+};
+
+const updateProfile = async (req, res) => {
+    try {
+        const {
+    name,
+    phone,
+    profileImage,
+    dateOfBirth,
+    country,
+    state,
+    city,
+    address,
+} = req.body;
+
+        if (!name || name.trim().length < 2) {
+            return res.status(400).json({
+                message: 'Name must be at least 2 characters long.',
+            });
+        }
+
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'User not found.',
+            });
+        }
+
+        user.name = name.trim();
+        user.phone = phone ? phone.trim() : '';
+        if (profileImage !== undefined) {user.profileImage = profileImage;}
+        user.dateOfBirth = dateOfBirth || null;
+        user.country = country ? country.trim() : 'India';
+        user.state = state ? state.trim() : '';
+        user.city = city ? city.trim() : '';
+        user.address = address ? address.trim() : '';
+
+        await user.save();
+
+        return res.status(200).json({
+            message: 'Profile updated successfully.',
             user: {
                 id: user._id,
                 name: user.name,
@@ -171,13 +239,71 @@ const getMe = async (req, res) => {
                 role: user.role,
                 phone: user.phone,
                 profileImage: user.profileImage,
+                dateOfBirth: user.dateOfBirth,
+                country: user.country,
+                state: user.state,
+                city: user.city,
+                address: user.address,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
             },
         });
     } catch (error) {
-        console.error('[Auth] Get current user error:', error);
+        console.error('[Auth] Update profile error:', error);
 
         return res.status(500).json({
-            message: 'Unable to fetch user profile.',
+            message: 'Unable to update profile.',
+        });
+    }
+};
+
+const uploadProfileImage = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                message: 'Please select a profile image.',
+            });
+        }
+
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'User not found.',
+            });
+        }
+
+        const uploadResult = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'rentflow/profile-images',
+                    resource_type: 'image',
+                },
+                (error, result) => {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        resolve(result);
+                    }
+                }
+            );
+
+            stream.end(req.file.buffer);
+        });
+
+        user.profileImage = uploadResult.secure_url;
+
+        await user.save();
+
+        return res.status(200).json({
+            message: 'Profile image uploaded successfully.',
+            profileImage: user.profileImage,
+        });
+    } catch (error) {
+        console.error('[Auth] Profile image upload error:', error);
+
+        return res.status(500).json({
+            message: 'Unable to upload profile image.',
         });
     }
 };
@@ -665,6 +791,8 @@ module.exports = {
     signup,
     login,
     getMe,
+    updateProfile,
+    uploadProfileImage,
     googleLogin,
     sendOtp,
     verifyOtp,

@@ -5,8 +5,8 @@ import { GoogleLogin } from '@react-oauth/google'
 import "./styles/auth.css";
 
 /* Put your video in /public/videos/ (or change these paths) */
-const HERO_VIDEO = '/videos/login-hero.mp4';
-const HERO_POSTER = '/videos/login-hero.jpg'; // optional still frame
+const HERO_VIDEO = './assets/auth.mp4';
+const HERO_POSTER = '';
 
 const OTP_LENGTH = 6;          // login OTP
 const RESET_OTP_LENGTH = 4;    // forgot-password OTP

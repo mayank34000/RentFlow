@@ -1159,3 +1159,74 @@
         font-size: 20px;
     }
 }
+
+/* ---------- Google sign-up button (custom look + invisible real button) ---------- */
+
+.signup-social-row {
+    display: block;
+    width: 100%;
+}
+
+.google-custom {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 9px;
+}
+
+.google-custom-visual {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border: 1px solid var(--rf-border);
+    border-radius: 9px;
+    background: #fff;
+    color: #333;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: 0.2s ease;
+}
+
+.google-custom-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+}
+
+.google-custom-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.google-custom:hover .google-custom-visual {
+    background: #fafafa;
+    border-color: #d5d5d5;
+}
+
+.google-custom:focus-within .google-custom-visual {
+    border-color: var(--rf-orange);
+    box-shadow: 0 0 0 3px rgba(255, 118, 47, 0.12);
+}
+
+/* Invisible real Google button, stretched over the custom one */
+.google-custom-hit {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+    opacity: 0.01;
+    cursor: pointer;
+}
+
+.google-custom.is-disabled {
+    opacity: 0.65;
+}
+
+.google-custom.is-disabled .google-custom-hit {
+    pointer-events: none;
+}
