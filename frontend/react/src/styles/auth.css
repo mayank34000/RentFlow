@@ -943,3 +943,219 @@
 @media (prefers-reduced-motion: reduce) {
     .otp-reveal { animation: none; }
 }
+
+/* ---------- Header: "Back to Login" ---------- */
+
+.header-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 6px 0;
+    color: var(--rf-orange);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.header-back:hover {
+    text-decoration: underline;
+}
+
+.header-back-icon,
+.fp-link-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.header-back-icon svg,
+.fp-link-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* ---------- Forgot password screens ---------- */
+
+.fp-screen {
+    animation: otp-reveal 0.25s ease-out;
+}
+
+.fp-screen h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--rf-ink);
+    letter-spacing: -0.7px;
+}
+
+.fp-screen .auth-subtitle {
+    margin-bottom: 28px;
+}
+
+.fp-screen .primary-auth-button {
+    margin-top: 4px;
+}
+
+/* "Back to Login" / "Back to Email" text link under the button */
+.fp-link-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 18px;
+    background: none;
+    border: none;
+    padding: 6px 0;
+    color: var(--rf-orange);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.fp-link-button:hover {
+    text-decoration: underline;
+}
+
+/* ---------- Step 2: OTP ---------- */
+
+.fp-screen .auth-subtitle.fp-subtitle-tight {
+    margin-bottom: 2px;
+}
+
+.fp-email-strong {
+    margin: 0 0 26px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--rf-ink);
+    word-break: break-all;
+}
+
+.fp-otp-inputs {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.fp-otp-inputs input {
+    width: 100%;
+    max-width: 66px;
+    height: 66px;
+    border: 1px solid var(--rf-border);
+    border-radius: 12px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--rf-ink);
+    background: #fff;
+    outline: none;
+    box-sizing: border-box;
+    transition: 0.2s ease;
+}
+
+.fp-otp-inputs input:focus {
+    border-color: var(--rf-orange);
+    box-shadow: 0 0 0 3px rgba(255, 118, 47, 0.12);
+}
+
+.fp-resend {
+    margin: 0 0 20px;
+    font-size: 13px;
+    color: var(--rf-muted);
+}
+
+.fp-resend .resend-timer {
+    font-weight: 600;
+}
+
+.fp-resend .forgot-button {
+    font-size: 13px;
+}
+
+.fp-resend .forgot-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ---------- Step 4: success ---------- */
+
+.fp-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-top: 10px;
+}
+
+.fp-success h1 {
+    font-size: 24px;
+    margin: 18px 0 8px;
+}
+
+.fp-success .auth-subtitle {
+    margin-bottom: 30px;
+}
+
+.fp-success .primary-auth-button {
+    width: 100%;
+}
+
+.fp-success-ring {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #e3f6e8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fp-success-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #1fa24a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fp-pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.fp-success-icon svg {
+    width: 34px;
+    height: 34px;
+}
+
+@keyframes fp-pop {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fp-screen,
+    .fp-success-icon { animation: none; }
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 600px) {
+    .fp-screen h1 {
+        font-size: 26px;
+    }
+
+    .fp-otp-inputs {
+        gap: 10px;
+    }
+
+    .fp-otp-inputs input {
+        height: 56px;
+        font-size: 20px;
+    }
+}
