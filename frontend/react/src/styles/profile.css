@@ -1,0 +1,515 @@
+/* ================================
+   RentFlow Profile (dashboard shell)
+================================ */
+
+.rf-shell {
+    display: flex;
+    min-height: 100vh;
+    background: #f4f6f9;
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: #1b2430;
+}
+
+/* ---------- Sidebar ---------- */
+
+.rf-sidebar {
+    width: 196px;
+    flex-shrink: 0;
+    background: #14202e;
+    padding: 18px 12px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.rf-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 22px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    color: #fff;
+}
+
+.rf-brand svg {
+    width: 26px;
+    height: 26px;
+    color: #ff762f;
+}
+
+.rf-brand-text {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+}
+
+.rf-brand-text span {
+    color: #ff762f;
+}
+
+.rf-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.rf-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 12px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: #b9c3d0;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.rf-nav-item svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+}
+
+.rf-nav-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+}
+
+.rf-nav-item.active {
+    background: #ff762f;
+    color: #fff;
+}
+
+.rf-nav-logout {
+    margin-top: auto;
+}
+
+/* ---------- Main ---------- */
+
+.rf-main {
+    flex: 1;
+    min-width: 0;
+    padding: 14px 22px 28px;
+    box-sizing: border-box;
+}
+
+.rf-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 18px;
+    margin-bottom: 14px;
+}
+
+.rf-bell {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border: none;
+    background: transparent;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rf-bell svg {
+    width: 20px;
+    height: 20px;
+}
+
+.rf-bell::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff762f;
+    border: 2px solid #f4f6f9;
+}
+
+.rf-user-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rf-avatar-sm {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #ff762f;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.rf-user-chip-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.rf-user-chip-text strong {
+    font-size: 13px;
+}
+
+.rf-user-chip-text span {
+    font-size: 11px;
+    color: #7b8594;
+    text-transform: capitalize;
+}
+
+/* ---------- Page heading ---------- */
+
+.rf-heading h1 {
+    margin: 0 0 4px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.rf-heading p {
+    margin: 0 0 20px;
+    font-size: 13px;
+    color: #6b7686;
+}
+
+/* ---------- Cards / grid ---------- */
+
+.rf-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.rf-card {
+    background: #fff;
+    border: 1px solid #eef0f3;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 2px 10px rgba(20, 32, 46, 0.04);
+}
+
+/* Summary card */
+
+.rf-summary {
+    text-align: center;
+    padding: 34px 22px 26px;
+}
+
+.rf-avatar-lg {
+    width: 92px;
+    height: 92px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: #ff762f;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: 700;
+}
+
+.rf-summary h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.rf-summary-email {
+    margin: 0 0 14px;
+    font-size: 12.5px;
+    color: #6b7686;
+    word-break: break-word;
+}
+
+.rf-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 6px;
+    background: #e8f0ff;
+    color: #2f5fd0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.rf-logout-btn {
+    width: 100%;
+    margin-top: 28px;
+    height: 44px;
+    border: none;
+    border-radius: 9px;
+    background: #ff762f;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.rf-logout-btn:hover {
+    background: #ed6825;
+}
+
+/* ---------- Form card ---------- */
+
+.rf-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    min-height: 32px;
+}
+
+.rf-section-head h2,
+.rf-subhead {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 700;
+}
+
+.rf-subhead {
+    margin: 22px 0 12px;
+}
+
+.rf-edit-btn {
+    border: none;
+    border-radius: 6px;
+    background: #ff762f;
+    color: #fff;
+    padding: 7px 24px;
+    font-size: 12.5px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.rf-edit-btn:hover {
+    background: #ed6825;
+}
+
+.rf-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 16px;
+}
+
+.rf-form-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.rf-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.rf-field--full {
+    margin-top: 14px;
+}
+
+.rf-field label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #6b7686;
+}
+
+.rf-field input,
+.rf-field select,
+.rf-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #e3e6eb;
+    border-radius: 7px;
+    background: #fff;
+    padding: 0 12px;
+    height: 40px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #1b2430;
+    outline: none;
+    transition: 0.2s ease;
+}
+
+.rf-field textarea {
+    height: auto;
+    padding: 10px 12px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.rf-field input:focus,
+.rf-field select:focus,
+.rf-field textarea:focus {
+    border-color: #ff762f;
+    box-shadow: 0 0 0 3px rgba(255, 118, 47, 0.12);
+}
+
+/* Read-only / not editing */
+.rf-field input:disabled,
+.rf-field select:disabled,
+.rf-field textarea:disabled {
+    background: #f6f7f9;
+    color: #3a4452;
+    cursor: not-allowed;
+    opacity: 1;
+    -webkit-text-fill-color: #3a4452;
+}
+
+/* ---------- Feedback + actions ---------- */
+
+.rf-msg {
+    margin-top: 18px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.rf-msg--ok {
+    background: #eefaf0;
+    color: #24803a;
+}
+
+.rf-msg--error {
+    background: #fff0f0;
+    color: #c62828;
+}
+
+.rf-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.rf-btn-primary,
+.rf-btn-secondary {
+    height: 40px;
+    padding: 0 22px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.rf-btn-primary {
+    border: none;
+    background: #ff762f;
+    color: #fff;
+}
+
+.rf-btn-primary:hover {
+    background: #ed6825;
+}
+
+.rf-btn-secondary {
+    border: 1px solid #e3e6eb;
+    background: #fff;
+    color: #3a4452;
+}
+
+.rf-btn-secondary:hover {
+    background: #fafbfc;
+}
+
+.rf-btn-primary:disabled,
+.rf-btn-secondary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ---------- States ---------- */
+
+.rf-center {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    background: #f4f6f9;
+    color: #1b2430;
+}
+
+.rf-error {
+    color: #d32f2f;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 960px) {
+    .rf-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .rf-shell {
+        flex-direction: column;
+    }
+
+    .rf-sidebar {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        padding: 10px 12px;
+        overflow-x: auto;
+        gap: 6px;
+    }
+
+    .rf-brand {
+        padding: 0 8px 0 0;
+    }
+
+    .rf-nav {
+        flex-direction: row;
+        flex: none;
+    }
+
+    .rf-nav-item {
+        white-space: nowrap;
+        padding: 9px 12px;
+    }
+
+    .rf-nav-logout {
+        margin-top: 0;
+        margin-left: auto;
+    }
+
+    .rf-main {
+        padding: 14px 14px 24px;
+    }
+
+    .rf-user-chip-text {
+        display: none;
+    }
+
+    .rf-form-grid,
+    .rf-form-grid--3 {
+        grid-template-columns: 1fr;
+    }
+}

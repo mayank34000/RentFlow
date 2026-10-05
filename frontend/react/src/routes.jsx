@@ -4,14 +4,17 @@ import BookingHistory from './booking-history';
 import Chat from './chat';
 import BookingPage from './booking';
 import HomePage from './HomePage';
+import Login from './Login';
+import Signup from './Signup';
+import Profile from './Profile';
 
 const routes = [
   // ==========================================
   // DHRUV'S ROUTES
   // ==========================================
-  { path: '/login', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Login</h2><p>Owner: Dhruv</p></div>, owner: 'Dhruv', title: 'Login' },
-  { path: '/signup', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Signup</h2><p>Owner: Dhruv</p></div>, owner: 'Dhruv', title: 'Signup' },
-  { path: '/profile', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Profile</h2><p>Owner: Dhruv</p></div>, owner: 'Dhruv', title: 'Profile' },
+  { path: '/login', element: <Login />, owner: 'Dhruv', title: 'Login' },
+  { path: '/signup', element: <Signup />, owner: 'Dhruv', title: 'Signup' },
+  { path: '/profile', element: <Profile />, owner: 'Dhruv', title: 'Profile' },
 
   // ==========================================
   // MAYANK'S ROUTES

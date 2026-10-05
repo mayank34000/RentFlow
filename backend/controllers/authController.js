@@ -1,7 +1,10 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
+const Otp = require('../models/Otp');
+const { sendOtpEmail } = require('../utils/emailService');
 
 const googleClient = new OAuth2Client(
     process.env.VITE_GOOGLE_CLIENT_ID
@@ -270,10 +273,168 @@ const googleLogin = async (req, res) => {
     }
 };
 
+const sendOtp = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                message: 'Email is required.',
+            });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+
+        const user = await User.findOne({
+            email: normalizedEmail,
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'No account found with this email.',
+            });
+        }
+
+        const otp = crypto
+            .randomInt(100000, 1000000)
+            .toString();
+
+        const codeHash = await bcrypt.hash(otp, 10);
+
+        await Otp.deleteMany({
+            email: normalizedEmail,
+            purpose: 'login',
+        });
+
+        await Otp.create({
+            email: normalizedEmail,
+            codeHash,
+            purpose: 'login',
+            attempts: 0,
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        });
+
+        await sendOtpEmail(normalizedEmail, otp);
+
+        return res.status(200).json({
+            message: 'OTP sent successfully.',
+        });
+    } catch (error) {
+        console.error('[Auth] Send OTP error:', error);
+
+        return res.status(500).json({
+            message: 'Unable to send OTP. Please try again.',
+        });
+    }
+};
+
+const verifyOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({
+                message: 'Email and OTP are required.',
+            });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+
+        const otpRecord = await Otp.findOne({
+            email: normalizedEmail,
+            purpose: 'login',
+        }).sort({ createdAt: -1 });
+
+        if (!otpRecord) {
+            return res.status(400).json({
+                message: 'OTP not found. Please request a new OTP.',
+            });
+        }
+
+        if (otpRecord.expiresAt < new Date()) {
+            await Otp.deleteOne({
+                _id: otpRecord._id,
+            });
+
+            return res.status(400).json({
+                message: 'OTP has expired. Please request a new OTP.',
+            });
+        }
+
+        if (otpRecord.attempts >= 5) {
+            await Otp.deleteOne({
+                _id: otpRecord._id,
+            });
+
+            return res.status(429).json({
+                message: 'Too many incorrect attempts. Please request a new OTP.',
+            });
+        }
+
+        const otpValid = await bcrypt.compare(
+            otp.toString(),
+            otpRecord.codeHash
+        );
+
+        if (!otpValid) {
+            otpRecord.attempts += 1;
+            await otpRecord.save();
+
+            return res.status(401).json({
+                message: 'Invalid OTP.',
+            });
+        }
+
+        const user = await User.findOne({
+            email: normalizedEmail,
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'User account not found.',
+            });
+        }
+
+        await Otp.deleteOne({
+            _id: otpRecord._id,
+        });
+
+        const token = jwt.sign(
+            {
+                userId: user._id.toString(),
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: '7d',
+            }
+        );
+
+        return res.status(200).json({
+            message: 'OTP login successful.',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                phone: user.phone,
+                profileImage: user.profileImage,
+            },
+        });
+    } catch (error) {
+        console.error('[Auth] Verify OTP error:', error);
+
+        return res.status(500).json({
+            message: 'Unable to verify OTP. Please try again.',
+        });
+    }
+};
+
 module.exports = {
     signup,
     login,
     getMe,
     googleLogin,
+    sendOtp,
+    verifyOtp,
 };
-
