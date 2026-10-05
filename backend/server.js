@@ -22,7 +22,8 @@ const mongoose  = require('mongoose');
 const connectDB = require('./config/db');
 const http      = require('http');
 const { Server } = require('socket.io');
-const errorHandler = require('./middleware/errorHandler');
+const errorHandler    = require('./middleware/errorHandler');
+const requestLogger   = require('./middleware/requestLogger');
 
 // ── 3. App setup ──────────────────────────────────────────────────────────────
 const app = express();
@@ -59,6 +60,11 @@ require('./sockets/chatSocket')(io);
 
 // Parse incoming JSON request bodies
 app.use(express.json());
+
+// ── HTTP request logger (Mayank — Stage 3) ────────────────────────────────────
+// Must be mounted AFTER express.json() (so req.path is resolved) but BEFORE
+// any route handlers so every request is captured.
+app.use(requestLogger);
 
 // ── 4. API Routes ─────────────────────────────────────────────────────────────
 // User-facing routes (from main)

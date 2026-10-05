@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const User = require('../models/User');
 const Feedback = require('../models/Feedback');
+const Booking = require('../models/Booking');
 
 const router = express.Router();
 
@@ -19,6 +20,24 @@ const VALID_KYC_STATUSES = ['none', 'pending', 'approved', 'rejected'];
 // Helper: returns true when the given string is not a valid MongoDB ObjectId.
 function isInvalidId(id) {
   return !mongoose.Types.ObjectId.isValid(id);
+}
+
+// ─── Lazy Listing model helper ────────────────────────────────
+// The Listing model is owned by Madhav and may not be registered at server
+// startup (e.g. during Phase 2 development). This helper attempts to retrieve
+// the already-registered model from Mongoose's internal registry at the moment
+// a request arrives. If the model is not registered yet, it returns null and
+// the calling route responds with 503. This mirrors the identical pattern used
+// in bookingController.js (getListingModel).
+//
+// IMPORTANT: Do NOT convert this to a top-level require('../models/Listing').
+// That would throw "Cannot find module" at startup if Listing.js does not exist.
+function getListingModel() {
+  try {
+    return mongoose.model('Listing');
+  } catch (_) {
+    return null;
+  }
 }
 
 // ─── Verification route (kept from Stage 1) ──────────────────
@@ -154,6 +173,170 @@ router.delete('/users/:id', auth, admin, async (req, res, next) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════════
+// ADMIN LISTING ROUTES
+// Owner: Mayank
+//
+// These routes provide moderation-level access to listings.
+// They depend on the 'Listing' Mongoose model, which is owned by Madhav.
+// getListingModel() is used instead of a top-level require() so that this
+// file loads safely even when Listing.js does not exist yet.
+//
+// Status field assumption: The status field is a string set by Madhav's
+// Listing model/CRUD. No enum is enforced here — we pass the value through
+// to Mongoose, which will enforce its own schema validation if defined.
+// A non-empty string check is the only pre-flight guard applied at this layer.
+// ════════════════════════════════════════════════════════════════
+
+// ─── GET /api/admin/listings ──────────────────────────────────
+// Returns all listings in the system sorted by newest first.
+// Requires: admin JWT.
+router.get('/listings', auth, admin, async (req, res, next) => {
+  try {
+    const Listing = getListingModel();
+    if (!Listing) {
+      return res.status(503).json({
+        success: false,
+        message: 'Listing service is not available yet. Madhav\'s Listing model has not been registered.',
+      });
+    }
+
+    const listings = await Listing.find().sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      count: listings.length,
+      listings,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/admin/listings/:id ─────────────────────────────
+// Returns a single listing by its MongoDB ObjectId.
+// Requires: admin JWT.
+router.get('/listings/:id', auth, admin, async (req, res, next) => {
+  try {
+    if (isInvalidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid listing ID format.' });
+    }
+
+    const Listing = getListingModel();
+    if (!Listing) {
+      return res.status(503).json({
+        success: false,
+        message: 'Listing service is not available yet. Madhav\'s Listing model has not been registered.',
+      });
+    }
+
+    const listing = await Listing.findById(req.params.id);
+    if (!listing) {
+      return res.status(404).json({ success: false, message: 'Listing not found.' });
+    }
+
+    res.json({ success: true, listing });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── PATCH /api/admin/listings/:id/status ────────────────────
+// Allows an admin to update only the status field of a listing.
+// This is the admin's moderation power (e.g. block/unblock a listing).
+//
+// Body: { "status": "<value>" }
+//
+// The status value is intentionally NOT validated against a hardcoded enum
+// here because Madhav's Listing schema defines the canonical allowed values.
+// Mongoose's own runValidators will reject values that violate that schema.
+// The only pre-flight check is that status is a non-empty string.
+//
+// Requires: admin JWT.
+router.patch('/listings/:id/status', auth, admin, async (req, res, next) => {
+  try {
+    if (isInvalidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid listing ID format.' });
+    }
+
+    const { status } = req.body;
+
+    // Pre-flight: status must be provided and must be a non-empty string.
+    if (status === undefined || status === null || String(status).trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'status is required and must be a non-empty string.',
+      });
+    }
+
+    const Listing = getListingModel();
+    if (!Listing) {
+      return res.status(503).json({
+        success: false,
+        message: 'Listing service is not available yet. Madhav\'s Listing model has not been registered.',
+      });
+    }
+
+    // runValidators: true — Mongoose will enforce Madhav's enum if he defined one.
+    const listing = await Listing.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status: String(status).trim() } },
+      { new: true, runValidators: true }
+    );
+
+    if (!listing) {
+      return res.status(404).json({ success: false, message: 'Listing not found.' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Listing status updated successfully.',
+      listing,
+    });
+  } catch (err) {
+    // Mongoose validation error (e.g. status value not in Madhav's enum)
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    next(err);
+  }
+});
+
+// ─── DELETE /api/admin/listings/:id ──────────────────────────
+// Permanently deletes a listing by ID.
+// Admin use case: remove fraudulent, illegal, or violating listings.
+// Requires: admin JWT.
+router.delete('/listings/:id', auth, admin, async (req, res, next) => {
+  try {
+    if (isInvalidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid listing ID format.' });
+    }
+
+    const Listing = getListingModel();
+    if (!Listing) {
+      return res.status(503).json({
+        success: false,
+        message: 'Listing service is not available yet. Madhav\'s Listing model has not been registered.',
+      });
+    }
+
+    const listing = await Listing.findByIdAndDelete(req.params.id);
+    if (!listing) {
+      return res.status(404).json({ success: false, message: 'Listing not found.' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Listing deleted successfully.',
+      listing,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── GET /api/admin/analytics/overview ───────────────────────
 // Returns platform analytics (user and feedback statistics).
 router.get('/analytics/overview', auth, admin, async (req, res, next) => {
@@ -222,5 +405,151 @@ router.get('/analytics/overview', auth, admin, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+// ════════════════════════════════════════════════════════════════
+// ADMIN BOOKING ROUTES
+// Owner: Mayank
+//
+// These routes provide administrative oversight of all bookings.
+// They are distinct from Aryan's normal booking routes in two ways:
+//   1. They use JWT auth (auth + admin middleware), not devAuth.
+//   2. GET /:id here bypasses the renter/lender ownership check that
+//      Aryan's bookingController enforces for regular users.
+//
+// The force-cancel endpoint is authorised by the Booking model's own
+// inline documentation (Booking.js lines ~94–98), which explicitly
+// lists "admin" as an allowed actor for Pending → Cancelled and
+// Approved → Cancelled transitions.
+//
+// Status enum values are taken verbatim from backend/models/Booking.js:
+//   'Pending', 'Approved', 'Active', 'Completed', 'Returned',
+//   'Cancelled', 'Rejected'
+// ════════════════════════════════════════════════════════════════
 
+// ─── GET /api/admin/bookings ──────────────────────────────────
+// Returns all bookings on the platform, newest first.
+// Populates listing, renter, and lender references.
+// passwordHash is excluded from user population.
+// Requires: admin JWT.
+router.get('/bookings', auth, admin, async (req, res, next) => {
+  try {
+    const bookings = await Booking.find()
+      .sort({ createdAt: -1 })
+      .populate('listing')
+      .populate('renter', '-passwordHash')
+      .populate('lender', '-passwordHash');
+
+    res.json({
+      success: true,
+      count: bookings.length,
+      bookings,
+    });
+  } catch (err) {
+    // Graceful handling if Listing model is not yet registered (Madhav's work).
+    if (err.name === 'MissingSchemaError') {
+      // Fall back: return raw bookings without population.
+      try {
+        const rawBookings = await Booking.find().sort({ createdAt: -1 });
+        return res.json({
+          success: true,
+          count: rawBookings.length,
+          bookings: rawBookings,
+          warning: 'Listing population skipped — Listing model not registered yet.',
+        });
+      } catch (fallbackErr) {
+        return next(fallbackErr);
+      }
+    }
+    next(err);
+  }
+});
+
+// ─── GET /api/admin/bookings/:id ─────────────────────────────
+// Returns a single booking by ID with full population.
+// Does NOT apply the renter/lender ownership check — admin sees all.
+// Requires: admin JWT.
+router.get('/bookings/:id', auth, admin, async (req, res, next) => {
+  try {
+    if (isInvalidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking ID format.' });
+    }
+
+    const booking = await Booking.findById(req.params.id)
+      .populate('listing')
+      .populate('renter', '-passwordHash')
+      .populate('lender', '-passwordHash');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+
+    res.json({ success: true, booking });
+  } catch (err) {
+    if (err.name === 'MissingSchemaError') {
+      // Fall back to raw booking if population fails.
+      try {
+        const raw = await Booking.findById(req.params.id);
+        if (!raw) {
+          return res.status(404).json({ success: false, message: 'Booking not found.' });
+        }
+        return res.json({
+          success: true,
+          booking: raw,
+          warning: 'Listing population skipped — Listing model not registered yet.',
+        });
+      } catch (fallbackErr) {
+        return next(fallbackErr);
+      }
+    }
+    next(err);
+  }
+});
+
+// ─── PATCH /api/admin/bookings/:id/cancel ────────────────────
+// Allows an admin to force-cancel a booking in Pending or Approved status.
+//
+// Grounding: Aryan's Booking model (Booking.js) explicitly documents:
+//   "Pending  → Cancelled (renter or admin cancels)"
+//   "Approved → Cancelled (renter or admin cancels)"
+// This endpoint implements the admin side of those documented transitions.
+//
+// Scoped to /cancel (not DELETE /:id) to avoid colliding with Aryan's
+// cancel route which is DELETE /api/bookings/:id and is renter-only.
+//
+// Terminal bookings (Returned, Cancelled, Rejected) cannot be cancelled.
+// Requires: admin JWT.
+router.patch('/bookings/:id/cancel', auth, admin, async (req, res, next) => {
+  try {
+    if (isInvalidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking ID format.' });
+    }
+
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+
+    // Only bookings in Pending or Approved state can be cancelled.
+    // All other states are either already terminal or represent an
+    // active financial transaction that admin should not unilaterally reverse.
+    if (!['Pending', 'Approved'].includes(booking.status)) {
+      return res.status(409).json({
+        success: false,
+        message: `Booking cannot be cancelled in its current status ('${booking.status}'). Only Pending or Approved bookings may be cancelled.`,
+      });
+    }
+
+    booking.status = 'Cancelled';
+    await booking.save();
+
+    res.json({
+      success: true,
+      message: 'Booking cancelled by admin.',
+      booking,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+module.exports = router;
