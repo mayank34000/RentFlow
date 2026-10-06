@@ -224,7 +224,11 @@ const Login = () => {
             localStorage.removeItem('rememberMe');
         }
 
-        navigate('/');
+        if (user?.role === 'admin') {
+    navigate('/admin-dashboard');
+} else {
+    navigate('/');
+}
     };
 
     /* ---------- Password login ---------- */
