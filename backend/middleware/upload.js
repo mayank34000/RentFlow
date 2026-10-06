@@ -63,4 +63,20 @@ const upload = multer({
     }
 });
 
-module.exports = upload;
+// ── Profile Image Upload ──────────────────────────────────────────────────────
+
+const profileStorage = multer.memoryStorage();
+
+const profileUpload = multer({
+    storage: profileStorage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5 MB
+        files: 1
+    }
+});
+
+module.exports = {
+    upload,
+    profileUpload
+};

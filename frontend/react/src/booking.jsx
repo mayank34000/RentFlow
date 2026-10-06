@@ -129,17 +129,24 @@ export default function BookingPage() {
 
     // ── Init Data & Auth ──
     useEffect(() => {
-        const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
-        if (!loggedIn) {
-            navigate('/login');
-            return;
-        }
+        const token = localStorage.getItem('token');
+const storedUser = localStorage.getItem('user');
 
-        setIsLoggedIn(true);
-        try {
-            const user = JSON.parse(localStorage.getItem('current_user'));
-            setCurrentUser(user);
-        } catch (_e) {}
+if (!token || !storedUser) {
+    navigate('/login');
+    return;
+}
+
+setIsLoggedIn(true);
+
+try {
+    const user = JSON.parse(storedUser);
+    setCurrentUser(user);
+} catch (_e) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+}
 
         // Load listings
         let listingsToUse = [];
