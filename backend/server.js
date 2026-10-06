@@ -10,9 +10,6 @@
  *   4. Mount API routes
  *   5. Register health, 404, and error handlers
  *   6. Start the HTTP server
- *
- * Do NOT add business logic here.
- * Future routes go in routes/ and are mounted with app.use().
  */
 
 // ── 1. Environment variables ──────────────────────────────────────────────────
@@ -26,6 +23,8 @@ const mongoose  = require('mongoose');
 const connectDB = require('./config/db');
 const http      = require('http');
 const { Server } = require('socket.io');
+const errorHandler    = require('./middleware/errorHandler');
+const requestLogger   = require('./middleware/requestLogger');
 
 // ── 3. App setup ──────────────────────────────────────────────────────────────
 const app = express();
@@ -51,7 +50,7 @@ const originCallback = (origin, callback) => {
     }
 };
 
-// CORS — allow the configured origin (Live Server default if not set)
+// CORS — allow the configured origin
 app.use(cors({ origin: originCallback, credentials: true }));
 
 // Socket.IO configuration
@@ -63,18 +62,26 @@ require('./sockets/chatSocket')(io);
 // Parse incoming JSON request bodies
 app.use(express.json());
 
+// ── HTTP request logger (Mayank — Stage 3) ────────────────────────────────────
+// Must be mounted AFTER express.json() (so req.path is resolved) but BEFORE
+// any route handlers so every request is captured.
+app.use(requestLogger);
+
 // ── 4. API Routes ─────────────────────────────────────────────────────────────
-// Mount routers here
+// User-facing routes (from main)
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/auth', authRoutes);
 
+// Admin & Auth routes (from feature/admin)
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/feedback', require('./routes/feedback'));
+
 
 // ── 5a. Health check ──────────────────────────────────────────────────────────
-// Indicates the DB state without exposing connection details.
-// readyState: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
 app.get('/api/health', (req, res) => {
     let dbStatus;
 
@@ -101,28 +108,19 @@ app.use((req, res) => {
 });
 
 // ── 5c. Global error handler ──────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-    const statusCode = err.statusCode || err.status || 500;
-
-    const response = {
-        success: false,
-        message: err.message || 'Internal server error',
-    };
-
-    // Only expose stack trace in development
-    if (process.env.NODE_ENV === 'development') {
-        response.stack = err.stack;
-    }
-
-    res.status(statusCode).json(response);
-});
+app.use(errorHandler);
 
 // ── 6. Start server ───────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
+// Validate JWT_SECRET for auth/admin routes
+if (!process.env.JWT_SECRET) {
+  console.error('ERROR: JWT_SECRET is not set in .env');
+  process.exit(1);
+}
+
 const startServer = async () => {
-    // Attempt DB connection first (non-fatal — server starts regardless)
+    // Attempt DB connection first
     await connectDB();
 
     httpServer.listen(PORT, () => {

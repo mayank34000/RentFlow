@@ -135,56 +135,44 @@ function validateForm() {
     return isValid;
 }
 
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
     e.preventDefault();
 
     if (!validateForm()) return;
 
-    // Always use the logged-in user's actual identity if available
-    const loggedInUser = getLoggedInUser();
-    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-
-    // If logged in, strongly associate with their real identity from storage, 
-    // rather than just what the read-only fields say.
-    const feedbackName = (isLoggedIn && loggedInUser) 
-        ? (loggedInUser.username || loggedInUser.name)
-        : document.getElementById('fbName').value.trim();
-
-    const feedbackEmail = (isLoggedIn && loggedInUser)
-        ? (loggedInUser.useremail || loggedInUser.email)
-        : document.getElementById('fbEmail').value.trim();
-
-    const newFeedback = {
-        id: 'FB-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0'),
-        name: feedbackName,
-        email: feedbackEmail,
-        type:      document.getElementById('fbType').value,
-        rating:    parseInt(document.getElementById('fbRating').value, 10),
-        message:   document.getElementById('fbMessage').value.trim(),
-        bookingId: document.getElementById('fbBookingId') ? document.getElementById('fbBookingId').value.trim() : '',
-        date:      new Date().toISOString().split('T')[0],
-        status:    'Visible'
-    };
-
-    // Store user phone/role if they are logged in to preserve the relationship
-    if (isLoggedIn && loggedInUser) {
-        if (loggedInUser.userphone) newFeedback.userphone = loggedInUser.userphone;
-        if (loggedInUser.role) newFeedback.role = loggedInUser.role;
+    if (!window.RentFlowAPI || !window.RentFlowAPI.isLoggedIn()) {
+        showToast('You must be logged in to submit feedback.', 'error');
+        return;
     }
 
-    const allFeedback = getFeedback();
-    allFeedback.unshift(newFeedback);
-    saveFeedback(allFeedback);
-    // Notify other pages (analytics, admin) in the same tab
-    dispatchStorageUpdate(STORAGE_KEYS.FEEDBACK);
+    const payload = {
+        rating: parseInt(document.getElementById('fbRating').value, 10),
+        comment: document.getElementById('fbMessage').value.trim()
+    };
 
-    renderFeedbackList();
-    showToast('Thanks for your feedback!');
+    const submitBtn = document.querySelector('.btn-submit');
+    const origText = submitBtn.textContent;
+    submitBtn.textContent = 'Submitting...';
+    submitBtn.disabled = true;
 
-    // Reset form — but re-lock identity fields after reset
-    document.getElementById('feedbackForm').reset();
-    resetStarRating();
-    initFeedbackPage(); // Re-populate locked fields after reset
+    try {
+        const res = await window.RentFlowAPI.post('/feedback', payload);
+        if (res.success) {
+            showToast('Thanks for your feedback!');
+            document.getElementById('feedbackForm').reset();
+            resetStarRating();
+            initFeedbackPage(); 
+            renderFeedbackList();
+        } else {
+            throw new Error(res.message);
+        }
+    } catch (err) {
+        console.error('Submit error:', err);
+        showToast('Error submitting feedback: ' + err.message, 'error');
+    } finally {
+        submitBtn.textContent = origText;
+        submitBtn.disabled = false;
+    }
 }
 
 
@@ -196,64 +184,82 @@ function getStars(rating) {
     return stars;
 }
 
-// Global scope for onclick (used in rendered HTML)
-window.removeFeedback = function(id) {
-    if (confirm('Remove this feedback from the platform?')) {
-        let allFeedback = getFeedback();
-        allFeedback = allFeedback.filter(fb => fb.id !== id);
-        saveFeedback(allFeedback);
-        dispatchStorageUpdate(STORAGE_KEYS.FEEDBACK);
-        renderFeedbackList();
-        showToast('Feedback removed successfully.');
+window.removeFeedback = async function(id) {
+    if (!confirm('Remove this feedback from the platform?')) return;
+    
+    try {
+        const res = await window.RentFlowAPI.delete('/feedback/' + id);
+        if (res.success) {
+            showToast('Feedback removed successfully.');
+            renderFeedbackList();
+        } else {
+            throw new Error(res.message);
+        }
+    } catch (err) {
+        console.error('Error removing:', err);
+        showToast('Error removing feedback: ' + err.message, 'error');
     }
 };
 
-function renderFeedbackList() {
+async function renderFeedbackList() {
     const container = document.getElementById('feedbackListContainer');
     if (!container) return;
 
-    const allFeedback = getFeedback();
-
-    // Determine if current user is admin using real session data
-    const loggedInUser = getLoggedInUser();
+    const loggedInUser = window.RentFlowAPI && window.RentFlowAPI.getAuthUser();
     const isAdmin = loggedInUser && (loggedInUser.role || '').toLowerCase() === 'admin';
 
-    if (allFeedback.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <p>No feedback submitted yet.</p>
-                <small>Your feedback will appear here after you submit it.</small>
-            </div>
-        `;
-        return;
-    }
-
-    let html = '';
-    allFeedback.forEach(fb => {
-        let adminControls = '';
-        // Show moderation controls only to admin (UI-level gate — not a secure backend check)
-        if (isAdmin) {
-            adminControls = `
-                <div class="admin-actions">
-                    <button class="btn-remove" onclick="removeFeedback('${fb.id}')">Remove Feedback</button>
+    try {
+        container.innerHTML = '<div class="empty-state"><p>Loading feedback...</p></div>';
+        const res = await window.RentFlowAPI.get('/feedback');
+        
+        if (!res.success) {
+            throw new Error(res.message);
+        }
+        
+        const allFeedback = res.feedbacks || [];
+        
+        if (allFeedback.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>No feedback submitted yet.</p>
+                    <small>Your feedback will appear here after you submit it.</small>
                 </div>
             `;
+            return;
         }
 
-        html += `
-            <div class="feedback-item">
-                <div class="feedback-stars">${getStars(fb.rating)}</div>
-                <div class="feedback-message">"${fb.message}"</div>
-                <div class="feedback-meta">
-                    <span class="feedback-type-badge">${fb.type}</span>
-                    <span>${fb.date}</span>
-                </div>
-                ${adminControls}
-            </div>
-        `;
-    });
+        let html = '';
+        allFeedback.forEach(fb => {
+            let adminControls = '';
+            if (isAdmin) {
+                adminControls = `
+                    <div class="admin-actions">
+                        <button class="btn-remove" onclick="removeFeedback('${fb._id}')">Remove Feedback</button>
+                    </div>
+                `;
+            }
 
-    container.innerHTML = html;
+            const userName = fb.user ? fb.user.name : 'Unknown User';
+            const dateStr = new Date(fb.createdAt).toLocaleDateString();
+
+            html += `
+                <div class="feedback-item">
+                    <div class="feedback-stars">${getStars(fb.rating)}</div>
+                    <div class="feedback-message">"${fb.comment || 'No comment provided'}"</div>
+                    <div class="feedback-meta">
+                        <span class="feedback-type-badge">${userName}</span>
+                        <span>${dateStr}</span>
+                    </div>
+                    ${adminControls}
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    } catch (err) {
+        console.error('Error loading feedback:', err);
+        container.innerHTML = `<div class="empty-state"><p style="color: #f87171;">Error loading feedback.</p></div>`;
+    }
 }
 
 
