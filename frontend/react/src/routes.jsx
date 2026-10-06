@@ -16,9 +16,9 @@ const routes = [
   { path: '/signup', element: <Signup />, owner: 'Dhruv', title: 'Signup' },
   { path: '/profile', element: <Profile />, owner: 'Dhruv', title: 'Profile' },
   { path: '/settings', element: <Profile />, owner: 'Dhruv', title: 'Settings' },
-  { path: '/dashboard', element: <Profile />, owner: 'Dhruv', title: 'Dashboard' },
-  { path: '/listings', element: <Profile />, owner: 'Dhruv', title: 'Listings' },
-  { path: '/bookings', element: <Profile />, owner: 'Dhruv', title: 'Bookings' },
+  { path: '/', element: <HomePage />, owner: 'Dhruv', title: 'Home' },
+  { path: '/booking-history', element: <BookingHistory />, owner: 'Dhruv', title: 'Booking History' },
+  { path: '/booking', element: <BookingPage />, owner: 'Dhruv', title: 'Booking' },
   { path: '/messages', element: <Profile />, owner: 'Dhruv', title: 'Messages' },
   { path: '/reviews', element: <Profile />, owner: 'Dhruv', title: 'Reviews' },
 

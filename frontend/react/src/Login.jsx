@@ -8,6 +8,12 @@ import "./styles/auth.css";
 const HERO_VIDEO = './assets/auth.mp4';
 const HERO_POSTER = '';
 
+/* Google's real button renders at 400 x 40. We keep it invisible and stretch it
+   over our own full-width button so the credential flow stays the same. */
+const GOOGLE_BTN_WIDTH = 400;
+const GOOGLE_BTN_HEIGHT = 40;
+const CUSTOM_BTN_HEIGHT = 46;
+
 const OTP_LENGTH = 6;          // login OTP
 const RESET_OTP_LENGTH = 4;    // forgot-password OTP
 const RESEND_SECONDS = 45;
@@ -40,6 +46,15 @@ const EyeIcon = ({ off }) => (
         <path d="M2 12C4.5 7.5 8 5.5 12 5.5C16 5.5 19.5 7.5 22 12C19.5 16.5 16 18.5 12 18.5C8 18.5 4.5 16.5 2 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
         <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
         {off && <path d="M4 4L20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
+    </svg>
+);
+
+const GoogleIcon = () => (
+    <svg viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z" />
+        <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z" />
+        <path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z" />
+        <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z" />
     </svg>
 );
 
@@ -122,6 +137,27 @@ const Login = () => {
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const resetRefs = useRef([]);
+
+    /* Measure the Google row so the invisible button can be stretched to fit.
+       Re-runs when switching between login and forgot-password screens,
+       because the Google button unmounts/remounts with them. */
+    const socialRowRef = useRef(null);
+    const [rowWidth, setRowWidth] = useState(GOOGLE_BTN_WIDTH);
+
+    useEffect(() => {
+        const el = socialRowRef.current;
+        if (!el) return undefined;
+
+        const updateWidth = () => setRowWidth(Math.max(1, Math.floor(el.clientWidth)));
+        updateWidth();
+
+        if (typeof ResizeObserver === 'undefined') return undefined;
+
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(el);
+
+        return () => observer.disconnect();
+    }, [isForgot, mode]);
 
     /* Login OTP resend countdown */
     useEffect(() => {
@@ -507,41 +543,61 @@ const Login = () => {
     };
 
     const socialButtons = (
-        <div className={`social-row ${mode === 'otp' ? 'social-row--two' : ''}`}>
-            <GoogleLogin
-    onSuccess={async (credentialResponse) => {
-        try {
-            setError('');
-            setLoading(true);
+        <div className="social-row">
+            <div
+                className={`google-custom${loading ? ' is-disabled' : ''}`}
+                ref={socialRowRef}
+                style={{ height: CUSTOM_BTN_HEIGHT }}
+            >
+                {/* What the user sees */}
+                <div className="google-custom-visual" aria-hidden="true">
+                    <span className="google-custom-icon"><GoogleIcon /></span>
+                    <span>Sign in with Google</span>
+                </div>
 
-            const response = await apiRequest('/api/auth/google', {
-                method: 'POST',
-                body: {
-                    credential: credentialResponse.credential,
-                },
-            });
+                {/* The real Google button: invisible, scaled to cover ours */}
+                <div
+                    className="google-custom-hit"
+                    style={{
+                        width: GOOGLE_BTN_WIDTH,
+                        height: GOOGLE_BTN_HEIGHT,
+                        transform: `scale(${rowWidth / GOOGLE_BTN_WIDTH}, ${CUSTOM_BTN_HEIGHT / GOOGLE_BTN_HEIGHT})`,
+                    }}
+                >
+                    <GoogleLogin
+                        text="signin_with"
+                        size="large"
+                        width={GOOGLE_BTN_WIDTH}
+                        onSuccess={async (credentialResponse) => {
+                            try {
+                                setError('');
+                                setLoading(true);
 
-            saveSession(response);
-        } catch (err) {
-            console.error('Google login error:', err);
+                                const response = await apiRequest('/api/auth/google', {
+                                    method: 'POST',
+                                    body: {
+                                        credential: credentialResponse.credential,
+                                    },
+                                });
 
-            setError(
-                err.message ||
-                'Google login failed. Please try again.'
-            );
-        } finally {
-            setLoading(false);
-        }
-    }}
-    onError={() => {
-        setError('Google login failed. Please try again.');
-    }}
-/>
+                                saveSession(response);
+                            } catch (err) {
+                                console.error('Google login error:', err);
 
-            {/* <button type="button" className="social-button">
-                <span className="social-icon"><FacebookIcon /></span>
-                <span>Continue with Facebook</span>
-            </button> */}
+                                setError(
+                                    err.message ||
+                                    'Google login failed. Please try again.'
+                                );
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                        onError={() => {
+                            setError('Google login failed. Please try again.');
+                        }}
+                    />
+                </div>
+            </div>
         </div>
     );
 

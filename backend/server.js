@@ -68,6 +68,7 @@ app.use(express.json());
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/auth', authRoutes);
 
 

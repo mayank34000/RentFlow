@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from './services/api';
 import "./styles/profile.css";
@@ -16,7 +16,6 @@ const icons = {
     listings: <Icon><path d="M4 6H20M4 12H20M4 18H14" /></Icon>,
     bookings: <Icon><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10H21M8 3V7M16 3V7" /></Icon>,
     messages: <Icon><path d="M21 12C21 16.4 16.97 20 12 20C10.8 20 9.6 19.8 8.6 19.4L3 21L4.6 16.6C3.6 15.3 3 13.7 3 12C3 7.6 7.03 4 12 4C16.97 4 21 7.6 21 12Z" /></Icon>,
-    reviews: <Icon><path d="M12 3L14.8 8.7L21 9.6L16.5 14L17.6 20.2L12 17.2L6.4 20.2L7.5 14L3 9.6L9.2 8.7L12 3Z" /></Icon>,
     profile: <Icon><circle cx="12" cy="8" r="3.5" /><path d="M5 20C5.8 16.7 8.1 15 12 15C15.9 15 18.2 16.7 19 20" /></Icon>,
     logout: <Icon><path d="M9 21H5C3.9 21 3 20.1 3 19V5C3 3.9 3.9 3 5 3H9" /><path d="M16 17L21 12L16 7M21 12H9" /></Icon>,
     bell: <Icon><path d="M18 8C18 4.7 15.3 3 12 3C8.7 3 6 4.7 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" /><path d="M13.7 21C13.5 21.3 13.3 21.5 13 21.7C12.4 22.1 11.6 22.1 11 21.7C10.7 21.5 10.5 21.3 10.3 21" /></Icon>,
@@ -30,16 +29,34 @@ const icons = {
     sun: <Icon><circle cx="12" cy="12" r="4" /><path d="M12 2V4M12 20V22M2 12H4M20 12H22M4.9 4.9L6.3 6.3M17.7 17.7L19.1 19.1M4.9 19.1L6.3 17.7M17.7 6.3L19.1 4.9" /></Icon>,
     moon: <Icon><path d="M21 12.8A9 9 0 1 1 11.2 3A7 7 0 0 0 21 12.8Z" /></Icon>,
     monitor: <Icon><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20H16M12 16V20" /></Icon>,
+    search: <Icon><circle cx="11" cy="11" r="7" /><path d="M20 20L16.5 16.5" /></Icon>,
+    paperclip: <Icon><path d="M21 11.5L12.5 20C10.6 21.9 7.5 21.9 5.6 20C3.7 18.1 3.7 15 5.6 13.1L14 4.7C15.3 3.4 17.4 3.4 18.7 4.7C20 6 20 8.1 18.7 9.4L10.3 17.8C9.6 18.5 8.4 18.5 7.7 17.8C7 17.1 7 15.9 7.7 15.2L15.5 7.4" /></Icon>,
+    smile: <Icon><circle cx="12" cy="12" r="9" /><path d="M8 14C8.8 15.3 10.2 16 12 16C13.8 16 15.2 15.3 16 14" /><path d="M9 9.5H9.01M15 9.5H15.01" /></Icon>,
+    send: <Icon><path d="M21 3L10 14" /><path d="M21 3L14.5 21L10 14L3 9.5L21 3Z" /></Icon>,
+    more: <Icon><circle cx="12" cy="5" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="12" cy="19" r="1.2" /></Icon>,
+    phone: <Icon><path d="M5 4H9L11 9L8.5 10.5C9.6 12.8 11.2 14.4 13.5 15.5L15 13L20 15V19C20 19.6 19.6 20 19 20C10.7 20 4 13.3 4 5C4 4.4 4.4 4 5 4Z" /></Icon>,
+    mail: <Icon><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7L12 13L21 7" /></Icon>,
+    flag: <Icon><path d="M5 21V4M5 4H17L15 8.5L17 13H5" /></Icon>,
+    pin: <Icon><path d="M12 21C12 21 5 14.5 5 9.5C5 5.9 8.1 3 12 3C15.9 3 19 5.9 19 9.5C19 14.5 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></Icon>,
+    arrowLeft: <Icon><path d="M19 12H5M11 6L5 12L11 18" /></Icon>,
+    archive: <Icon><rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8V19C5 19.6 5.4 20 6 20H18C18.6 20 19 19.6 19 19V8M10 12H14" /></Icon>,
+    check: <Icon><path d="M5 12.5L10 17.5L19 7.5" /></Icon>,
+    checks: <Icon><path d="M2 12.5L6.5 17L14 8.5M10 14.5L11.5 16L20 7" /></Icon>,
+    headset: <Icon><path d="M4 14V12C4 7.6 7.6 4 12 4C16.4 4 20 7.6 20 12V14" /><rect x="3" y="14" width="4" height="6" rx="1.5" /><rect x="17" y="14" width="4" height="6" rx="1.5" /><path d="M19 20C19 21 17.5 21.5 15 21.5H13" /></Icon>,
+    award: <Icon><circle cx="12" cy="9" r="5" /><path d="M8.5 13.5L7 21L12 18.5L17 21L15.5 13.5" /></Icon>,
     camera: <Icon><path d="M4 8H7L8.5 5.5H15.5L17 8H20C20.55 8 21 8.45 21 9V18C21 18.55 20.55 19 20 19H4C3.45 19 3 18.55 3 18V9C3 8.45 3.45 8 4 8Z" /><circle cx="12" cy="13" r="3.5" /></Icon>,
+    calendarPlus: <Icon><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10H21M8 3V7M16 3V7M12 13V18M9.5 15.5H14.5" /></Icon>,
+    calendarCheck: <Icon><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10H21M8 3V7M16 3V7M9 15L11 17L15 13" /></Icon>,
+    star: <Icon><path d="M12 3L14.8 8.7L21 9.6L16.5 14L17.6 20.2L12 17.3L6.4 20.2L7.5 14L3 9.6L9.2 8.7L12 3Z" /></Icon>,
+    chat: <Icon><path d="M21 12C21 16.4 16.97 20 12 20C10.8 20 9.6 19.8 8.6 19.4L3 21L4.6 16.6C3.6 15.3 3 13.7 3 12C3 7.6 7.03 4 12 4C16.97 4 21 7.6 21 12Z" /><path d="M8.5 12H8.51M12 12H12.01M15.5 12H15.51" /></Icon>,
 };
 
 /* Sidebar items. Change the paths to match your router. */
 const NAV_ITEMS = [
-    { label: 'Dashboard', icon: 'dashboard', path: '/dashboard' },
-    { label: 'Listings', icon: 'listings', path: '/listings' },
-    { label: 'Bookings', icon: 'bookings', path: '/bookings' },
+    { label: 'Dashboard', icon: 'dashboard', path: '/' },
+    { label: 'Listings', icon: 'listings', path: '/booking-history' },
+    { label: 'Bookings', icon: 'bookings', path: '/booking' },
     { label: 'Messages', icon: 'messages', path: '/messages' },
-    { label: 'Reviews', icon: 'reviews', path: '/reviews' },
     { label: 'Profile', icon: 'profile', path: '/profile' },
     { label: 'Settings', icon: 'settings', path: '/settings' },
 ];
@@ -101,6 +118,102 @@ const applyTheme = (preference) => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 };
 
+/* ---------- Messages helpers ---------- */
+const POLL_CONVERSATIONS_MS = 15000;
+const POLL_MESSAGES_MS = 8000;
+const EMOJIS = ['😀', '😊', '😂', '😍', '👍', '🙏', '🎉', '❤️', '😅', '🤝', '🏠', '📅'];
+const VISIT_TEMPLATE = "Hi! I'd like to schedule a visit to see this property. Is there a time that works for you?";
+
+const getConvId = (conv) => conv?.id || conv?._id;
+const convTitle = (conv) => conv?.title || conv?.listing?.title || conv?.otherUser?.name || 'Conversation';
+const convImage = (conv) => conv?.image || conv?.listing?.image || '';
+const isSupportConv = (conv) => conv?.type === 'support' || conv?.kind === 'support';
+
+const formatClock = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+};
+
+const dayKey = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toDateString();
+};
+
+const formatDayLabel = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+/* Time for today, "Yesterday", otherwise "Oct 26" */
+const formatListTime = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const label = formatDayLabel(value);
+    if (label === 'Today') return formatClock(value);
+    if (label === 'Yesterday') return label;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const formatMonthYear = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+};
+
+const formatRent = (price) => {
+    const amount = Number(price);
+    return Number.isFinite(amount) && price !== '' && price != null
+        ? `₹ ${amount.toLocaleString('en-IN')} / month`
+        : '';
+};
+
+const roleLabel = (role) => {
+    if (role === 'owner') return 'Property Owner';
+    if (role === 'admin') return 'Support';
+    return 'Tenant';
+};
+
+/* ---------- Notifications helpers ---------- */
+const POLL_NOTIFICATIONS_MS = 30000;
+
+/* Shown only if the API is not available yet. Remove once your backend is ready. */
+const SAMPLE_NOTIFICATIONS = [
+    { id: 'n1', type: 'booking', title: 'New Booking Request', text: 'You have a new booking request for Modern 2BHK Apartment.', createdAt: new Date(Date.now() - 5 * 60000).toISOString(), read: false, link: '/booking' },
+    { id: 'n2', type: 'message', title: 'New Message', text: 'Rahul Sharma sent you a message regarding Cozy Studio Apartment.', createdAt: new Date(Date.now() - 12 * 60000).toISOString(), read: false, link: '/messages' },
+    { id: 'n3', type: 'review', title: 'New Review', text: 'You received a 5 star review for Luxury Villa with Pool.', createdAt: new Date(Date.now() - 60 * 60000).toISOString(), read: false, link: '/booking-history' },
+    { id: 'n4', type: 'confirmed', title: 'Booking Confirmed', text: 'Your booking for Spacious 3BHK Flat has been confirmed.', createdAt: new Date(Date.now() - 3 * 3600000).toISOString(), read: true, link: '/booking' },
+    { id: 'n5', type: 'expiring', title: 'Listing Expiring Soon', text: 'Your listing Budget Friendly PG will expire in 3 days.', createdAt: new Date(Date.now() - 24 * 3600000).toISOString(), read: true, link: '/booking-history' },
+];
+
+const NOTIFICATION_STYLES = {
+    booking: { icon: 'calendarPlus', tone: 'red' },
+    message: { icon: 'chat', tone: 'blue' },
+    review: { icon: 'star', tone: 'amber' },
+    confirmed: { icon: 'calendarCheck', tone: 'green' },
+    expiring: { icon: 'bell', tone: 'red' },
+};
+
+const getNotifId = (n) => n?.id || n?._id;
+
+const timeAgo = (value) => {
+    const time = new Date(value).getTime();
+    if (Number.isNaN(time)) return '';
+    const mins = Math.max(0, Math.floor((Date.now() - time) / 60000));
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+};
+
 const formatDate = (value) => {
     if (!value) return '';
     const date = new Date(value);
@@ -136,9 +249,10 @@ const Profile = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    /* The same component serves /profile and /settings */
+    /* The same component serves /profile, /settings and /messages */
     const isSettings = location.pathname.startsWith('/settings');
-    const activeLabel = isSettings ? 'Settings' : 'Profile';
+    const isMessages = location.pathname.startsWith('/messages');
+    const activeLabel = isMessages ? 'Messages' : isSettings ? 'Settings' : 'Profile';
 
     const [user, setUser] = useState(null);
     const [form, setForm] = useState(toFormValues(null));
@@ -160,6 +274,195 @@ const Profile = () => {
     const [deleteText, setDeleteText] = useState('');
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
+
+    /* Messages state */
+    const [conversations, setConversations] = useState([]);
+    const [convLoading, setConvLoading] = useState(true);
+    const [convError, setConvError] = useState('');
+    const [activeId, setActiveId] = useState(null);
+    const [chatOpen, setChatOpen] = useState(false); // small screens: show the chat pane
+    const [chatTab, setChatTab] = useState('all'); // 'all' | 'unread' | 'archived'
+    const [chatSearch, setChatSearch] = useState('');
+    const [messages, setMessages] = useState([]);
+    const [threadLoading, setThreadLoading] = useState(false);
+    const [draft, setDraft] = useState('');
+    const [sending, setSending] = useState(false);
+    const [emojiOpen, setEmojiOpen] = useState(false);
+    const [chatMenuOpen, setChatMenuOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reporting, setReporting] = useState(false);
+    const [reportError, setReportError] = useState('');
+    const [chatNotice, setChatNotice] = useState(null); // { type: 'ok' | 'error', text }
+    const threadRef = useRef(null);
+    const composerRef = useRef(null);
+
+    /* Notifications state */
+    const [notifications, setNotifications] = useState([]);
+    const [notifOpen, setNotifOpen] = useState(false);
+    const notifRef = useRef(null);
+
+    const userReady = Boolean(user);
+
+    /* Conversation list: load once, then poll */
+    useEffect(() => {
+        if (!isMessages || !userReady) return undefined;
+
+        let cancelled = false;
+
+        const load = async (initial) => {
+            try {
+                // TODO: adjust the endpoint to match your backend
+                const response = await apiRequest('/api/chat/conversations');
+                if (cancelled) return;
+
+                const list = response.data.data || [];
+                setConversations(list);
+                setConvError('');
+
+                if (initial) {
+                    const first = list.find((c) => !c.archived) || list[0];
+                    setActiveId((prev) => prev ?? (first ? getConvId(first) : null));
+                }
+            } catch (err) {
+                if (!cancelled && initial) {
+                    setConvError(err.message || 'Unable to load conversations.');
+                }
+            } finally {
+                if (!cancelled && initial) setConvLoading(false);
+            }
+        };
+
+        load(true);
+        const timer = setInterval(() => load(false), POLL_CONVERSATIONS_MS);
+
+        return () => {
+            cancelled = true;
+            clearInterval(timer);
+        };
+    }, [isMessages, userReady]);
+
+    /* Open conversation: load messages, mark as read, then poll for new ones */
+    useEffect(() => {
+        setMessages([]);
+
+        if (!isMessages || !userReady || !activeId) return undefined;
+
+        let cancelled = false;
+
+        const load = async (initial) => {
+            if (initial) setThreadLoading(true);
+
+            try {
+                // TODO: adjust the endpoint to match your backend
+                const response = await apiRequest(`/api/chat/conversations/${activeId}/messages`);
+                if (cancelled) return;
+
+                const list = response.data.data || [];
+
+                // Keep messages that are still being sent
+                setMessages((prev) => [...list, ...prev.filter((m) => m.pending)]);
+
+                if (initial) {
+                    apiRequest(`/api/chat/conversations/${activeId}/read`, { method: 'PUT' })
+                        .catch(() => {});
+
+                    setConversations((prev) =>
+                        prev.map((c) => (getConvId(c) === activeId ? { ...c, unreadCount: 0 } : c))
+                    );
+                }
+            } catch (err) {
+                if (!cancelled && initial) {
+                    setChatNotice({ type: 'error', text: err.message || 'Unable to load messages.' });
+                }
+            } finally {
+                if (!cancelled && initial) setThreadLoading(false);
+            }
+        };
+
+        load(true);
+        const timer = setInterval(() => load(false), POLL_MESSAGES_MS);
+
+        return () => {
+            cancelled = true;
+            clearInterval(timer);
+        };
+    }, [isMessages, userReady, activeId]);
+
+    /* Keep the thread scrolled to the newest message */
+    useEffect(() => {
+        const el = threadRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+    }, [messages.length, activeId]);
+
+    /* Close the ⋮ menu / emoji picker when clicking elsewhere */
+    useEffect(() => {
+        if (!chatMenuOpen && !emojiOpen) return undefined;
+
+        const onDown = (event) => {
+            if (!event.target.closest('[data-popover]')) {
+                setChatMenuOpen(false);
+                setEmojiOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [chatMenuOpen, emojiOpen]);
+
+    /* Auto-hide the small notice above the composer */
+    useEffect(() => {
+        if (!chatNotice) return undefined;
+        const timer = setTimeout(() => setChatNotice(null), 4000);
+        return () => clearTimeout(timer);
+    }, [chatNotice]);
+
+    /* Notifications: load once, then poll */
+    useEffect(() => {
+        if (!userReady) return undefined;
+
+        let cancelled = false;
+
+        const load = async () => {
+            try {
+                // TODO: adjust the endpoint to match your backend
+                const response = await apiRequest('/api/notifications');
+                if (!cancelled) setNotifications(response.data.data || []);
+            } catch {
+                // Backend not ready: show sample data once so the UI can be tested
+                if (!cancelled) setNotifications((prev) => (prev.length ? prev : SAMPLE_NOTIFICATIONS));
+            }
+        };
+
+        load();
+        const timer = setInterval(load, POLL_NOTIFICATIONS_MS);
+
+        return () => {
+            cancelled = true;
+            clearInterval(timer);
+        };
+    }, [userReady]);
+
+    /* Close the notifications panel on outside click or Escape */
+    useEffect(() => {
+        if (!notifOpen) return undefined;
+
+        const onDown = (event) => {
+            if (notifRef.current && !notifRef.current.contains(event.target)) {
+                setNotifOpen(false);
+            }
+        };
+        const onKey = (event) => {
+            if (event.key === 'Escape') setNotifOpen(false);
+        };
+
+        document.addEventListener('mousedown', onDown);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDown);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [notifOpen]);
 
     /* Apply + persist the theme; follow the OS when set to "system" */
     useEffect(() => {
@@ -509,6 +812,181 @@ const Profile = () => {
         }
     };
 
+    /* ---------- Notification handlers ---------- */
+    const unreadNotifCount = notifications.filter((n) => !n.read).length;
+
+    const handleMarkAllRead = async () => {
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
+        try {
+            // TODO: adjust the endpoint to match your backend
+            await apiRequest('/api/notifications/read-all', { method: 'PUT' });
+        } catch {
+            /* keep the optimistic update */
+        }
+    };
+
+    const handleNotificationClick = (notif) => {
+        const id = getNotifId(notif);
+
+        if (!notif.read) {
+            setNotifications((prev) => prev.map((n) => (getNotifId(n) === id ? { ...n, read: true } : n)));
+            // TODO: adjust the endpoint to match your backend
+            apiRequest(`/api/notifications/${id}/read`, { method: 'PUT' }).catch(() => {});
+        }
+
+        setNotifOpen(false);
+        if (notif.link) navigate(notif.link);
+    };
+
+    const handleViewAllNotifications = () => {
+        setNotifOpen(false);
+        // TODO: point this at your notifications page
+        navigate('/notifications');
+    };
+
+    /* ---------- Messages handlers ---------- */
+    const updateConversation = (id, patch) => {
+        setConversations((prev) =>
+            prev.map((c) => (getConvId(c) === id ? { ...c, ...patch } : c))
+        );
+    };
+
+    const selectConversation = (id) => {
+        setActiveId(id);
+        setChatOpen(true);
+        setChatMenuOpen(false);
+        setEmojiOpen(false);
+        setDraft('');
+    };
+
+    const isMineMessage = (msg) => {
+        if (typeof msg.isMine === 'boolean') return msg.isMine;
+        const senderId = msg.senderId ?? msg.sender?._id ?? msg.sender?.id ?? msg.sender;
+        const myId = user?.id ?? user?._id;
+        return senderId != null && myId != null && String(senderId) === String(myId);
+    };
+
+    const handleSendMessage = async (event) => {
+        event.preventDefault();
+
+        const text = draft.trim();
+        if (!text || !activeId || sending) return;
+
+        const tempId = `tmp-${Date.now()}`;
+        const sentAt = new Date().toISOString();
+
+        setMessages((prev) => [
+            ...prev,
+            { id: tempId, text, isMine: true, createdAt: sentAt, pending: true },
+        ]);
+        setDraft('');
+        setEmojiOpen(false);
+        setSending(true);
+
+        try {
+            // TODO: adjust the endpoint to match your backend
+            const response = await apiRequest(`/api/chat/conversations/${activeId}/messages`, {
+                method: 'POST',
+                body: { text },
+            });
+
+            const saved = response?.data?.message || { text, createdAt: sentAt };
+
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === tempId ? { ...saved, id: getConvId(saved) || tempId, isMine: true } : m
+                )
+            );
+
+            updateConversation(activeId, { lastMessage: text, updatedAt: saved.createdAt || sentAt });
+        } catch (err) {
+            setMessages((prev) => prev.filter((m) => m.id !== tempId));
+            setDraft(text);
+            setChatNotice({ type: 'error', text: err.message || 'Message could not be sent.' });
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const handleToggleArchive = async () => {
+        const conv = conversations.find((c) => getConvId(c) === activeId);
+        if (!conv) return;
+
+        const archived = !conv.archived;
+        setChatMenuOpen(false);
+
+        try {
+            // TODO: adjust the endpoint to match your backend
+            await apiRequest(`/api/chat/conversations/${activeId}/archive`, {
+                method: 'PUT',
+                body: { archived },
+            });
+
+            updateConversation(activeId, { archived });
+            setChatNotice({ type: 'ok', text: archived ? 'Conversation archived.' : 'Conversation restored.' });
+
+            // Leave the conversation that just moved to another tab
+            setActiveId(null);
+            setChatOpen(false);
+        } catch (err) {
+            setChatNotice({ type: 'error', text: err.message || 'Could not update the conversation.' });
+        }
+    };
+
+    const handleScheduleVisit = () => {
+        setDraft((prev) => prev || VISIT_TEMPLATE);
+        setChatOpen(true);
+        setTimeout(() => composerRef.current?.focus(), 0);
+    };
+
+    const handleViewListing = () => {
+        const conv = conversations.find((c) => getConvId(c) === activeId);
+        const listingId = conv?.listing?.id || conv?.listing?._id;
+
+        // TODO: adjust to your listing details route
+        if (listingId) navigate(`/listings/${listingId}`);
+    };
+
+    const openReportDialog = () => {
+        setChatMenuOpen(false);
+        setReportReason('');
+        setReportError('');
+        setReportOpen(true);
+    };
+
+    const closeReportDialog = () => {
+        if (reporting) return;
+        setReportOpen(false);
+    };
+
+    const handleReportUser = async (event) => {
+        event.preventDefault();
+
+        if (!reportReason.trim()) {
+            setReportError('Please tell us what happened.');
+            return;
+        }
+
+        setReporting(true);
+        setReportError('');
+
+        try {
+            // TODO: adjust the endpoint to match your backend
+            await apiRequest(`/api/chat/conversations/${activeId}/report`, {
+                method: 'POST',
+                body: { reason: reportReason.trim() },
+            });
+
+            setReportOpen(false);
+            setChatNotice({ type: 'ok', text: 'Thanks, your report has been submitted.' });
+        } catch (err) {
+            setReportError(err.message || 'Could not submit your report.');
+        } finally {
+            setReporting(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="rf-center">
@@ -530,6 +1008,441 @@ const Profile = () => {
     const role = user?.role || 'user';
     const isIndia = form.country === 'India';
     const messageIsError = message && !message.toLowerCase().includes('success');
+
+    const pageHeading = isMessages
+        ? { title: 'Messages', subtitle: 'Chat with property owners, tenants, and support.' }
+        : isSettings
+            ? { title: 'Settings', subtitle: 'Manage your account settings and preferences.' }
+            : { title: 'My Profile', subtitle: 'View and manage your account information.' };
+
+    const renderMessages = () => {
+        const query = chatSearch.trim().toLowerCase();
+
+        const activeConvs = conversations.filter((c) => !c.archived);
+        const counts = {
+            all: activeConvs.length,
+            unread: activeConvs.filter((c) => (c.unreadCount || 0) > 0).length,
+            archived: conversations.length - activeConvs.length,
+        };
+
+        const visibleConvs = conversations
+            .filter((c) => {
+                if (chatTab === 'archived') return c.archived;
+                if (c.archived) return false;
+                return chatTab !== 'unread' || (c.unreadCount || 0) > 0;
+            })
+            .filter((c) =>
+                !query ||
+                [convTitle(c), c.lastMessage, c.otherUser?.name].some((v) =>
+                    String(v || '').toLowerCase().includes(query)
+                )
+            );
+
+        const activeConv = conversations.find((c) => getConvId(c) === activeId) || null;
+        const support = isSupportConv(activeConv);
+        const other = activeConv?.otherUser || {};
+        const listing = activeConv?.listing || null;
+        const rent = formatRent(listing?.price ?? listing?.rent);
+
+        const renderAvatar = (conv, className) => {
+            if (isSupportConv(conv)) {
+                return <span className={`${className} rf-chat-avatar--support`}>{icons.headset}</span>;
+            }
+
+            const image = convImage(conv);
+            return image ? (
+                <img className={className} src={image} alt="" />
+            ) : (
+                <span className={`${className} rf-chat-avatar--initial`}>
+                    {convTitle(conv).charAt(0).toUpperCase()}
+                </span>
+            );
+        };
+
+        return (
+            <div className={`rf-messages${chatOpen ? ' chat-open' : ''}`}>
+
+                {/* ============ CONVERSATION LIST ============ */}
+                <section className="rf-card rf-msg-panel rf-chat-list-panel">
+                    <div className="rf-chat-search">
+                        <span className="rf-chat-search-icon">{icons.search}</span>
+                        <input
+                            type="text"
+                            value={chatSearch}
+                            onChange={(e) => setChatSearch(e.target.value)}
+                            placeholder="Search conversations..."
+                            aria-label="Search conversations"
+                        />
+                    </div>
+
+                    <div className="rf-chat-tabs" role="tablist">
+                        {[
+                            { id: 'all', label: 'All Chats' },
+                            { id: 'unread', label: 'Unread' },
+                            { id: 'archived', label: 'Archived' },
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={chatTab === tab.id}
+                                className={`rf-chat-tab${chatTab === tab.id ? ' active' : ''}`}
+                                onClick={() => setChatTab(tab.id)}
+                            >
+                                {tab.label} ({counts[tab.id]})
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="rf-chat-list">
+                        {convLoading && <p className="rf-chat-empty">Loading conversations...</p>}
+
+                        {!convLoading && convError && (
+                            <p className="rf-chat-empty rf-chat-empty--error">{convError}</p>
+                        )}
+
+                        {!convLoading && !convError && visibleConvs.length === 0 && (
+                            <p className="rf-chat-empty">
+                                {query
+                                    ? 'No conversations match your search.'
+                                    : chatTab === 'unread'
+                                        ? 'No unread conversations.'
+                                        : chatTab === 'archived'
+                                            ? 'No archived conversations.'
+                                            : 'No conversations yet.'}
+                            </p>
+                        )}
+
+                        {visibleConvs.map((conv) => {
+                            const id = getConvId(conv);
+                            const unread = conv.unreadCount || 0;
+
+                            return (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className={`rf-chat-item${id === activeId ? ' active' : ''}`}
+                                    onClick={() => selectConversation(id)}
+                                >
+                                    {renderAvatar(conv, 'rf-chat-avatar')}
+                                    <span className="rf-chat-item-body">
+                                        <strong>{convTitle(conv)}</strong>
+                                        <span className={unread ? 'unread' : ''}>{conv.lastMessage || 'No messages yet'}</span>
+                                    </span>
+                                    <span className="rf-chat-item-meta">
+                                        <time>{formatListTime(conv.updatedAt || conv.lastMessageAt)}</time>
+                                        {unread > 0 && <span className="rf-chat-unread">{unread}</span>}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </section>
+
+                {/* ============ CHAT ============ */}
+                <section className="rf-card rf-msg-panel rf-chat-panel">
+                    {!activeConv ? (
+                        <div className="rf-chat-placeholder">
+                            <span className="rf-chat-placeholder-icon">{icons.messages}</span>
+                            <p>Select a conversation to start chatting.</p>
+                        </div>
+                    ) : (
+                        <>
+                            <header className="rf-chat-header">
+                                <button
+                                    type="button"
+                                    className="rf-chat-back"
+                                    onClick={() => setChatOpen(false)}
+                                    aria-label="Back to conversations"
+                                >
+                                    {icons.arrowLeft}
+                                </button>
+
+                                {renderAvatar(activeConv, 'rf-chat-header-avatar')}
+
+                                <div className="rf-chat-header-text">
+                                    <strong>{convTitle(activeConv)}</strong>
+                                    <span className={`rf-chat-status${other.online ? ' online' : ''}`}>
+                                        {other.online ? 'Online' : 'Offline'}
+                                    </span>
+                                </div>
+
+                                <div className="rf-popover-wrap" data-popover>
+                                    <button
+                                        type="button"
+                                        className="rf-icon-btn"
+                                        onClick={() => setChatMenuOpen((prev) => !prev)}
+                                        aria-label="Conversation options"
+                                        aria-expanded={chatMenuOpen}
+                                    >
+                                        {icons.more}
+                                    </button>
+
+                                    {chatMenuOpen && (
+                                        <div className="rf-popover" role="menu">
+                                            <button type="button" role="menuitem" onClick={handleToggleArchive}>
+                                                {icons.archive}
+                                                {activeConv.archived ? 'Unarchive' : 'Archive'}
+                                            </button>
+                                            {!support && (
+                                                <button type="button" role="menuitem" className="danger" onClick={openReportDialog}>
+                                                    {icons.flag}
+                                                    Report user
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </header>
+
+                            <div className="rf-chat-thread" ref={threadRef}>
+                                {threadLoading && messages.length === 0 && (
+                                    <p className="rf-chat-empty">Loading messages...</p>
+                                )}
+
+                                {!threadLoading && messages.length === 0 && (
+                                    <p className="rf-chat-empty">No messages yet. Say hello!</p>
+                                )}
+
+                                {messages.map((msg, index) => {
+                                    const mine = isMineMessage(msg);
+                                    const showDay =
+                                        index === 0 ||
+                                        dayKey(msg.createdAt) !== dayKey(messages[index - 1].createdAt);
+
+                                    return (
+                                        <React.Fragment key={getConvId(msg) || index}>
+                                            {showDay && (
+                                                <div className="rf-day-divider">
+                                                    <span>{formatDayLabel(msg.createdAt)}</span>
+                                                </div>
+                                            )}
+
+                                            <div className={`rf-msg-row ${mine ? 'mine' : 'theirs'}`}>
+                                                <div className="rf-bubble">{msg.text}</div>
+                                                <div className="rf-msg-meta">
+                                                    <span>{formatClock(msg.createdAt)}</span>
+                                                    {mine && (
+                                                        msg.pending ? (
+                                                            <span>Sending...</span>
+                                                        ) : (
+                                                            <span className={`rf-ticks${msg.read ? ' read' : ''}`}>
+                                                                {msg.read ? icons.checks : icons.check}
+                                                            </span>
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </div>
+
+                            {chatNotice && (
+                                <div className={`rf-chat-notice ${chatNotice.type === 'ok' ? 'ok' : 'error'}`}>
+                                    {chatNotice.text}
+                                </div>
+                            )}
+
+                            <form className="rf-composer" onSubmit={handleSendMessage}>
+                                <div className="rf-composer-field">
+                                    <button
+                                        type="button"
+                                        className="rf-icon-btn"
+                                        disabled
+                                        title="Attachments coming soon"
+                                        aria-label="Attach a file (coming soon)"
+                                    >
+                                        {icons.paperclip}
+                                    </button>
+
+                                    <input
+                                        ref={composerRef}
+                                        type="text"
+                                        value={draft}
+                                        onChange={(e) => setDraft(e.target.value)}
+                                        placeholder="Type a message..."
+                                        aria-label="Type a message"
+                                        maxLength={2000}
+                                    />
+
+                                    <div className="rf-popover-wrap" data-popover>
+                                        <button
+                                            type="button"
+                                            className="rf-icon-btn"
+                                            onClick={() => setEmojiOpen((prev) => !prev)}
+                                            aria-label="Add emoji"
+                                            aria-expanded={emojiOpen}
+                                        >
+                                            {icons.smile}
+                                        </button>
+
+                                        {emojiOpen && (
+                                            <div className="rf-emoji-panel">
+                                                {EMOJIS.map((emoji) => (
+                                                    <button
+                                                        key={emoji}
+                                                        type="button"
+                                                        onClick={() => setDraft((prev) => prev + emoji)}
+                                                    >
+                                                        {emoji}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="rf-send-btn"
+                                    disabled={!draft.trim() || sending}
+                                    aria-label="Send message"
+                                >
+                                    {icons.send}
+                                </button>
+                            </form>
+                        </>
+                    )}
+                </section>
+
+                {/* ============ DETAILS ============ */}
+                <aside className="rf-card rf-msg-panel rf-chat-details">
+                    {activeConv && (
+                        <>
+                            {!support && listing && (
+                                <>
+                                    {listing.image && (
+                                        <img className="rf-detail-image" src={listing.image} alt={listing.title || 'Listing'} />
+                                    )}
+                                    <h3 className="rf-detail-title">{listing.title}</h3>
+                                    {listing.location && (
+                                        <p className="rf-detail-location">
+                                            {icons.pin}
+                                            {listing.location}
+                                        </p>
+                                    )}
+                                    <div className="rf-detail-price-row">
+                                        <strong>{rent}</strong>
+                                        <button type="button" className="rf-btn-outline" onClick={handleViewListing}>
+                                            View Listing
+                                        </button>
+                                    </div>
+                                    <hr className="rf-detail-rule" />
+                                </>
+                            )}
+
+                            <h4 className="rf-detail-heading">Conversation Details</h4>
+                            <ul className="rf-detail-list">
+                                <li>
+                                    <span className="rf-detail-icon">{icons.profile}</span>
+                                    <span>
+                                        <small>{support ? 'Contact' : roleLabel(other.role)}</small>
+                                        {support ? 'RentFlow Support' : other.name || '-'}
+                                    </span>
+                                </li>
+                                {other.phone && (
+                                    <li>
+                                        <span className="rf-detail-icon">{icons.phone}</span>
+                                        <span>
+                                            <small>Phone</small>
+                                            {other.phone}
+                                        </span>
+                                    </li>
+                                )}
+                                {other.email && (
+                                    <li>
+                                        <span className="rf-detail-icon">{icons.mail}</span>
+                                        <span>
+                                            <small>Email</small>
+                                            {other.email}
+                                        </span>
+                                    </li>
+                                )}
+                                {(other.createdAt || other.memberSince) && (
+                                    <li>
+                                        <span className="rf-detail-icon">{icons.award}</span>
+                                        <span>
+                                            <small>Member Since</small>
+                                            {formatMonthYear(other.createdAt || other.memberSince)}
+                                        </span>
+                                    </li>
+                                )}
+                            </ul>
+
+                            {!support && (
+                                <>
+                                    <hr className="rf-detail-rule" />
+                                    <h4 className="rf-detail-heading">Quick Actions</h4>
+                                    <div className="rf-quick-actions">
+                                        <button type="button" className="rf-quick-btn" onClick={handleScheduleVisit}>
+                                            {icons.bookings}
+                                            Schedule Visit
+                                        </button>
+                                        <button type="button" className="rf-quick-btn rf-quick-btn--danger" onClick={openReportDialog}>
+                                            {icons.flag}
+                                            Report User
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    )}
+                </aside>
+
+                {/* ============ REPORT DIALOG ============ */}
+                {reportOpen && (
+                    <div className="rf-modal-overlay" onClick={closeReportDialog}>
+                        <form
+                            className="rf-modal"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="report-title"
+                            onClick={(e) => e.stopPropagation()}
+                            onSubmit={handleReportUser}
+                        >
+                            <span className="rf-modal-icon">{icons.flag}</span>
+                            <h3 id="report-title">Report {other.name || 'this user'}</h3>
+                            <p>
+                                Tell us what went wrong. Our team will review this conversation.
+                            </p>
+
+                            <div className="rf-field">
+                                <label htmlFor="report-reason">Reason</label>
+                                <textarea
+                                    id="report-reason"
+                                    rows="3"
+                                    value={reportReason}
+                                    onChange={(e) => {
+                                        setReportReason(e.target.value);
+                                        if (reportError) setReportError('');
+                                    }}
+                                    maxLength={1000}
+                                    autoFocus
+                                />
+                            </div>
+
+                            {reportError && <div className="rf-msg rf-msg--error">{reportError}</div>}
+
+                            <div className="rf-form-actions">
+                                <button
+                                    type="button"
+                                    className="rf-btn-secondary"
+                                    onClick={closeReportDialog}
+                                    disabled={reporting}
+                                >
+                                    Cancel
+                                </button>
+                                <button type="submit" className="rf-btn-danger" disabled={reporting}>
+                                    {reporting ? 'Submitting...' : 'Submit Report'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const renderSettings = () => (
         <div className="rf-settings-grid">
@@ -751,9 +1664,67 @@ const Profile = () => {
 
                 {/* TOP BAR */}
                 <div className="rf-topbar">
-                    <button type="button" className="rf-bell" aria-label="Notifications">
-                        {icons.bell}
-                    </button>
+                    <div className="rf-notif-wrap" ref={notifRef}>
+                        <button
+                            type="button"
+                            className="rf-bell"
+                            aria-label="Notifications"
+                            aria-haspopup="true"
+                            aria-expanded={notifOpen}
+                            onClick={() => setNotifOpen((prev) => !prev)}
+                        >
+                            {icons.bell}
+                            {unreadNotifCount > 0 && (
+                                <span className="rf-bell-badge">{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</span>
+                            )}
+                        </button>
+
+                        {notifOpen && (
+                            <div className="rf-notif-panel" role="dialog" aria-label="Notifications">
+                                <div className="rf-notif-head">
+                                    <h3>Notifications ({unreadNotifCount})</h3>
+                                    {unreadNotifCount > 0 && (
+                                        <button type="button" onClick={handleMarkAllRead}>
+                                            Mark all as read
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="rf-notif-list">
+                                    {notifications.length === 0 && (
+                                        <p className="rf-notif-empty">You're all caught up.</p>
+                                    )}
+
+                                    {notifications.map((notif) => {
+                                        const style = NOTIFICATION_STYLES[notif.type] || NOTIFICATION_STYLES.message;
+
+                                        return (
+                                            <button
+                                                key={getNotifId(notif)}
+                                                type="button"
+                                                className={`rf-notif-item${notif.read ? '' : ' unread'}`}
+                                                onClick={() => handleNotificationClick(notif)}
+                                            >
+                                                <span className={`rf-notif-icon rf-notif-icon--${style.tone}`}>
+                                                    {icons[style.icon]}
+                                                </span>
+                                                <span className="rf-notif-body">
+                                                    <strong>{notif.title}</strong>
+                                                    <span>{notif.text}</span>
+                                                    <time>{timeAgo(notif.createdAt)}</time>
+                                                </span>
+                                                {!notif.read && <span className="rf-notif-dot" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* <button type="button" className="rf-notif-viewall" onClick={handleViewAllNotifications}>
+                                    View All Notifications
+                                </button> */}
+                            </div>
+                        )}
+                    </div>
 
                     <div className="rf-user-chip">
                         <div className="rf-avatar-sm">
@@ -772,16 +1743,12 @@ const Profile = () => {
 
                 {/* HEADING */}
                 <div className="rf-heading">
-                    <h1>{isSettings ? 'Settings' : 'My Profile'}</h1>
-                    <p>
-                        {isSettings
-                            ? 'Manage your account settings and preferences.'
-                            : 'View and manage your account information.'}
-                    </p>
+                    <h1>{pageHeading.title}</h1>
+                    <p>{pageHeading.subtitle}</p>
                 </div>
 
                 {/* CONTENT */}
-                {isSettings ? renderSettings() : (
+                {isMessages ? renderMessages() : isSettings ? renderSettings() : (
                 <div className="rf-grid">
 
                     {/* SUMMARY */}
