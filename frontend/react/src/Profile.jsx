@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from './services/api';
 import "./styles/profile.css";
-
 /* ---------- Icons ---------- */
 const Icon = ({ children }) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -248,6 +247,14 @@ const toFormValues = (user) => ({
 const Profile = () => {
     const navigate = useNavigate();
     const location = useLocation();
+
+    const handleDashboardClick = () => {
+        if (user?.role?.toLowerCase() === 'admin') {
+            navigate('/admin-dashboard');
+        } else {
+            navigate('/');
+        }
+    };
 
     /* The same component serves /profile, /settings and /messages */
     const isSettings = location.pathname.startsWith('/settings');
@@ -1635,19 +1642,33 @@ const Profile = () => {
                 </button>
 
                 <nav className="rf-nav">
-                    {NAV_ITEMS.map((item) => (
-                        <button
-                            key={item.label}
-                            type="button"
-                            className={`rf-nav-item${item.label === activeLabel ? ' active' : ''}`}
-                            onClick={() => navigate(item.path)}
-                            aria-current={item.label === activeLabel ? 'page' : undefined}
-                        >
-                            {icons[item.icon]}
-                            {item.label}
-                        </button>
-                    ))}
-                </nav>
+    {NAV_ITEMS
+    .filter((item) => {
+        if (user?.role?.toLowerCase() === 'admin') {
+            return item.label !== 'Listings' && item.label !== 'Bookings';
+        }
+
+        return true;
+    })
+    .map((item) => (
+        <button
+            key={item.label}
+            type="button"
+            className={`rf-nav-item${item.label === activeLabel ? ' active' : ''}`}
+            onClick={() => {
+                if (item.label === 'Dashboard') {
+                    handleDashboardClick();
+                } else {
+                    navigate(item.path);
+                }
+            }}
+            aria-current={item.label === activeLabel ? 'page' : undefined}
+        >
+            {icons[item.icon]}
+            {item.label}
+        </button>
+    ))}
+</nav>
 
                 <button
                     type="button"

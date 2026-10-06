@@ -17,7 +17,10 @@ const authenticateToken = (req, res, next) => {
             process.env.JWT_SECRET
         );
 
-        if (!decoded.userId) {
+        // Support both old and new JWT payload formats
+        const userId = decoded.userId || decoded.id || decoded._id;
+
+        if (!userId) {
             return res.status(401).json({
                 message: 'Invalid authentication token.',
             });
@@ -26,11 +29,16 @@ const authenticateToken = (req, res, next) => {
         // Maintain compatibility with existing controllers
         // that use req.user._id
         req.user = {
-            _id: decoded.userId,
+            _id: userId,
+            id: userId,
+            role: decoded.role,
         };
 
         next();
+
     } catch (error) {
+        console.error('Authentication error:', error.message);
+
         return res.status(401).json({
             message: 'Invalid or expired authentication token.',
         });
