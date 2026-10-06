@@ -10,11 +10,11 @@ import HomePage from './HomePage';
 import Login from './Login';
 import Signup from './Signup';
 import Profile from './Profile';
-import CreateListing from './pages/CreateListing';
-import EditListing from './pages/EditListing';
-import Premium from './pages/Premium';
-import About from './pages/About';
-import UpcomingFeatures from './pages/UpcomingFeatures';
+import CreateListing from './CreateListing';
+import EditListing from './EditListing';
+import Premium from './Premium';
+import About from './About';
+import UpcomingFeatures from './UpcomingFeatures';
 
 const routes = [
   // ==========================================

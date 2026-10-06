@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAuthUser } from '../services/api';
+import { getAuthUser } from './services/api';
 import './styles/premium.css';
 
 export default function Premium() {

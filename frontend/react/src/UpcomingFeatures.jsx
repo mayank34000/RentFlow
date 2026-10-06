@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAuthUser, clearAuthSession } from '../services/api';
+import { getAuthUser, clearAuthSession } from './services/api';
 import './styles/upcoming-features.css';
 
 export default function UpcomingFeatures() {
