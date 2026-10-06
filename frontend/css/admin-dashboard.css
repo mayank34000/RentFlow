@@ -187,7 +187,6 @@ body {
 .menu-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
 .menu-toggle.open span:nth-child(2) { opacity: 0; }
 .menu-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-}
 
 /* ---------- Dashboard Container ---------- */
 .dashboard {
@@ -467,7 +466,8 @@ body {
     color: var(--accent-blue-light);
 }
 
-.badge-blocked {
+.badge-blocked,
+.badge-high {
     background: rgba(239, 68, 68, 0.12);
     border-color: rgba(239, 68, 68, 0.3);
     color: #f87171;

@@ -1,31 +1,30 @@
 /**
- * RentFlow — Shared API Utilities
+ * RentFlow - Shared API Utilities
  *
- * Centralizes the API base URL and JWT authentication
- * so that every page uses the same authentication mechanism.
+ * Centralizes the API base URL and authentication headers
+ * so that every page uses the same API request mechanism.
  */
 
 export const API_URL =
     import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 /**
- * Returns the JWT authentication headers.
- *
- * The JWT is stored in localStorage after successful login.
- *
- * @returns {Record<string, string>} Headers object.
+ * Returns authentication headers for both the existing development
+ * user flow and JWT-based authentication.
  */
 export function getAuthHeaders() {
     const headers = {};
-
-    // Development authentication
+    // Aryan's development user authentication.
     const devUserId = localStorage.getItem('devUserId');
     if (devUserId) {
         headers['x-dev-user-id'] = devUserId;
     }
 
-    // JWT authentication
-    const token = localStorage.getItem('rf_token');
+    // Mayank's existing admin/session JWT.
+    // Fall back to Dhruv's generic "token" key for newer auth pages.
+    const rfToken = localStorage.getItem('rf_token');
+    const token = rfToken || localStorage.getItem('token');
+
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
@@ -33,22 +32,46 @@ export function getAuthHeaders() {
     return headers;
 }
 
+// JWT/session utilities.
+export function isLoggedIn() {
+    return !!(
+        localStorage.getItem('rf_token') ||
+        localStorage.getItem('token')
+    );
+}
+
+export function getAuthUser() {
+    try {
+        const user = localStorage.getItem('rf_user');
+        return user ? JSON.parse(user) : null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveAuthSession(token, user) {
+    localStorage.setItem('rf_token', token);
+    localStorage.setItem('token', token);
+
+    if (user) {
+        localStorage.setItem('rf_user', JSON.stringify(user));
+    }
+}
+
+export function clearAuthSession() {
+    localStorage.removeItem('rf_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('rf_user');
+}
 
 /**
  * Generic API request helper.
  *
  * - Attaches JSON content-type for requests with a body.
- * - Attaches JWT authentication headers via getAuthHeaders().
+ * - Attaches authentication headers.
  * - Parses JSON responses.
- * - Attaches `status` to thrown errors so callers
- *   can distinguish 401 / 404 / 500 etc.
+ * - Attaches status/data to thrown errors.
  * - Handles non-JSON responses gracefully.
- *
- * @param {string} endpoint — path relative to API_URL,
- *   e.g. '/api/bookings/my'
- * @param {object} [options] — fetch options override
- *   (method, body, signal, …)
- * @returns {Promise<{ status: number, data: any }>}
  */
 export async function apiRequest(endpoint, options = {}) {
     const {
@@ -86,13 +109,12 @@ export async function apiRequest(endpoint, options = {}) {
         fetchOptions
     );
 
-    // Try to parse JSON; fall back to null for non-JSON responses.
     let data = null;
 
     try {
         data = await response.json();
     } catch {
-        // Non-JSON response (HTML error page, empty body, etc.).
+        // Non-JSON response.
     }
 
     if (!response.ok) {

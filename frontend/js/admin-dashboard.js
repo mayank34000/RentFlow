@@ -29,13 +29,23 @@ let listingToRemove = null;
 
 // ─── KPI RENDERING ──────────────────────────────────────────
 
-function renderKPIs() {
-    const users = getUsers();
+async function renderKPIs() {
+    let analyticsData = null;
+    try {
+        if (window.RentFlowAPI) {
+            const res = await window.RentFlowAPI.get('/admin/analytics/overview');
+            if (res.success) {
+                analyticsData = res.data;
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching analytics for KPIs:', e);
+    }
+
     const listings = getListings();
     const bookings = getBookings();
     const revenue = calculateTotalRevenue(bookings);
     const platformFee = calculatePlatformFeeRevenue(listings);
-    const premiumUsers = getPremiumUsers(users);
 
     const kpiUsers = document.getElementById('kpiUsers');
     const kpiSellers = document.getElementById('kpiSellers');
@@ -45,16 +55,31 @@ function renderKPIs() {
     const kpiPlatformFee = document.getElementById('kpiPlatformFee');
     const kpiPremium = document.getElementById('kpiPremium');
 
-    if (kpiUsers) kpiUsers.textContent = users.length;
-    if (kpiSellers) {
-        const sellerCount = users.filter(u => (u.role || '').toLowerCase() === 'seller').length;
-        kpiSellers.textContent = sellerCount;
+    if (analyticsData && analyticsData.userStats) {
+        if (kpiUsers) kpiUsers.textContent = analyticsData.userStats.totalUsers || 0;
+        if (kpiPremium) kpiPremium.textContent = analyticsData.userStats.proUsers || 0;
+        if (kpiSellers) {
+            const roles = analyticsData.userStats.roleDistribution || [];
+            const sellerRole = roles.find(r => (r._id || '').toLowerCase() === 'seller');
+            kpiSellers.textContent = sellerRole ? sellerRole.count : 0;
+        }
+    } else {
+        const users = getUsers();
+        if (kpiUsers) kpiUsers.textContent = users.length;
+        if (kpiSellers) {
+            const sellerCount = users.filter(u => (u.role || '').toLowerCase() === 'seller').length;
+            kpiSellers.textContent = sellerCount;
+        }
+        if (kpiPremium) {
+            const premiumUsers = getPremiumUsers(users);
+            kpiPremium.textContent = premiumUsers.length;
+        }
     }
+
     if (kpiListings) kpiListings.textContent = listings.length;
     if (kpiBookings) kpiBookings.textContent = bookings.length;
     if (kpiRevenue) kpiRevenue.textContent = formatCurrency(revenue);
     if (kpiPlatformFee) kpiPlatformFee.textContent = formatCurrency(platformFee);
-    if (kpiPremium) kpiPremium.textContent = premiumUsers.length;
 }
 
 // ─── RENDER FUNCTIONS ────────────────────────────────────────
@@ -178,38 +203,51 @@ function renderBookings() {
     list.innerHTML = html;
 }
 
-function renderFeedbackAndReports() {
+async function renderFeedbackAndReports() {
     const feedbackEl = document.getElementById('feedbackList');
     const reportEl = document.getElementById('reportList');
 
     if (feedbackEl) {
-        let fbHtml = '';
-        const allFeedback = getFeedback();
-        
-        if (allFeedback.length === 0) {
-            fbHtml = '<p style="padding:12px; color:#9ca3af; font-size:14px; text-align:center;">No feedback submitted yet.</p>';
-        }
-        
-        allFeedback.forEach(fb => {
-            let starsStr = '';
-            for(let i=1; i<=5; i++) starsStr += (i <= fb.rating) ? '★' : '☆';
+        try {
+            feedbackEl.innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:14px; text-align:center;">Loading feedback...</p>';
+            const res = await window.RentFlowAPI.get('/feedback');
             
-            fbHtml += `
-                <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
-                        <span style="color:#fbbf24">${starsStr}</span>
-                        <span class="badge badge-normal">${fb.status}</span>
-                    </div>
-                    <p style="font-size:14px; margin-bottom: 4px; color: #cbd5e1;">"${fb.message}"</p>
-                    <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">${fb.type} | ${fb.date}</div>
-                    <div>
-                        <button class="action-btn" onclick="alert('Viewing feedback ${fb.id}')">View</button>
-                        <button class="action-btn" style="color: #f87171;" onclick="removeAdminFeedback('${fb.id}')">Remove</button>
-                    </div>
-                </div>
-            `;
-        });
-        feedbackEl.innerHTML = fbHtml;
+            if (!res.success) {
+                throw new Error(res.message);
+            }
+            
+            const allFeedback = res.feedbacks || [];
+            let fbHtml = '';
+            
+            if (allFeedback.length === 0) {
+                fbHtml = '<p style="padding:12px; color:#9ca3af; font-size:14px; text-align:center;">No feedback submitted yet.</p>';
+            } else {
+                allFeedback.forEach(fb => {
+                    let starsStr = '';
+                    for(let i=1; i<=5; i++) starsStr += (i <= fb.rating) ? '★' : '☆';
+                    
+                    const dateStr = new Date(fb.createdAt).toLocaleDateString();
+                    const userName = fb.user ? fb.user.name : 'Unknown User';
+                    
+                    fbHtml += `
+                        <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                                <span style="color:#fbbf24">${starsStr}</span>
+                            </div>
+                            <p style="font-size:14px; margin-bottom: 4px; color: #cbd5e1;">"${fb.comment || 'No comment provided'}"</p>
+                            <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">${userName} | ${dateStr}</div>
+                            <div>
+                                <button class="action-btn" style="color: #f87171;" onclick="removeAdminFeedback('${fb._id}')">Remove</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            feedbackEl.innerHTML = fbHtml;
+        } catch (err) {
+            console.error('Error fetching feedback:', err);
+            feedbackEl.innerHTML = `<p style="padding:12px; color:#f87171; font-size:14px; text-align:center;">Error loading feedback. <button onclick="renderFeedbackAndReports()" class="action-btn">Retry</button></p>`;
+        }
     }
 
     if (reportEl) {
@@ -292,28 +330,53 @@ function renderActivity() {
         </div>
     `).join('');
 }
-function renderPremiumUsers() {
+async function renderPremiumUsers() {
     const list = document.getElementById('premiumList');
     if (!list) return;
 
-    const allUsers = getUsers();
-    const premiumUsers = getPremiumUsers(allUsers);
+    let allUsers = [];
+    let useBackend = false;
+    try {
+        if (window.RentFlowAPI) {
+            const res = await window.RentFlowAPI.get('/admin/users');
+            if (res.success) {
+                allUsers = res.users || [];
+                useBackend = true;
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching users for premium list:', e);
+    }
+
+    let premiumUsers;
+    if (useBackend) {
+        // Backend users: filter by isPro flag
+        premiumUsers = allUsers.filter(u => u.isPro === true);
+    } else {
+        // Fallback to storage.js mock
+        premiumUsers = getPremiumUsers(getUsers());
+    }
+
     let html = '';
 
     if (premiumUsers.length === 0) {
         html = '<tr><td colspan="6" style="text-align:center; padding:20px;">No premium users found.</td></tr>';
     } else {
         premiumUsers.forEach(u => {
-            const purchaseDate = u.premiumPurchaseDate ? new Date(u.premiumPurchaseDate).toLocaleDateString('en-IN') : '—';
-            const expiryDate = u.premiumExpiryDate ? new Date(u.premiumExpiryDate).toLocaleDateString('en-IN') : '—';
+            // Support both backend users (email) and mock users (useremail)
+            const email       = u.email || u.useremail || '';
+            const displayName = u.name  || u.username  || 'Unknown';
+            const joinDate    = u.createdAt || u.premiumPurchaseDate || u.date;
+            const purchaseDate = joinDate ? new Date(joinDate).toLocaleDateString('en-IN') : '—';
+            const expiryDate  = u.premiumExpiryDate ? new Date(u.premiumExpiryDate).toLocaleDateString('en-IN') : '—';
             html += `
                 <tr>
-                    <td><strong>${u.username || 'Unknown'}</strong></td>
-                    <td>${u.useremail}</td>
+                    <td><strong>${displayName}</strong></td>
+                    <td>${email}</td>
                     <td><span class="badge badge-low">Premium Active</span></td>
                     <td>${purchaseDate}</td>
                     <td>${expiryDate}</td>
-                    <td><button class="action-btn" onclick="openAdminPremiumDetailModal('${u.useremail}')">View Details</button></td>
+                    <td><button class="action-btn" onclick="openAdminPremiumDetailModal('${email}')">View Details</button></td>
                 </tr>
             `;
         });
@@ -480,9 +543,18 @@ function attachFilterListeners() {
     if (sortSelect) sortSelect.addEventListener('change', renderListings);
 }
 
-function openAdminPremiumDetailModal(email) {
-    const allUsers = getUsers();
-    const user = allUsers.find(u => u.useremail === email);
+async function openAdminPremiumDetailModal(email) {
+    let allUsers = [];
+    try {
+        if (window.RentFlowAPI) {
+            const res = await window.RentFlowAPI.get('/admin/users');
+            if (res.success) allUsers = res.users;
+        }
+    } catch (e) {
+        allUsers = getUsers();
+    }
+    
+    const user = allUsers.find(u => u.email === email || u.useremail === email);
     if (!user) return;
 
     const allBookings = getBookings();
@@ -648,3 +720,287 @@ document.addEventListener('DOMContentLoaded', () => {
     attachFilterListeners();
     attachModalListeners();
 });
+
+// ─── ADMIN USER MANAGEMENT + KYC (BACKEND API) ──────────────
+
+// Stores the full unfiltered list so filter tabs work client-side
+let _allAdminUsers = [];
+let _activeKycFilter = 'all';
+
+async function loadAdminUsers() {
+    const list = document.getElementById('userManagementList');
+    if (!list) return;
+
+    try {
+        list.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #9ca3af;">Loading users...</td></tr>';
+
+        const res = await window.RentFlowAPI.get('/admin/users');
+        if (res && res.success) {
+            _allAdminUsers = res.users || [];
+            renderAdminUsers(_allAdminUsers);
+            loadKycSummary(); // refresh KYC summary strip from analytics
+        } else {
+            throw new Error(res.message || 'Failed to fetch users');
+        }
+    } catch (err) {
+        console.error('Error loading users:', err);
+        list.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #f87171;">Failed to load users. <button onclick="loadAdminUsers()" class="action-btn">Retry</button></td></tr>`;
+        showToast('Error loading users: ' + err.message, 'error');
+    }
+}
+
+async function loadKycSummary() {
+    try {
+        const res = await window.RentFlowAPI.get('/admin/analytics/overview');
+        if (!res || !res.success) return;
+
+        const kycDist = (res.data && res.data.userStats && res.data.userStats.kycDistribution) || [];
+        const counts = { none: 0, pending: 0, approved: 0, rejected: 0 };
+        kycDist.forEach(item => {
+            if (item._id in counts) counts[item._id] = item.count;
+        });
+
+        const setPending  = document.getElementById('kycCountPending');
+        const setApproved = document.getElementById('kycCountApproved');
+        const setRejected = document.getElementById('kycCountRejected');
+        const setNone     = document.getElementById('kycCountNone');
+
+        if (setPending)  setPending.textContent  = counts.pending;
+        if (setApproved) setApproved.textContent = counts.approved;
+        if (setRejected) setRejected.textContent = counts.rejected;
+        if (setNone)     setNone.textContent     = counts.none;
+    } catch (err) {
+        console.error('KYC summary error:', err);
+    }
+}
+
+function renderAdminUsers(users) {
+    const list = document.getElementById('userManagementList');
+    if (!list) return;
+
+    // Apply active filter
+    const filtered = _activeKycFilter === 'all'
+        ? users
+        : users.filter(u => (u.kycStatus || 'none') === _activeKycFilter);
+
+    if (!filtered || filtered.length === 0) {
+        const msg = _activeKycFilter === 'all' ? 'No users found.' : `No users with KYC status "${_activeKycFilter}".`;
+        list.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #9ca3af;">${msg}</td></tr>`;
+        return;
+    }
+
+    let html = '';
+    filtered.forEach(u => {
+        const avatar = u.avatar || 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(u.name || 'User');
+
+        // Safe JSON for onclick
+        const userJson = JSON.stringify({
+            _id: u._id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            kycStatus: u.kycStatus,
+            isPro: u.isPro
+        }).replace(/'/g, "&#39;");
+
+        // KYC badge + quick-action buttons
+        const kyc = u.kycStatus || 'none';
+        let kycBadgeClass = 'badge-normal';
+        if (kyc === 'approved') kycBadgeClass = 'badge-low';
+        else if (kyc === 'pending') kycBadgeClass = 'badge-orange';
+        else if (kyc === 'rejected') kycBadgeClass = 'badge-high';
+
+        // Only show contextually useful quick-action KYC buttons
+        let kycActions = '';
+        if (kyc === 'pending' || kyc === 'none') {
+            kycActions += `<button class="action-btn" style="color:#34d399; border-color:rgba(52,211,153,0.3);" onclick="quickUpdateKyc('${u._id}','approved')">Approve</button>`;
+        }
+        if (kyc === 'pending' || kyc === 'approved') {
+            kycActions += `<button class="action-btn" style="color:#f87171; border-color:rgba(248,113,113,0.3);" onclick="quickUpdateKyc('${u._id}','rejected')">Reject</button>`;
+        }
+        if (kyc === 'approved' || kyc === 'rejected') {
+            kycActions += `<button class="action-btn" style="color:#fbbf24; border-color:rgba(251,191,36,0.3);" onclick="quickUpdateKyc('${u._id}','pending')">Set Pending</button>`;
+        }
+
+        html += `
+            <tr>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="${avatar}" alt="avatar" style="width:32px; height:32px; border-radius:50%;">
+                        <strong style="color:#fff;">${u.name || 'Unknown'}</strong>
+                    </div>
+                </td>
+                <td style="font-size:13px; color:#9ca3af;">${u.email || 'N/A'}</td>
+                <td><span class="badge badge-normal" style="text-transform: capitalize;">${u.role || 'customer'}</span></td>
+                <td><span class="badge ${u.isPro ? 'badge-low' : 'badge-normal'}">${u.isPro ? '⭐ Pro' : 'Standard'}</span></td>
+                <td>
+                    <span class="badge ${kycBadgeClass}" style="text-transform: capitalize; min-width: 70px; text-align: center;">${kyc}</span>
+                </td>
+                <td style="white-space: nowrap;">
+                    ${kycActions}
+                    <button class="action-btn" onclick='openEditUserModal(${userJson})'>Edit</button>
+                    <button class="action-btn" style="color: #f87171;" onclick="deleteAdminUser('${u._id}')">Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+    list.innerHTML = html;
+}
+
+// Quick KYC status update — reuses existing PATCH /api/admin/users/:id
+async function quickUpdateKyc(userId, newStatus) {
+    const confirmMap = {
+        rejected: `Reject this user's KYC? This will mark them as rejected.`,
+        approved: null, // no confirm needed for approval
+        pending:  'Reset KYC status to Pending?'
+    };
+    const msg = confirmMap[newStatus];
+    if (msg && !confirm(msg)) return;
+
+    try {
+        const res = await window.RentFlowAPI.patch('/admin/users/' + userId, { kycStatus: newStatus });
+        if (res && res.success) {
+            // Update the local cache so re-render is instant
+            const idx = _allAdminUsers.findIndex(u => u._id === userId);
+            if (idx !== -1) _allAdminUsers[idx].kycStatus = newStatus;
+
+            renderAdminUsers(_allAdminUsers);
+            loadKycSummary(); // refresh the summary strip counts
+
+            const labels = { approved: 'approved ✅', rejected: 'rejected ❌', pending: 'set to pending ⏳' };
+            showToast(`KYC ${labels[newStatus] || 'updated'} successfully`, 'success');
+        } else {
+            throw new Error(res.message || 'Update failed');
+        }
+    } catch (err) {
+        console.error('KYC update error:', err);
+        const friendlyMsg = err.message.includes('401') || err.message.includes('403')
+            ? 'You do not have permission to perform this action.'
+            : 'KYC update failed: ' + err.message;
+        showToast(friendlyMsg, 'error');
+    }
+}
+
+async function deleteAdminUser(id) {
+    if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+
+    try {
+        const res = await window.RentFlowAPI.delete('/admin/users/' + id);
+        if (res.success) {
+            showToast('User deleted successfully', 'success');
+            loadAdminUsers();
+        } else {
+            throw new Error(res.message);
+        }
+    } catch (err) {
+        console.error('Delete error:', err);
+        showToast('Error deleting user: ' + err.message, 'error');
+    }
+}
+
+function openEditUserModal(user) {
+    document.getElementById('editUserId').value = user._id || '';
+    document.getElementById('editUserName').value = user.name || '';
+    document.getElementById('editUserEmail').value = user.email || '';
+    document.getElementById('editUserRole').value = user.role || 'customer';
+    document.getElementById('editUserKyc').value = user.kycStatus || 'none';
+    document.getElementById('editUserIsPro').checked = !!user.isPro;
+
+    document.getElementById('editUserModal').classList.add('active');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Refresh button
+    const refreshBtn = document.getElementById('refreshUsersBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadAdminUsers);
+    }
+
+    // KYC filter tabs
+    const filterTabs = document.getElementById('kycFilterTabs');
+    if (filterTabs) {
+        filterTabs.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-filter]');
+            if (!btn) return;
+
+            // Update active style
+            filterTabs.querySelectorAll('.kyc-tab').forEach(t => {
+                t.style.background = 'rgba(0,0,0,0.1)';
+                t.style.opacity = '0.6';
+            });
+            btn.style.background = 'rgba(58,91,217,0.35)';
+            btn.style.opacity = '1';
+
+            _activeKycFilter = btn.dataset.filter;
+            renderAdminUsers(_allAdminUsers);
+        });
+    }
+
+    // Edit user form submit
+    const editForm = document.getElementById('editUserForm');
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editUserId').value;
+            const payload = {
+                name: document.getElementById('editUserName').value,
+                email: document.getElementById('editUserEmail').value,
+                role: document.getElementById('editUserRole').value,
+                kycStatus: document.getElementById('editUserKyc').value,
+                isPro: document.getElementById('editUserIsPro').checked
+            };
+
+            const btn = editForm.querySelector('button[type="submit"]');
+            const origText = btn.textContent;
+            btn.textContent = 'Saving...';
+            btn.disabled = true;
+
+            try {
+                const res = await window.RentFlowAPI.patch('/admin/users/' + id, payload);
+                if (res.success) {
+                    showToast('User updated successfully', 'success');
+                    document.getElementById('editUserModal').classList.remove('active');
+                    loadAdminUsers();
+                } else {
+                    throw new Error(res.message);
+                }
+            } catch (err) {
+                console.error('Update error:', err);
+                showToast('Error updating user: ' + err.message, 'error');
+            } finally {
+                btn.textContent = origText;
+                btn.disabled = false;
+            }
+        });
+    }
+
+    const closeEditBtn = document.getElementById('closeEditUserBtn');
+    if (closeEditBtn) {
+        closeEditBtn.addEventListener('click', () => {
+            document.getElementById('editUserModal').classList.remove('active');
+        });
+    }
+
+    // Initial load
+    if (document.getElementById('userManagementList')) {
+        setTimeout(loadAdminUsers, 100);
+    }
+});
+
+// ─── ADMIN FEEDBACK MANAGEMENT (BACKEND API) ─────────────
+async function removeAdminFeedback(id) {
+    if (!confirm('Are you sure you want to remove this feedback?')) return;
+
+    try {
+        const res = await window.RentFlowAPI.delete('/feedback/' + id);
+        if (res.success) {
+            showToast('Feedback removed', 'success');
+            renderFeedbackAndReports();
+        } else {
+            throw new Error(res.message);
+        }
+    } catch (err) {
+        console.error('Delete error:', err);
+        showToast('Error removing feedback: ' + err.message, 'error');
+    }
+}
