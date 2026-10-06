@@ -298,8 +298,6 @@ function useScrollDirection() {
 
 function RentFlowIntroVideo() {
   const [stage, setStage] = useState('playing'); // 'playing' | 'fading' | 'hidden'
-  const [progress, setProgress] = useState(0);
-  const [timeStr, setTimeStr] = useState('0:00 / 0:06');
   const videoRef = useRef(null);
 
   const finishIntro = () => {
@@ -316,13 +314,6 @@ function RentFlowIntroVideo() {
     if (videoRef.current && videoRef.current.duration) {
       const cur = videoRef.current.currentTime;
       const dur = videoRef.current.duration;
-      const p = (cur / dur) * 100;
-      setProgress(p);
-
-      const curSec = Math.min(6, Math.floor(cur));
-      const durSec = Math.max(6, Math.floor(dur) || 6);
-      setTimeStr(`0:0${curSec} / 0:0${durSec}`);
-
       if (cur >= dur - 0.15) {
         finishIntro();
       }
@@ -359,15 +350,9 @@ function RentFlowIntroVideo() {
           <source src="./assets/rentflow_intro.mp4" type="video/mp4" />
         </video>
         <div className="home-intro-cinematic-vignette" />
-        <div className="home-intro-wm-guard" />
       </div>
 
-      {/* Top Left: Futuristic Brand Tag */}
-      <div className="home-intro-top-tag">
-        <span className="home-intro-dot" />
-        <span className="home-intro-brand-txt">RENTFLOW</span>
-        <span className="home-intro-badge-pill">CINEMATIC</span>
-      </div>
+
 
       {/* Top Right: Skip Intro Button with animated vibrant gradient and shimmer */}
       <button className="home-intro-skip-btn" onClick={finishIntro} aria-label="Skip Intro">
@@ -381,28 +366,6 @@ function RentFlowIntroVideo() {
           </svg>
         </span>
       </button>
-
-      {/* Center Floating Futuristic Laser HUD Progress Bar */}
-      <div className="home-intro-hud-container">
-        <div className="home-intro-hud-meta">
-          <div className="home-intro-hud-left">
-            <span className="home-intro-hud-sparkle">✦</span>
-            <span className="home-intro-hud-title">EXPERIENCE RENTFLOW</span>
-          </div>
-          <div className="home-intro-hud-right">
-            <span className="home-intro-hud-time">{timeStr}</span>
-          </div>
-        </div>
-
-        <div className="home-intro-laser-track">
-          <div
-            className="home-intro-laser-beam"
-            style={{ width: `${Math.min(100, Math.max(progress, 0))}%` }}
-          >
-            <span className="home-intro-laser-spark" />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
