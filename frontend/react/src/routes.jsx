@@ -10,6 +10,11 @@ import HomePage from './HomePage';
 import Login from './Login';
 import Signup from './Signup';
 import Profile from './Profile';
+import CreateListing from './pages/CreateListing';
+import EditListing from './pages/EditListing';
+import Premium from './pages/Premium';
+import About from './pages/About';
+import UpcomingFeatures from './pages/UpcomingFeatures';
 
 const routes = [
   // ==========================================
@@ -35,13 +40,12 @@ const routes = [
   // ==========================================
   // MADHAV'S ROUTES
   // ==========================================
-  { path: '/create-listing', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Create Listing</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Create Listing' },
-  { path: '/edit-listing', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Edit Listing</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Edit Listing' },
-  { path: '/', element: <HomePage />, owner: 'Madhav', title: 'Home' },
-  { path: '/premium', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Premium</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Premium' },
-  { path: '/about', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>About</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'About' },
+  { path: '/create-listing', element: <CreateListing />, owner: 'Madhav', title: 'Create Listing' },
+  { path: '/edit-listing/:id', element: <EditListing />, owner: 'Madhav', title: 'Edit Listing' },
+  { path: '/premium', element: <Premium />, owner: 'Madhav', title: 'Premium' },
+  { path: '/about', element: <About />, owner: 'Madhav', title: 'About' },
   { path: '/policy', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Policy</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Policy' },
-  { path: '/upcoming-features', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Upcoming Features</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Upcoming Features' },
+  { path: '/upcoming-features', element: <UpcomingFeatures />, owner: 'Madhav', title: 'Upcoming Features' },
 
   // ==========================================
   // ARYAN'S ROUTES
