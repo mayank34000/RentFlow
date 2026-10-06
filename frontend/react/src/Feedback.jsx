@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest } from '../../services/api';
-import { useTheme } from '../../useNavbarBehavior';
-import '../../styles/admin/feedback.css';
+import { apiRequest } from './services/api';
+import { useTheme } from './useNavbarBehavior';
+import './styles/feedback.css';
 
 export default function Feedback() {
   useTheme();

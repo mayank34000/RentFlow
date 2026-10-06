@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest } from '../../services/api';
-import { useTheme } from '../../useNavbarBehavior';
-import '../../styles/admin/analytics.css';
+import { apiRequest } from './services/api';
+import { useTheme } from './useNavbarBehavior';
+import './styles/analytics.css';
 
 import {
   Chart as ChartJS,
