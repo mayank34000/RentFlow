@@ -1,36 +1,44 @@
 /**
- * RentFlow — Shared API Utilities
+ * RentFlow - Shared API Utilities
  *
- * Centralizes the API base URL and dev-authentication header logic
- * so that every page (booking, booking-history, etc.) uses the same
- * mechanism without duplicating VITE_API_URL or header construction.
+ * Centralizes the API base URL and authentication headers
+ * so that every page uses the same API request mechanism.
  */
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+export const API_URL =
+    import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 /**
- * Returns the development authentication headers used by the backend
- * devAuth middleware.  The source of truth is localStorage.devUserId.
- *
- * @returns {Record<string, string>} Headers object.
+ * Returns authentication headers for both the existing development
+ * user flow and JWT-based authentication.
  */
 export function getAuthHeaders() {
     const headers = {};
-    
-    // Aryan's devAuth token
+
+    // Aryan's development user authentication.
     const devUserId = localStorage.getItem('devUserId');
-    if (devUserId) headers['x-dev-user-id'] = devUserId;
-    
-    // Mayank's Admin JWT token
-    const token = localStorage.getItem('rf_token');
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    
+    if (devUserId) {
+        headers['x-dev-user-id'] = devUserId;
+    }
+
+    // Mayank's existing admin/session JWT.
+    // Fall back to Dhruv's generic "token" key for newer auth pages.
+    const rfToken = localStorage.getItem('rf_token');
+    const token = rfToken || localStorage.getItem('token');
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     return headers;
 }
 
-// Mayank's Auth Utilities
+// JWT/session utilities.
 export function isLoggedIn() {
-    return !!localStorage.getItem('rf_token');
+    return !!(
+        localStorage.getItem('rf_token') ||
+        localStorage.getItem('token')
+    );
 }
 
 export function getAuthUser() {
@@ -44,66 +52,86 @@ export function getAuthUser() {
 
 export function saveAuthSession(token, user) {
     localStorage.setItem('rf_token', token);
-    localStorage.setItem('rf_user', JSON.stringify(user));
+    localStorage.setItem('token', token);
+
+    if (user) {
+        localStorage.setItem('rf_user', JSON.stringify(user));
+    }
 }
 
 export function clearAuthSession() {
     localStorage.removeItem('rf_token');
+    localStorage.removeItem('token');
     localStorage.removeItem('rf_user');
 }
-
 
 /**
  * Generic API request helper.
  *
  * - Attaches JSON content-type for requests with a body.
- * - Attaches dev-auth headers via getAuthHeaders().
- * - Parses JSON responses; attaches `status` to thrown errors
- *   so callers can distinguish 401 / 404 / 500 etc.
+ * - Attaches authentication headers.
+ * - Parses JSON responses.
+ * - Attaches status/data to thrown errors.
  * - Handles non-JSON responses gracefully.
- *
- * @param {string}  endpoint  — path relative to API_URL, e.g. '/api/bookings/my'
- * @param {object}  [options] — fetch options override (method, body, signal, …)
- * @returns {Promise<{ status: number, data: any }>}
  */
 export async function apiRequest(endpoint, options = {}) {
-    const { body, headers: extraHeaders, ...rest } = options;
+    const {
+        body,
+        headers: extraHeaders,
+        ...rest
+    } = options;
 
     const headers = {
         ...getAuthHeaders(),
         ...extraHeaders,
     };
 
-    if (body && typeof body === 'object' && !(body instanceof FormData)) {
+    if (
+        body &&
+        typeof body === 'object' &&
+        !(body instanceof FormData)
+    ) {
         headers['Content-Type'] = 'application/json';
     }
 
     const fetchOptions = {
         ...rest,
         headers,
-        body: body && typeof body === 'object' && !(body instanceof FormData)
-            ? JSON.stringify(body)
-            : body,
+        body:
+            body &&
+            typeof body === 'object' &&
+            !(body instanceof FormData)
+                ? JSON.stringify(body)
+                : body,
     };
 
-    const response = await fetch(`${API_URL}${endpoint}`, fetchOptions);
+    const response = await fetch(
+        `${API_URL}${endpoint}`,
+        fetchOptions
+    );
 
-    // Try to parse JSON; fall back to null for non-JSON responses
     let data = null;
+
     try {
         data = await response.json();
     } catch {
-        // non-JSON response (HTML error page, empty body, etc.)
+        // Non-JSON response.
     }
 
     if (!response.ok) {
         const err = new Error(
-            (data && data.message) || `Request failed with status ${response.status}`
+            (data && data.message) ||
+            `Request failed with status ${response.status}`
         );
+
         err.status = response.status;
         err.data = data;
+
         throw err;
     }
 
-    return { status: response.status, data };
+    return {
+        status: response.status,
+        data,
+    };
 }

@@ -1,7 +1,7 @@
 {
   "name": "rentflow-backend",
   "version": "1.0.0",
-  "description": "RentFlow backend API — Node.js, Express, MongoDB, JWT",
+  "description": "RentFlow backend API - Node.js, Express, MongoDB, JWT",
   "main": "server.js",
   "keywords": [],
   "author": "",
@@ -12,13 +12,16 @@
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2",
+    "google-auth-library": "^11.1.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.4.5",
     "multer": "^2.4.0",
-    "nodemailer": "^10.0.12",
+    "nodemailer": "^10.0.15",
     "socket.io": "^4.8.4"
   },
   "devDependencies": {

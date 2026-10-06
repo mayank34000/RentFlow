@@ -6,8 +6,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Name is required'],
       trim: true,
-      minlength: [3, 'Name must be at least 3 characters'],
-      maxlength: [50, 'Name cannot exceed 50 characters'],
+      minlength: [2, 'Name must be at least 2 characters'],
+      maxlength: [100, 'Name cannot exceed 100 characters'],
     },
 
     email: {
@@ -40,6 +40,47 @@ const userSchema = new mongoose.Schema(
       default: '',
     },
 
+    profileImage: {
+      type: String,
+      default: '',
+    },
+
+    phone: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    dateOfBirth: {
+      type: Date,
+      default: null,
+    },
+
+    country: {
+      type: String,
+      trim: true,
+      default: 'India',
+    },
+
+    state: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    city: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    address: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: '',
+    },
+
     kycStatus: {
       type: String,
       enum: ['none', 'pending', 'approved', 'rejected'],
@@ -47,7 +88,7 @@ const userSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // adds createdAt and updatedAt automatically
+    timestamps: true,
   }
 );
 

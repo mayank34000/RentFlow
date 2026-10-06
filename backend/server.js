@@ -17,6 +17,7 @@ require('dotenv').config();
 
 // ── 2. Core dependencies ──────────────────────────────────────────────────────
 const express   = require('express');
+const authRoutes = require('./routes/auth');
 const cors      = require('cors');
 const mongoose  = require('mongoose');
 const connectDB = require('./config/db');
@@ -71,6 +72,8 @@ app.use(requestLogger);
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/auth', authRoutes);
 
 // Admin & Auth routes (from feature/admin)
 app.use('/api/auth', require('./routes/auth'));
