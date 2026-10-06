@@ -1,4 +1,7 @@
 import React from 'react';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import Analytics from './pages/admin/Analytics';
+import Feedback from './pages/admin/Feedback';
 import ContactUs from './contactus';
 import BookingHistory from './booking-history';
 import Chat from './chat';
@@ -25,9 +28,9 @@ const routes = [
   // ==========================================
   // MAYANK'S ROUTES
   // ==========================================
-  { path: '/admin-dashboard', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Admin Dashboard</h2><p>Owner: Mayank</p></div>, owner: 'Mayank', title: 'Admin Dashboard' },
-  { path: '/analytics', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Analytics</h2><p>Owner: Mayank</p></div>, owner: 'Mayank', title: 'Analytics' },
-  { path: '/feedback', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Feedback</h2><p>Owner: Mayank</p></div>, owner: 'Mayank', title: 'Feedback' },
+  { path: '/admin-dashboard', element: <AdminDashboard />, owner: 'Mayank', title: 'Admin Dashboard' },
+  { path: '/analytics', element: <Analytics />, owner: 'Mayank', title: 'Analytics' },
+  { path: '/feedback', element: <Feedback />, owner: 'Mayank', title: 'Feedback' },
 
   // ==========================================
   // MADHAV'S ROUTES
