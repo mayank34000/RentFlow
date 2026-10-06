@@ -72,6 +72,65 @@ exports.getOrCreateConversation = async (req, res) => {
     }
 };
 
+exports.markConversationRead = async (req, res) => {
+    try {
+        const conversationId = req.params.id;
+
+        if (
+            typeof conversationId !== 'string' ||
+            !mongoose.Types.ObjectId.isValid(conversationId)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid conversation ID.'
+            });
+        }
+
+        const conversation = await Conversation.findById(conversationId);
+
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Conversation not found.'
+            });
+        }
+
+        const userId = String(req.user._id);
+
+        if (
+            !conversation.participants.some(
+                (participant) => String(participant) === userId
+            )
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: 'Unauthorized. You are not a participant of this conversation.'
+            });
+        }
+
+        await Message.updateMany(
+            {
+                conversation: conversationId,
+                sender: { $ne: req.user._id },
+                readAt: null
+            },
+            {
+                $set: { readAt: new Date() }
+            }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Conversation marked as read.'
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: err.message || 'Internal server error'
+        });
+    }
+};
+
 exports.getMyConversations = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -190,5 +249,195 @@ exports.getConversationMessages = async (req, res) => {
             return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
         }
         return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+    }
+};
+
+exports.sendMessage = async (req, res) => {
+    try {
+        const conversationId = req.params.id;
+        const { text } = req.body;
+
+        if (
+            typeof conversationId !== 'string' ||
+            !mongoose.Types.ObjectId.isValid(conversationId)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid conversation ID.'
+            });
+        }
+
+        if (typeof text !== 'string' || !text.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Message text is required.'
+            });
+        }
+
+        const conversation = await Conversation.findById(conversationId);
+
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Conversation not found.'
+            });
+        }
+
+        const userId = String(req.user._id);
+
+        if (
+            !conversation.participants.some(
+                (participant) => String(participant) === userId
+            )
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: 'Unauthorized. You are not a participant of this conversation.'
+            });
+        }
+
+        const message = await Message.create({
+            conversation: conversationId,
+            sender: req.user._id,
+            text: text.trim()
+        });
+
+        conversation.lastMessage = message._id;
+        conversation.lastMessageAt = message.createdAt || new Date();
+        await conversation.save();
+
+        return res.status(201).json({
+            success: true,
+            message
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: err.message || 'Internal server error'
+        });
+    }
+};
+
+exports.toggleArchiveConversation = async (req, res) => {
+    try {
+        const conversationId = req.params.id;
+        const { archived } = req.body;
+
+        if (
+            typeof conversationId !== 'string' ||
+            !mongoose.Types.ObjectId.isValid(conversationId)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid conversation ID.'
+            });
+        }
+
+        if (typeof archived !== 'boolean') {
+            return res.status(400).json({
+                success: false,
+                message: 'Archived must be true or false.'
+            });
+        }
+
+        const conversation = await Conversation.findById(conversationId);
+
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Conversation not found.'
+            });
+        }
+
+        const userId = String(req.user._id);
+
+        if (
+            !conversation.participants.some(
+                (participant) => String(participant) === userId
+            )
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: 'Unauthorized. You are not a participant of this conversation.'
+            });
+        }
+
+        conversation.archived = archived;
+        await conversation.save();
+
+        return res.status(200).json({
+            success: true,
+            message: archived
+                ? 'Conversation archived.'
+                : 'Conversation restored.',
+            data: conversation
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: err.message || 'Internal server error'
+        });
+    }
+};
+
+exports.reportConversation = async (req, res) => {
+    try {
+        const conversationId = req.params.id;
+        const { reason } = req.body;
+
+        if (
+            typeof conversationId !== 'string' ||
+            !mongoose.Types.ObjectId.isValid(conversationId)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid conversation ID.'
+            });
+        }
+
+        if (typeof reason !== 'string' || !reason.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Report reason is required.'
+            });
+        }
+
+        const conversation = await Conversation.findById(conversationId);
+
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Conversation not found.'
+            });
+        }
+
+        const userId = String(req.user._id);
+
+        if (
+            !conversation.participants.some(
+                (participant) => String(participant) === userId
+            )
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: 'Unauthorized. You are not a participant of this conversation.'
+            });
+        }
+
+        console.log('[Chat] User report:', {
+            conversationId,
+            reportedBy: userId,
+            reason: reason.trim()
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: 'Report submitted successfully.'
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: err.message || 'Internal server error'
+        });
     }
 };

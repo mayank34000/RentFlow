@@ -230,49 +230,46 @@ function handleNavClick(e, targetPath) {
 }
 
 function useAuth() {
-  const [authState, setAuthState] = useState(() => {
+  const [authState] = useState(() => {
     try {
-      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-      const currentUser = JSON.parse(localStorage.getItem('current_user'));
-      const profileImage = localStorage.getItem('profileImage') || '/assets/profile.png';
+      const token = localStorage.getItem('token');
+      const currentUser = JSON.parse(
+        localStorage.getItem('user')
+      );
+
+      const profileImage =
+        currentUser?.profileImage ||
+        '/assets/profile.png';
+
       return {
-        isLoggedIn: isLoggedIn && !!currentUser,
+        isLoggedIn: !!token && !!currentUser,
         user: currentUser || null,
         profileImage,
-        isPremium: currentUser ? !!currentUser.isPremium : false,
+        isPremium: currentUser
+          ? !!currentUser.isPremium
+          : false,
       };
     } catch {
-      return { isLoggedIn: false, user: null, profileImage: '/assets/profile.png', isPremium: false };
+      return {
+        isLoggedIn: false,
+        user: null,
+        profileImage: '/assets/profile.png',
+        isPremium: false,
+      };
     }
   });
 
-  useEffect(() => {
-    if (authState.isLoggedIn && authState.user && authState.isPremium && authState.user.premiumExpiryDate) {
-      const expiry = new Date(authState.user.premiumExpiryDate);
-      if (new Date() > expiry) {
-        const updatedUser = { ...authState.user, isPremium: false };
-        localStorage.setItem('current_user', JSON.stringify(updatedUser));
-        try {
-          let allUsers = JSON.parse(localStorage.getItem('user')) || [];
-          const idx = allUsers.findIndex(u => u.useremail === updatedUser.useremail);
-          if (idx !== -1) {
-            allUsers[idx].isPremium = false;
-            localStorage.setItem('user', JSON.stringify(allUsers));
-          }
-        } catch {}
-        setAuthState(prev => ({ ...prev, user: updatedUser, isPremium: false }));
-      }
-    }
-  }, []);
-
   const logout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('current_user');
-    localStorage.removeItem('profileImage');
-    window.location.reload();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
+    window.location.href = '/login';
   };
 
-  return { ...authState, logout };
+  return {
+    ...authState,
+    logout,
+  };
 }
 
 function useScrollDirection() {
@@ -464,6 +461,8 @@ function ProfileDropdown({ user, profileImage, isPremium, logout }) {
     </div>
   );
 }
+
+
 
 function MobileMenu({ open, isLoggedIn, isPremium, logout, onClose }) {
   return (

@@ -130,14 +130,31 @@ export default function BookingHistory() {
     // ── Fetch bookings from API ───────────────────────────────────────────────
 
     useEffect(() => {
-        // Auth
-        const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
-        setIsLoggedIn(loggedIn);
-        let user = null;
-        if (loggedIn) {
-            try { user = JSON.parse(localStorage.getItem('current_user')) || null; } catch { }
+    // Auth
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+
+    const loggedIn = !!token && !!storedUser;
+
+    setIsLoggedIn(loggedIn);
+
+    if (loggedIn) {
+        try {
+            const user = JSON.parse(storedUser);
             setCurrentUser(user);
+        } catch {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setIsLoggedIn(false);
+            navigate('/login');
+            return;
         }
+    } else {
+        navigate('/login');
+        return;
+    }
+
+    // Fetch from GET /api/bookings/my
 
         // Fetch from GET /api/bookings/my
         let cancelled = false;
@@ -448,19 +465,22 @@ export default function BookingHistory() {
     // ── Logout ────────────────────────────────────────────────────────────────
 
     const handleLogout = (e) => {
-        e.preventDefault();
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('current_user');
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-        navigate(0);
-    };
+    e.preventDefault();
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+
+    navigate('/login');
+};
 
     // ── Derived display values ────────────────────────────────────────────────
 
-    const firstName   = currentUser ? (currentUser.name || currentUser.username || currentUser.userfname || 'User').split(' ')[0] : 'User';
-    const savedImage  = currentUser ? (localStorage.getItem('profileImage') || '../assets/profile.png') : '../assets/profile.png';
-    const premiumText = currentUser?.isPremium ? 'Extend Premium' : 'Get Premium';
+    const firstName = currentUser ? (currentUser.name || currentUser.username || currentUser.userfname || 'User').split(' ')[0] : 'User';
+    const savedImage = currentUser ? (localStorage.getItem('profileImage') || '../assets/profile.png') : '../assets/profile.png';
+    const premiumText = (currentUser && currentUser.isPro) ? 'Pro Member' : 'Premium';
 
     const FILTERS = ['All', 'Pending', 'Active', 'Completed', 'Returned', 'Cancelled'];
 
