@@ -1170,3 +1170,482 @@ body.light-theme .empty-state-text {
         grid-column: auto;
     }
 }
+
+/* ============================================================
+   AdminDashboard.jsx — JSX-matched selectors
+   Fills the gap between old .dashboard/.platform-table naming
+   and the actual className props used in AdminDashboard.jsx.
+   All tokens are from the :root block above.
+   ============================================================ */
+
+/* ---------- Page shell ---------- */
+.admin-page {
+    min-height: 100vh;
+    background: var(--bg-deep);
+    padding: 40px 0 80px;
+}
+
+/* ---------- Centered content wrapper ---------- */
+.admin-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 28px;
+}
+
+/* ---------- Page header ---------- */
+.admin-header {
+    margin-bottom: 36px;
+    text-align: center;
+}
+
+.admin-header h1 {
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+}
+
+.admin-header p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* ---------- KYC filter tabs ---------- */
+.kyc-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.kyc-tab {
+    padding: 8px 18px;
+    border-radius: 100px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition),
+                border-color var(--transition), opacity var(--transition);
+    letter-spacing: 0.3px;
+    text-transform: capitalize;
+}
+
+.kyc-tab:hover {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: var(--text-primary);
+    opacity: 1 !important;
+}
+
+/* Active state is driven via inline style in JSX (background + opacity),
+   but we also provide a class-level fallback for visual clarity */
+.kyc-tab:focus-visible {
+    outline: 2px solid var(--accent-blue-bright);
+    outline-offset: 2px;
+}
+
+/* ---------- Refresh button ---------- */
+.refresh-btn {
+    padding: 8px 20px;
+    border-radius: 100px;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-blue-light);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition),
+                transform var(--transition), box-shadow var(--transition);
+    letter-spacing: 0.3px;
+}
+
+.refresh-btn:hover {
+    background: rgba(59, 130, 246, 0.22);
+    border-color: rgba(59, 130, 246, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.2);
+}
+
+.refresh-btn:focus-visible {
+    outline: 2px solid var(--accent-blue-bright);
+    outline-offset: 2px;
+}
+
+/* ---------- Error card ---------- */
+.error-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 24px;
+    margin-bottom: 20px;
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 14px;
+    color: #fca5a5;
+    font-size: 14px;
+    font-weight: 500;
+    animation: fadeIn 0.3s ease;
+}
+
+.error-card p {
+    flex: 1;
+    margin: 0;
+    color: #fca5a5;
+}
+
+.error-card button {
+    padding: 6px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+    white-space: nowrap;
+}
+
+.error-card button:hover {
+    background: rgba(239, 68, 68, 0.28);
+    border-color: rgba(239, 68, 68, 0.6);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Table container (horizontally scrollable) ---------- */
+.table-container {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    /* Horizontal scroll on smaller screens */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.02);
+}
+
+.table-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.4);
+}
+
+/* ---------- Data table (mirrors .platform-table styles) ---------- */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    /* Prevent the table from shrinking below its natural width */
+    min-width: 640px;
+}
+
+.data-table th {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 18px 22px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    /* Sticky header while scrolling vertically */
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.data-table td {
+    padding: 18px 22px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.data-table tbody tr {
+    transition: background var(--transition);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ---------- Modal backdrop ---------- */
+/*
+  The JSX renders:  <div className="modal active"> … </div>
+  So .modal is the backdrop overlay; .modal.active is the visible state.
+*/
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 10, 24, 0.78);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+    /* Hidden by default — show only when .active is also present */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition);
+}
+
+.modal.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ---------- Modal content panel ---------- */
+/*
+  .modal-content already exists for .modal-overlay usage, but the JSX
+  nests it directly inside .modal, so we need it to animate properly here.
+*/
+.modal .modal-content {
+    background: var(--bg-card);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    width: 90%;
+    max-width: 480px;
+    padding: 36px 40px 40px;
+    transform: translateY(24px) scale(0.96);
+    transition: transform var(--transition);
+    animation: modalSlideIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.modal.active .modal-content {
+    transform: translateY(0) scale(1);
+}
+
+@keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(28px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---------- Modal header row ---------- */
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.4px;
+    margin: 0;
+}
+
+/* ---------- Close button ---------- */
+.close-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition), color var(--transition),
+                border-color var(--transition), transform var(--transition);
+    flex-shrink: 0;
+}
+
+.close-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #f87171;
+    transform: scale(1.08);
+}
+
+.close-btn:focus-visible {
+    outline: 2px solid var(--accent-blue-bright);
+    outline-offset: 2px;
+}
+
+/* ---------- Form group ---------- */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group select {
+    padding: 11px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: var(--font-body);
+    outline: none;
+    transition: border-color var(--transition), background var(--transition),
+                box-shadow var(--transition);
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="email"]:focus,
+.form-group select:focus {
+    border-color: var(--accent-blue-bright);
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.form-group select option {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+}
+
+.form-group input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-blue-bright);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* ---------- Submit button ---------- */
+.submit-btn {
+    display: block;
+    width: 100%;
+    padding: 13px 24px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-blue-bright) 100%);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.2px;
+    transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+}
+
+.submit-btn:hover {
+    opacity: 0.92;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.submit-btn:focus-visible {
+    outline: 2px solid var(--accent-blue-light);
+    outline-offset: 3px;
+}
+
+/* ---------- Responsive overrides for admin layout ---------- */
+@media (max-width: 768px) {
+    .admin-page {
+        padding: 24px 0 60px;
+    }
+
+    .admin-container {
+        padding: 0 16px;
+    }
+
+    .admin-header h1 {
+        font-size: 26px;
+    }
+
+    .kyc-tabs {
+        gap: 8px;
+        padding: 12px 14px;
+    }
+
+    .kyc-tab {
+        padding: 7px 14px;
+        font-size: 12px;
+    }
+
+    .modal .modal-content {
+        padding: 28px 24px 32px;
+    }
+
+    .modal-header h2 {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-header h1 {
+        font-size: 22px;
+    }
+
+    .kyc-tabs {
+        gap: 6px;
+    }
+
+    .kyc-tab {
+        font-size: 11px;
+        padding: 6px 12px;
+    }
+
+    .modal .modal-content {
+        width: 95%;
+        padding: 24px 18px 28px;
+    }
+}
