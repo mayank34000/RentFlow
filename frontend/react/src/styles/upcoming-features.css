@@ -1,0 +1,151 @@
+/* src/styles/upcoming-features.css */
+
+.roadmap-page-wrapper {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 100px;
+    min-height: 100vh;
+}
+
+.roadmap-hero {
+    padding: 60px 20px 40px;
+    text-align: center;
+    position: relative;
+    z-index: 10;
+}
+
+.roadmap-hero .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+}
+
+.roadmap-hero .badge-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #8b5cf6;
+}
+
+.logo-inline {
+    font-weight: 800;
+    color: var(--text-strongest);
+    font-family: var(--font-display);
+}
+
+.logo-inline span {
+    color: var(--primary-orange);
+}
+
+.roadmap-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+    max-width: 1000px;
+    margin: 0 auto 100px;
+    padding: 0 20px;
+    position: relative;
+    z-index: 10;
+}
+
+@media (max-width: 768px) {
+    .roadmap-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.roadmap-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 40px 30px;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.roadmap-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--ring-focus);
+    box-shadow: var(--shadow-lg);
+}
+
+.roadmap-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border);
+}
+
+.roadmap-card h3 {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-strongest);
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+}
+
+.roadmap-card p {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.status-badge {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    padding: 6px 12px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.roadmap-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.roadmap-card:hover::before {
+    opacity: 1;
+}
+
+.card-1:hover::before { background: linear-gradient(90deg, var(--primary-orange), #8b5cf6); }
+.card-2:hover::before { background: linear-gradient(90deg, #10b981, var(--primary-orange)); }
+.card-3:hover::before { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.card-4:hover::before { background: linear-gradient(90deg, #8b5cf6, #ec4899); }
