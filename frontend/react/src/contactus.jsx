@@ -25,13 +25,30 @@ export default function ContactUs() {
     const scrollState = useScrollHide();
 
     useEffect(() => {
-        // Auth initialization
-        const loggedIn = localStorage.getItem("isLoggedIn") === "true";
-        setIsLoggedIn(loggedIn);
-        if (loggedIn) {
-            const user = JSON.parse(localStorage.getItem("current_user")) || {};
+    // Auth
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+
+    const loggedIn = !!token && !!storedUser;
+
+    setIsLoggedIn(loggedIn);
+
+    if (loggedIn) {
+        try {
+            const user = JSON.parse(storedUser);
             setCurrentUser(user);
+        } catch {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setIsLoggedIn(false);
+            navigate('/login');
+            return;
         }
+    } else {
+    setCurrentUser(null);
+}
+
+    // Fetch from GET /api/bookings/my
 
         // Load legacy wallet script since it's massive and shared.
         // We do this so window.openWalletModal is available.
@@ -97,17 +114,20 @@ export default function ContactUs() {
     };
 
     const handleLogout = (e) => {
-        e.preventDefault();
-        localStorage.removeItem("isLoggedIn");
-        localStorage.removeItem("current_user");
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-        navigate(0); // reload
-    };
+    e.preventDefault();
 
-    const firstName = currentUser?.username ? currentUser.username.split(" ")[0] : "User";
-    const savedImage = currentUser ? (localStorage.getItem(`profile_image_${currentUser.useremail}`) || "https://ui-avatars.com/api/?name=" + firstName + "&background=3b82f6&color=fff") : "";
-    const premiumText = currentUser?.isPremium ? "Pro Member" : "Upgrade to Pro";
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+
+    navigate('/login');
+};
+
+    const firstName = currentUser ? (currentUser.name || currentUser.username || currentUser.userfname || 'User').split(' ')[0] : 'User';
+    const savedImage = currentUser ? (localStorage.getItem('profileImage') || '../assets/profile.png') : '../assets/profile.png';
+    const premiumText = (currentUser && currentUser.isPro) ? 'Pro Member' : 'Premium';
 
     const faqs = [
         {q: "How is the security deposit handled?", a: "RentFlow holds the 10% security deposit in escrow during your rental period. It is fully refunded to your original payment method within 3-5 business days after the item is returned in its original condition."},

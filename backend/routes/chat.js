@@ -11,5 +11,9 @@ router.use(chatAuth);
 router.post('/conversations', chatController.getOrCreateConversation);
 router.get('/conversations', chatController.getMyConversations);
 router.get('/conversations/:id/messages', chatController.getConversationMessages);
+router.post('/conversations/:id/messages', chatController.sendMessage);
+router.put('/conversations/:id/read', chatController.markConversationRead);
+router.put('/conversations/:id/archive', chatController.toggleArchiveConversation);
+router.post('/conversations/:id/report', chatController.reportConversation);
 
 module.exports = router;

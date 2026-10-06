@@ -1,6 +1,5 @@
 'use strict';
 
-// DEV ONLY — replace with the project's real authentication middleware.
+const authenticateToken = require('./authMiddleware');
 
-const devAuth = require('./devAuth');
-module.exports = devAuth;
+module.exports = authenticateToken;
