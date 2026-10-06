@@ -16,13 +16,21 @@ export const API_URL =
  * @returns {Record<string, string>} Headers object.
  */
 export function getAuthHeaders() {
-    const token = localStorage.getItem('token');
+    const headers = {};
 
-    if (!token) return {};
+    // Development authentication
+    const devUserId = localStorage.getItem('devUserId');
+    if (devUserId) {
+        headers['x-dev-user-id'] = devUserId;
+    }
 
-    return {
-        Authorization: `Bearer ${token}`,
-    };
+    // JWT authentication
+    const token = localStorage.getItem('rf_token');
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
 }
 
 
