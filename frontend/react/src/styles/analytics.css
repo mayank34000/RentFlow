@@ -267,13 +267,13 @@
     align-items: flex-start;
     gap: 16px;
     padding: 20px;
-    background: rgba(255, 255, 255, 0.025);
+    background: #f8fafc;
     border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
     transition: background 0.2s ease;
 }
 .summary-fact:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: #f1f5f9;
 }
 
 .summary-fact-icon {
@@ -435,7 +435,7 @@ body.light-theme .last-updated-label  { color: #6b7280; }
     flex: 1;
     min-width: 0;
     height: 10px;
-    background: rgba(255, 255, 255, 0.04);
+    background: #f1f5f9;
     border-radius: 100px;
     overflow: hidden;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
@@ -443,11 +443,11 @@ body.light-theme .last-updated-label  { color: #6b7280; }
 
 .bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-blue-bright), #6366f1);
+    background: linear-gradient(90deg, var(--accent-blue-bright), #ea580c);
     border-radius: 100px;
     transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
     position: relative;
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 12px rgba(234, 88, 12, 0.2);
 }
 
 .bar-fill.lime-accent {
@@ -534,9 +534,9 @@ body.light-theme .last-updated-label  { color: #6b7280; }
     text-align: center;
     padding: 40px 20px;
     color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.02);
+    background: #f8fafc;
     border-radius: 16px;
-    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border: 1px dashed var(--border);
 }
 
 .empty-state-icon {
@@ -558,9 +558,9 @@ body.light-theme .last-updated-label  { color: #6b7280; }
     gap: 40px;
     margin-bottom: 32px;
     padding: 24px;
-    background: rgba(255, 255, 255, 0.02);
+    background: #f8fafc;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
 }
 
 .average-rating {
@@ -792,7 +792,7 @@ body.light-theme .premium-detail-value {
     position: sticky;
     top: 0;
     z-index: 10;
-    background: #0a1228;
+    background: #f1f5f9;
     box-shadow: 0 1px 0 var(--border);
 }
 

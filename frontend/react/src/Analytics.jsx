@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest } from './services/api';
+import { Link, useNavigate } from 'react-router-dom';
+import { apiRequest, clearAuthSession } from './services/api';
 import { useTheme } from './useNavbarBehavior';
+import './styles/admin-dashboard.css';
 import './styles/analytics.css';
 
 import {
@@ -15,7 +17,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
-import { Pie, Bar, Line } from 'react-chartjs-2';
+import { Pie, Bar, Line, Doughnut } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
@@ -31,10 +33,17 @@ ChartJS.register(
 
 export default function Analytics() {
   useTheme();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    clearAuthSession();
+    navigate('/login');
+  };
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -58,11 +67,11 @@ export default function Analytics() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: '#e5e7eb' } }
+      legend: { labels: { color: '#475569' } }
     },
     scales: {
-      x: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-      y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+      x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(0,0,0,0.1)' } },
+      y: { ticks: { color: '#64748b' }, grid: { color: 'rgba(0,0,0,0.1)' } }
     }
   };
 
@@ -70,12 +79,39 @@ export default function Analytics() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'right', labels: { color: '#e5e7eb' } }
+      legend: { position: 'right', labels: { color: '#475569' } }
     }
   };
 
+  // Safely extract nested data with defaults
+  const userStats = data?.userStats ?? {};
+  const feedbackStats = data?.feedbackStats ?? {};
+  const roleDistribution = userStats.roleDistribution ?? [];
+  const kycDistribution = userStats.kycDistribution ?? [];
+  const proUsers = userStats.proUsers ?? 0;
+  const nonProUsers = userStats.nonProUsers ?? 0;
+  const registrationTrend = userStats.registrationTrend ?? [];
+  const ratingDistribution = feedbackStats.ratingDistribution ?? [];
+  const feedbackTrend = feedbackStats.feedbackTrend ?? [];
+
   return (
     <div className="admin-page">
+      {/* Admin Portal Navbar */}
+      <nav className="navbar" id="site-header">
+        <Link to="/admin-dashboard" className="navbar-brand">
+          <span className="brand-rent">Rent</span><span className="brand-flow">Flow</span>
+        </Link>
+        <button className={`menu-toggle${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
+          <span></span><span></span><span></span>
+        </button>
+        <ul className={`navbar-links${menuOpen ? ' open' : ''}`}>
+          <li><Link to="/admin-dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link></li>
+          <li><Link to="/analytics" className="active" onClick={() => setMenuOpen(false)}>Analytics</Link></li>
+          <li><Link to="/feedback" onClick={() => setMenuOpen(false)}>Feedback</Link></li>
+          <li><a href="#" className="logout-link" onClick={(e) => { e.preventDefault(); setMenuOpen(false); handleLogout(); }}>Logout</a></li>
+        </ul>
+      </nav>
+
       <div className="admin-container">
         <header className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -102,98 +138,156 @@ export default function Analytics() {
             <div className="kpi-grid">
               <div className="kpi-card">
                 <h3>Total Users</h3>
-                <div className="value">{data.users.total}</div>
+                <div className="value">{userStats.totalUsers ?? 0}</div>
               </div>
               <div className="kpi-card">
                 <h3>Total Feedback</h3>
-                <div className="value">{data.feedback.total}</div>
+                <div className="value">{feedbackStats.totalFeedback ?? 0}</div>
               </div>
               <div className="kpi-card">
                 <h3>Average Rating</h3>
-                <div className="value">{data.feedback.averageRating}</div>
+                <div className="value">{feedbackStats.averageRating ?? 0}</div>
               </div>
             </div>
 
             <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '30px' }}>
-              <div className="chart-card" style={{ background: '#1f2937', padding: '20px', borderRadius: '8px', height: '300px' }}>
-                <h3 style={{ marginBottom: '15px' }}>Users by Role</h3>
-                <Pie 
-                  options={pieOptions}
-                  data={{
-                    labels: data.users.byRole.map(r => r._id || 'customer'),
-                    datasets: [{
-                      data: data.users.byRole.map(r => r.count),
-                      backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
-                      borderColor: '#1f2937'
-                    }]
-                  }}
-                />
+              <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
+                <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Users by Role</h3>
+                {roleDistribution.length > 0 ? (
+                  <Pie 
+                    options={pieOptions}
+                    data={{
+                      labels: roleDistribution.map(r => r._id || 'customer'),
+                      datasets: [{
+                        data: roleDistribution.map(r => r.count),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+                        borderColor: '#ffffff'
+                      }]
+                    }}
+                  />
+                ) : (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
+                )}
               </div>
 
-              <div className="chart-card" style={{ background: '#1f2937', padding: '20px', borderRadius: '8px', height: '300px' }}>
-                <h3 style={{ marginBottom: '15px' }}>KYC Status</h3>
-                <Pie 
-                  options={pieOptions}
-                  data={{
-                    labels: data.users.byKyc.map(k => k._id || 'none'),
-                    datasets: [{
-                      data: data.users.byKyc.map(k => k.count),
-                      backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#6b7280'],
-                      borderColor: '#1f2937'
-                    }]
-                  }}
-                />
+              <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
+                <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>KYC Status</h3>
+                {kycDistribution.length > 0 ? (
+                  <Pie 
+                    options={pieOptions}
+                    data={{
+                      labels: kycDistribution.map(k => k._id || 'none'),
+                      datasets: [{
+                        data: kycDistribution.map(k => k.count),
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#6b7280'],
+                        borderColor: '#ffffff'
+                      }]
+                    }}
+                  />
+                ) : (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
+                )}
               </div>
 
-              <div className="chart-card" style={{ background: '#1f2937', padding: '20px', borderRadius: '8px', height: '300px' }}>
-                <h3 style={{ marginBottom: '15px' }}>Pro vs Standard</h3>
-                <Pie 
-                  options={pieOptions}
-                  data={{
-                    labels: ['Pro', 'Standard'],
-                    datasets: [{
-                      data: [
-                        data.users.byPro.find(p => p._id === true)?.count || 0,
-                        data.users.byPro.find(p => p._id === false)?.count || 0
-                      ],
-                      backgroundColor: ['#8b5cf6', '#6b7280'],
-                      borderColor: '#1f2937'
-                    }]
-                  }}
-                />
+              <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
+                <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Pro vs Standard</h3>
+                {(proUsers > 0 || nonProUsers > 0) ? (
+                  <Pie 
+                    options={pieOptions}
+                    data={{
+                      labels: ['Pro', 'Standard'],
+                      datasets: [{
+                        data: [proUsers, nonProUsers],
+                        backgroundColor: ['#8b5cf6', '#6b7280'],
+                        borderColor: '#ffffff'
+                      }]
+                    }}
+                  />
+                ) : (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
+                )}
               </div>
 
-              <div className="chart-card" style={{ background: '#1f2937', padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
-                <h3 style={{ marginBottom: '15px' }}>Registration Trend</h3>
-                <Line 
-                  options={chartOptions}
-                  data={{
-                    labels: data.users.registrationTrend.map(t => `${t._id.year}-${t._id.month}-${t._id.day}`),
-                    datasets: [{
-                      label: 'New Users',
-                      data: data.users.registrationTrend.map(t => t.count),
-                      borderColor: '#3b82f6',
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                      fill: true,
-                      tension: 0.4
-                    }]
-                  }}
-                />
+              <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
+                <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Registration Trend</h3>
+                {registrationTrend.length > 0 ? (
+                  <Line 
+                    options={chartOptions}
+                    data={{
+                      labels: registrationTrend.map(t => t._id),
+                      datasets: [{
+                        label: 'New Users',
+                        data: registrationTrend.map(t => t.count),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                      }]
+                    }}
+                  />
+                ) : (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
+                )}
               </div>
 
-              <div className="chart-card" style={{ background: '#1f2937', padding: '20px', borderRadius: '8px', height: '300px' }}>
-                <h3 style={{ marginBottom: '15px' }}>Rating Distribution</h3>
-                <Bar 
-                  options={chartOptions}
-                  data={{
-                    labels: data.feedback.ratingDistribution.map(r => `${r._id} Stars`),
-                    datasets: [{
-                      label: 'Count',
-                      data: data.feedback.ratingDistribution.map(r => r.count),
-                      backgroundColor: '#f59e0b'
-                    }]
-                  }}
-                />
+              <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
+                <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Rating Distribution</h3>
+                {ratingDistribution.length > 0 ? (
+                  <Bar 
+                    options={chartOptions}
+                    data={{
+                      labels: ratingDistribution.map(r => `${r._id} Stars`),
+                      datasets: [{
+                        label: 'Count',
+                        data: ratingDistribution.map(r => r.count),
+                        backgroundColor: '#f59e0b'
+                      }]
+                    }}
+                  />
+                ) : (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
+                )}
+              </div>
+
+              <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
+                <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Rating Breakdown</h3>
+                {ratingDistribution.length > 0 ? (
+                  <Doughnut 
+                    options={pieOptions}
+                    data={{
+                      labels: ratingDistribution.map(r => `${r._id} Stars`),
+                      datasets: [{
+                        data: ratingDistribution.map(r => r.count),
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#6b7280'],
+                        borderColor: '#ffffff'
+                      }]
+                    }}
+                  />
+                ) : (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
+                )}
+              </div>
+
+              <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
+                <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Feedback Trend</h3>
+                {feedbackTrend.length > 0 ? (
+                  <Line 
+                    options={chartOptions}
+                    data={{
+                      labels: feedbackTrend.map(t => t._id),
+                      datasets: [{
+                        label: 'New Feedback',
+                        data: feedbackTrend.map(t => t.count),
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                      }]
+                    }}
+                  />
+                ) : (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
+                )}
               </div>
             </div>
           </>
@@ -202,3 +296,4 @@ export default function Analytics() {
     </div>
   );
 }
+
