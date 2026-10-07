@@ -14,7 +14,6 @@ export const API_URL =
  */
 export function getAuthHeaders() {
     const headers = {};
-
     // Aryan's development user authentication.
     const devUserId = localStorage.getItem('devUserId');
     if (devUserId) {
