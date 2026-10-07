@@ -163,7 +163,7 @@ export function AdminNavbar({ pendingCount = 0, onBellClick = () => {}, activePa
         </button>
 
         <nav className="ad-nav-links" aria-label="Admin">
-          {NAV_LINKS.map((link) => (
+          {NAV_LINKS.filter((link) => link.page !== 'analytics' || me?.role === 'admin').map((link) => (
             <button
               key={link.label}
               type="button"
