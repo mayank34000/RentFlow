@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { apiRequest, clearAuthSession } from './services/api';
+import { apiRequest } from './services/api';
+import { adminApiErrorMessage } from './adminApiMessages';
 import { useTheme } from './useNavbarBehavior';
+import { AdminNavbar } from './AdminDashboard';
 import './styles/admin-dashboard.css';
 import './styles/analytics.css';
 
@@ -33,27 +34,20 @@ ChartJS.register(
 
 export default function Analytics() {
   useTheme();
-  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const handleLogout = () => {
-    clearAuthSession();
-    navigate('/login');
-  };
 
   const fetchAnalytics = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await apiRequest('/api/admin/analytics/overview');
-      setData(res.data.data);
+      setData(res.data.data || {});
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (err) {
-      setError(err.message || 'Failed to load analytics');
+      setError(adminApiErrorMessage(err, 'load analytics'));
     } finally {
       setLoading(false);
     }
@@ -86,41 +80,36 @@ export default function Analytics() {
   // Safely extract nested data with defaults
   const userStats = data?.userStats ?? {};
   const feedbackStats = data?.feedbackStats ?? {};
-  const roleDistribution = userStats.roleDistribution ?? [];
-  const kycDistribution = userStats.kycDistribution ?? [];
-  const proUsers = userStats.proUsers ?? 0;
-  const nonProUsers = userStats.nonProUsers ?? 0;
-  const registrationTrend = userStats.registrationTrend ?? [];
-  const ratingDistribution = feedbackStats.ratingDistribution ?? [];
-  const feedbackTrend = feedbackStats.feedbackTrend ?? [];
+  const asArray = (value) => Array.isArray(value) ? value : [];
+  const roleDistribution = asArray(userStats.roleDistribution);
+  const kycDistribution = asArray(userStats.kycDistribution);
+  const proUsers = Number.isFinite(userStats.proUsers) ? userStats.proUsers : null;
+  const nonProUsers = Number.isFinite(userStats.nonProUsers) ? userStats.nonProUsers : null;
+  const registrationTrend = asArray(userStats.registrationTrend);
+  const ratingDistribution = asArray(feedbackStats.ratingDistribution).slice().sort((a, b) => Number(a._id) - Number(b._id));
+  const feedbackTrend = asArray(feedbackStats.feedbackTrend);
+  const totalUsers = Number(userStats.totalUsers) || 0;
+  const distributionLabel = (entry, total) => {
+    const name = entry._id || 'Unknown';
+    const count = Number(entry.count) || 0;
+    const percent = total ? Math.round((count / total) * 100) : 0;
+    return `${name} ${count} (${percent}%)`;
+  };
 
   return (
-    <div className="admin-page">
-      {/* Admin Portal Navbar */}
-      <nav className="navbar" id="site-header">
-        <Link to="/admin-dashboard" className="navbar-brand">
-          <span className="brand-rent">Rent</span><span className="brand-flow">Flow</span>
-        </Link>
-        <button className={`menu-toggle${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
-          <span></span><span></span><span></span>
-        </button>
-        <ul className={`navbar-links${menuOpen ? ' open' : ''}`}>
-          <li><Link to="/admin-dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link></li>
-          <li><Link to="/analytics" className="active" onClick={() => setMenuOpen(false)}>Analytics</Link></li>
-          <li><Link to="/feedback" onClick={() => setMenuOpen(false)}>Feedback</Link></li>
-          <li><a href="#" className="logout-link" onClick={(e) => { e.preventDefault(); setMenuOpen(false); handleLogout(); }}>Logout</a></li>
-        </ul>
-      </nav>
+    <div className="ad-page analytics-admin-page">
+      <AdminNavbar activePage="analytics" />
 
-      <div className="admin-container">
-        <header className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="ad-container analytics-admin-container">
+        <header className="analytics-admin-header">
           <div>
-            <h1>Analytics Dashboard</h1>
+            <h1>Analytics <span>Dashboard</span></h1>
             <p>System metrics and insights</p>
           </div>
-          <div>
-            {lastUpdated && <span style={{ marginRight: '15px', color: '#9ca3af' }}>Last updated: {lastUpdated}</span>}
-            <button onClick={fetchAnalytics} className="refresh-btn">Refresh Data</button>
+          <div className="analytics-admin-actions">
+            <span className="analytics-range-label">All available data</span>
+            <button onClick={fetchAnalytics} className="ad-refresh" disabled={loading}><span aria-hidden="true">↻</span> Refresh Data</button>
+            {lastUpdated && <small>Last updated: {lastUpdated}</small>}
           </div>
         </header>
 
@@ -136,17 +125,23 @@ export default function Analytics() {
         ) : data ? (
           <>
             <div className="kpi-grid">
-              <div className="kpi-card">
+              <div className="kpi-card analytics-admin-kpi analytics-users-kpi">
+                <span className="analytics-kpi-icon" aria-hidden="true">♟</span>
                 <h3>Total Users</h3>
-                <div className="value">{userStats.totalUsers ?? 0}</div>
+                <div className="value">{userStats.totalUsers ?? '—'}</div>
+                <small>— from previous period</small>
               </div>
-              <div className="kpi-card">
+              <div className="kpi-card analytics-admin-kpi analytics-feedback-kpi">
+                <span className="analytics-kpi-icon" aria-hidden="true">▤</span>
                 <h3>Total Feedback</h3>
-                <div className="value">{feedbackStats.totalFeedback ?? 0}</div>
+                <div className="value">{feedbackStats.totalFeedback ?? '—'}</div>
+                <small>— from previous period</small>
               </div>
-              <div className="kpi-card">
+              <div className="kpi-card analytics-admin-kpi analytics-rating-kpi">
+                <span className="analytics-kpi-icon" aria-hidden="true">★</span>
                 <h3>Average Rating</h3>
-                <div className="value">{feedbackStats.averageRating ?? 0}</div>
+                <div className="value">{feedbackStats.totalFeedback ? feedbackStats.averageRating ?? '—' : '—'}</div>
+                <small>— from previous period</small>
               </div>
             </div>
 
@@ -157,7 +152,7 @@ export default function Analytics() {
                   <Pie 
                     options={pieOptions}
                     data={{
-                      labels: roleDistribution.map(r => r._id || 'customer'),
+                      labels: roleDistribution.map((r) => distributionLabel(r, totalUsers)),
                       datasets: [{
                         data: roleDistribution.map(r => r.count),
                         backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
@@ -176,7 +171,7 @@ export default function Analytics() {
                   <Pie 
                     options={pieOptions}
                     data={{
-                      labels: kycDistribution.map(k => k._id || 'none'),
+                      labels: kycDistribution.map((k) => distributionLabel(k, totalUsers)),
                       datasets: [{
                         data: kycDistribution.map(k => k.count),
                         backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#6b7280'],
@@ -195,7 +190,10 @@ export default function Analytics() {
                   <Pie 
                     options={pieOptions}
                     data={{
-                      labels: ['Pro', 'Standard'],
+                      labels: [
+                        distributionLabel({ _id: 'Pro', count: proUsers }, totalUsers),
+                        distributionLabel({ _id: 'Standard', count: nonProUsers }, totalUsers)
+                      ],
                       datasets: [{
                         data: [proUsers, nonProUsers],
                         backgroundColor: ['#8b5cf6', '#6b7280'],
@@ -291,7 +289,13 @@ export default function Analytics() {
               </div>
             </div>
           </>
-        ) : null}
+        ) : (
+          <section className="analytics-empty-state" role="status">
+            <h2>Analytics are unavailable</h2>
+            <p>We couldn’t load the current metrics. Your page is still available; try refreshing the data.</p>
+            <button type="button" className="ad-refresh" onClick={fetchAnalytics}>↻ Retry</button>
+          </section>
+        )}
       </div>
     </div>
   );

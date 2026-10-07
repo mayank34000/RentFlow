@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiRequest } from './services/api';
+import { apiRequest, clearAuthSession, getAuthUser } from './services/api';
+import { adminApiErrorMessage } from './adminApiMessages';
 import { useTheme } from './useNavbarBehavior';
 import './styles/admin-dashboard.css';
 
@@ -34,20 +35,19 @@ const FILTERS = ['all', ...KYC_STATES];
 
 /* Navbar config. Change the paths to match your router. */
 const NAV_LINKS = [
-  { label: 'Dashboard', path: '/admin', active: true },
-  { label: 'Analytics', path: '/admin/analytics' },
-  { label: 'Feedback', path: '/admin/feedback' }
+  { label: 'Dashboard', path: '/admin-dashboard', page: 'dashboard' },
+  { label: 'Analytics', path: '/analytics', page: 'analytics' },
+  { label: 'Feedback', path: '/feedback', page: 'feedback' }
 ];
 
 const USER_MENU = [
   { label: 'My Profile', icon: UserIcon, path: '/profile' },
-  { label: 'My Wallet', icon: Wallet, path: '/wallet' },
+  { label: 'My Wallet', icon: Wallet, wallet: true },
   { label: 'Go Premium', icon: Crown, path: '/premium', tone: 'premium' }
 ];
 
-/* Date range presets. Default is the current month, like the mockup.
-   Change DEFAULT_RANGE to 'all' if you want every user shown on first load. */
-const DEFAULT_RANGE = 'month';
+/* Date range presets use the currently loaded user records. Start with all records. */
+const DEFAULT_RANGE = 'all';
 const RANGE_PRESETS = [
   { key: 'month', label: 'This month' },
   { key: 'last-month', label: 'Last month' },
@@ -69,7 +69,7 @@ const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 const readStoredUser = () => {
   try {
-    return JSON.parse(localStorage.getItem('user')) || null;
+    return getAuthUser() || JSON.parse(localStorage.getItem('user')) || null;
   } catch {
     return null;
   }
@@ -117,7 +117,7 @@ const rangeLabel = (key, { start, end }) => {
 
 /* ---------- navbar ---------- */
 
-function AdminNavbar({ pendingCount, onBellClick }) {
+export function AdminNavbar({ pendingCount = 0, onBellClick = () => {}, activePage = 'dashboard' }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const wrapRef = useRef(null);
@@ -150,7 +150,7 @@ function AdminNavbar({ pendingCount, onBellClick }) {
 
   const handleLogout = () => {
     setMenuOpen(false);
-    localStorage.removeItem('token');
+    clearAuthSession();
     localStorage.removeItem('user');
     navigate('/login');
   };
@@ -167,8 +167,8 @@ function AdminNavbar({ pendingCount, onBellClick }) {
             <button
               key={link.label}
               type="button"
-              className={`ad-nav-link${link.active ? ' is-active' : ''}`}
-              aria-current={link.active ? 'page' : undefined}
+              className={`ad-nav-link${link.page === activePage ? ' is-active' : ''}`}
+              aria-current={link.page === activePage ? 'page' : undefined}
               onClick={() => navigate(link.path)}
             >
               {link.label}
@@ -197,7 +197,7 @@ function AdminNavbar({ pendingCount, onBellClick }) {
               aria-expanded={menuOpen}
             >
               <span className="ad-account-avatar">
-                {me?.profileImage ? <img src={me.profileImage} alt="" /> : initials(displayName)}
+                {(me?.profileImage || me?.avatar) ? <img src={me.profileImage || me.avatar} alt="" /> : initials(displayName)}
               </span>
               <span className="ad-account-name">{firstName}</span>
               <ChevronDown size={16} />
@@ -205,13 +205,21 @@ function AdminNavbar({ pendingCount, onBellClick }) {
 
             {menuOpen && (
               <div className="ad-menu" role="menu">
-                {USER_MENU.map(({ label, icon: Icon, path, tone }) => (
+                {USER_MENU.map(({ label, icon: Icon, path, tone, wallet }) => (
                   <button
                     key={label}
                     type="button"
                     role="menuitem"
                     className={`ad-menu-item${tone ? ` is-${tone}` : ''}`}
-                    onClick={() => go(path)}
+                    disabled={wallet && typeof window.openWalletModal !== 'function'}
+                    onClick={() => {
+                      if (wallet) {
+                        setMenuOpen(false);
+                        window.openWalletModal?.();
+                      } else {
+                        go(path);
+                      }
+                    }}
                   >
                     <Icon size={18} /> {label}
                   </button>
@@ -309,9 +317,14 @@ function DateRangePicker({ rangeKey, custom, label, onPick, onCustom }) {
 export default function AdminDashboard() {
   useTheme();
   const [users, setUsers] = useState([]);
-  const [overview, setOverview] = useState(null);
+  const [listingCount, setListingCount] = useState(null);
+  const [bookingCount, setBookingCount] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [actionInProgress, setActionInProgress] = useState(false);
   const [activeKycFilter, setActiveKycFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [rangeKey, setRangeKey] = useState(DEFAULT_RANGE);
@@ -325,33 +338,41 @@ export default function AdminDashboard() {
     try {
       const res = await apiRequest('/api/admin/users');
       setUsers(res.data.users || []);
+      setUsersLoaded(true);
       setSelected(new Set());
     } catch (err) {
-      setError(err.message || 'Failed to load users');
+      setError(adminApiErrorMessage(err, 'load users'));
     } finally {
       setLoading(false);
     }
   };
 
-  // Optional: listings / bookings / revenue come from the analytics overview if your API has them.
-  // Expected shape: data.listings = { total, growth }, same for bookings; data.revenue likewise.
-  const fetchOverview = async () => {
-    try {
-      const res = await apiRequest('/api/admin/analytics/overview');
-      setOverview(res.data.data || null);
-    } catch (err) {
-      setOverview(null);
-    }
+  const fetchCollectionCounts = async () => {
+    const [listingsResult, bookingsResult] = await Promise.allSettled([
+      apiRequest('/api/admin/listings'),
+      apiRequest('/api/admin/bookings')
+    ]);
+    setListingCount(listingsResult.status === 'fulfilled'
+      ? listingsResult.value.data.count ?? listingsResult.value.data.listings?.length ?? null
+      : null);
+    setBookingCount(bookingsResult.status === 'fulfilled'
+      ? bookingsResult.value.data.count ?? bookingsResult.value.data.bookings?.length ?? null
+      : null);
   };
 
   useEffect(() => {
     fetchUsers();
-    fetchOverview();
+    fetchCollectionCounts();
   }, []);
 
-  const handleRefresh = () => {
-    fetchUsers();
-    fetchOverview();
+  const handleRefresh = async () => {
+    setSuccessMessage(null);
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchUsers(), fetchCollectionCounts()]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleUpdateKyc = async (userId, newStatus) => {
@@ -360,26 +381,41 @@ export default function AdminDashboard() {
       pending: 'Reset KYC status to Pending?'
     };
     if (confirmMap[newStatus] && !window.confirm(confirmMap[newStatus])) return;
+    setError(null);
+    setSuccessMessage(null);
+    setActionInProgress(true);
     try {
       await apiRequest(`/api/admin/users/${userId}`, { method: 'PATCH', body: { kycStatus: newStatus } });
       setUsers((prev) => prev.map((u) => (u._id === userId ? { ...u, kycStatus: newStatus } : u)));
+      setSuccessMessage(`KYC status set to ${cap(newStatus)}.`);
     } catch (err) {
-      alert('KYC update failed: ' + err.message);
+      setError(adminApiErrorMessage(err, 'update KYC status'));
+    } finally {
+      setActionInProgress(false);
     }
   };
 
   const handleDeleteUser = async (id) => {
     if (!window.confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+    setError(null);
+    setSuccessMessage(null);
+    setActionInProgress(true);
     try {
-      await apiRequest(`/api/admin/users/${id}`, { method: 'DELETE' });
+      const response = await apiRequest(`/api/admin/users/${id}`, { method: 'DELETE' });
       setUsers((prev) => prev.filter((u) => u._id !== id));
+      setSuccessMessage(response.data.message || 'User deleted successfully.');
     } catch (err) {
-      alert('Error deleting user: ' + err.message);
+      setError(adminApiErrorMessage(err, 'delete user'));
+    } finally {
+      setActionInProgress(false);
     }
   };
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+    setActionInProgress(true);
     try {
       const res = await apiRequest(`/api/admin/users/${editUser._id}`, {
         method: 'PATCH',
@@ -393,8 +429,11 @@ export default function AdminDashboard() {
       });
       setUsers((prev) => prev.map((u) => (u._id === editUser._id ? res.data.user : u)));
       setEditUser(null);
+      setSuccessMessage(res.data.message || 'User updated successfully.');
     } catch (err) {
-      alert('Error updating user: ' + err.message);
+      setError(adminApiErrorMessage(err, 'update user'));
+    } finally {
+      setActionInProgress(false);
     }
   };
 
@@ -455,13 +494,12 @@ export default function AdminDashboard() {
     document.getElementById('ad-users')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const rupees = (n) => (typeof n === 'number' ? `₹ ${n.toLocaleString('en-IN')}` : '—');
   const usersDeltaLabel = rangeKey === 'month' ? 'from last month' : 'vs previous period';
   const kpis = [
-    { key: 'users', tone: 'orange', label: 'Total Users', icon: Users, value: rangeUsers.length, delta: usersDelta, note: usersDeltaLabel },
-    { key: 'listings', tone: 'blue', label: 'Total Listings', icon: Home, value: overview?.listings?.total ?? '—', delta: overview?.listings?.growth, note: 'from last month' },
-    { key: 'bookings', tone: 'purple', label: 'Total Bookings', icon: CalendarCheck, value: overview?.bookings?.total ?? '—', delta: overview?.bookings?.growth, note: 'from last month' },
-    { key: 'revenue', tone: 'green', label: 'Total Revenue', icon: IndianRupee, value: rupees(overview?.revenue?.total), delta: overview?.revenue?.growth, note: 'from last month' }
+    { key: 'users', tone: 'orange', label: 'Total Users', icon: Users, value: usersLoaded ? rangeUsers.length : '—', delta: usersLoaded ? usersDelta : null, note: usersDeltaLabel },
+    { key: 'listings', tone: 'blue', label: 'Total Listings', icon: Home, value: listingCount ?? '—' },
+    { key: 'bookings', tone: 'purple', label: 'Total Bookings', icon: CalendarCheck, value: bookingCount ?? '—' },
+    { key: 'revenue', tone: 'green', label: 'Total Revenue', icon: IndianRupee, value: '—' }
   ];
 
   return (
@@ -515,10 +553,11 @@ export default function AdminDashboard() {
               <Search size={18} />
               <input type="search" placeholder="Search users by name or email..." value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
-            <button className="ad-refresh" onClick={handleRefresh}><RefreshCw size={17} /> Refresh</button>
+            <button className="ad-refresh" onClick={handleRefresh} disabled={loading || refreshing || actionInProgress}><RefreshCw size={17} /> {refreshing ? 'Refreshing…' : 'Refresh'}</button>
           </div>
         </div>
 
+        {successMessage && <div className="ad-success" role="status">{successMessage}</div>}
         {error && (
           <div className="ad-error">
             <p>{error}</p>
@@ -561,7 +600,7 @@ export default function AdminDashboard() {
                         </td>
                         <td>
                           <div className="ad-user">
-                            <span className={`ad-avatar tone-${avatarTone(u.name)}`}>{initials(u.name)}</span>
+                            <span className={`ad-avatar tone-${avatarTone(u.name)}`}>{(u.avatar || u.profileImage) ? <img src={u.avatar || u.profileImage} alt="" /> : initials(u.name)}</span>
                             <span className="ad-user-name">{u.name || 'Unknown'}</span>
                           </div>
                         </td>
@@ -576,11 +615,11 @@ export default function AdminDashboard() {
                         <td className="ad-date">{fmtDate(u.createdAt)}</td>
                         <td>
                           <div className="ad-actions">
-                            <button className="ad-act act-approve" disabled={status === 'approved'} onClick={() => handleUpdateKyc(u._id, 'approved')}><Check size={14} /> Approve</button>
-                            <button className="ad-act act-reject" disabled={status === 'rejected'} onClick={() => handleUpdateKyc(u._id, 'rejected')}><X size={14} /> Reject</button>
-                            <button className="ad-act act-pending" disabled={status === 'pending'} onClick={() => handleUpdateKyc(u._id, 'pending')}><Clock size={14} /> Set Pending</button>
-                            <button className="ad-act act-edit" onClick={() => setEditUser(u)}><Pencil size={14} /> Edit</button>
-                            <button className="ad-act act-delete" onClick={() => handleDeleteUser(u._id)}><Trash2 size={14} /> Delete</button>
+                            <button className="ad-act act-approve" disabled={actionInProgress || status === 'approved'} onClick={() => handleUpdateKyc(u._id, 'approved')}><Check size={14} /> Approve</button>
+                            <button className="ad-act act-reject" disabled={actionInProgress || status === 'rejected'} onClick={() => handleUpdateKyc(u._id, 'rejected')}><X size={14} /> Reject</button>
+                            <button className="ad-act act-pending" disabled={actionInProgress || status === 'pending'} onClick={() => handleUpdateKyc(u._id, 'pending')}><Clock size={14} /> Set Pending</button>
+                            <button className="ad-act act-edit" disabled={actionInProgress} onClick={() => setEditUser(u)}><Pencil size={14} /> Edit</button>
+                            <button className="ad-act act-delete" disabled={actionInProgress} onClick={() => handleDeleteUser(u._id)}><Trash2 size={14} /> Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -601,6 +640,7 @@ export default function AdminDashboard() {
               <h2>Edit User</h2>
               <button className="ad-close" onClick={() => setEditUser(null)} aria-label="Close"><X size={18} /></button>
             </div>
+            {error && <div className="ad-error" role="alert"><p>{error}</p></div>}
             <form onSubmit={handleSaveEdit}>
               <div className="ad-field">
                 <label htmlFor="eu-name">Name</label>
@@ -614,8 +654,7 @@ export default function AdminDashboard() {
                 <label htmlFor="eu-role">Role</label>
                 <select id="eu-role" value={editUser.role || 'customer'} onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}>
                   <option value="customer">Customer</option>
-                  <option value="owner">Owner</option>
-                  <option value="tenant">Tenant</option>
+                  <option value="seller">Seller</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
@@ -629,7 +668,7 @@ export default function AdminDashboard() {
                 <input type="checkbox" checked={!!editUser.isPro} onChange={(e) => setEditUser({ ...editUser, isPro: e.target.checked })} />
                 Pro user
               </label>
-              <button type="submit" className="ad-submit">Save changes</button>
+              <button type="submit" className="ad-submit" disabled={actionInProgress}>{actionInProgress ? 'Saving…' : 'Save changes'}</button>
             </form>
           </div>
         </div>
