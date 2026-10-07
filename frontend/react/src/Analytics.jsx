@@ -148,6 +148,7 @@ export default function Analytics() {
             <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '30px' }}>
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Users by Role</h3>
+                <div className="analytics-chart-container">
                 {roleDistribution.length > 0 ? (
                   <Pie 
                     options={pieOptions}
@@ -163,10 +164,12 @@ export default function Analytics() {
                 ) : (
                   <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
                 )}
+                </div>
               </div>
 
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>KYC Status</h3>
+                <div className="analytics-chart-container">
                 {kycDistribution.length > 0 ? (
                   <Pie 
                     options={pieOptions}
@@ -182,10 +185,12 @@ export default function Analytics() {
                 ) : (
                   <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
                 )}
+                </div>
               </div>
 
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Pro vs Standard</h3>
+                <div className="analytics-chart-container">
                 {(proUsers > 0 || nonProUsers > 0) ? (
                   <Pie 
                     options={pieOptions}
@@ -204,10 +209,12 @@ export default function Analytics() {
                 ) : (
                   <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
                 )}
+                </div>
               </div>
 
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Registration Trend</h3>
+                <div className="analytics-chart-container">
                 {registrationTrend.length > 0 ? (
                   <Line 
                     options={chartOptions}
@@ -226,10 +233,12 @@ export default function Analytics() {
                 ) : (
                   <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
                 )}
+                </div>
               </div>
 
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Rating Distribution</h3>
+                <div className="analytics-chart-container">
                 {ratingDistribution.length > 0 ? (
                   <Bar 
                     options={chartOptions}
@@ -245,10 +254,12 @@ export default function Analytics() {
                 ) : (
                   <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
                 )}
+                </div>
               </div>
 
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Rating Breakdown</h3>
+                <div className="analytics-chart-container">
                 {ratingDistribution.length > 0 ? (
                   <Doughnut 
                     options={pieOptions}
@@ -264,10 +275,12 @@ export default function Analytics() {
                 ) : (
                   <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
                 )}
+                </div>
               </div>
 
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Feedback Trend</h3>
+                <div className="analytics-chart-container">
                 {feedbackTrend.length > 0 ? (
                   <Line 
                     options={chartOptions}
@@ -286,6 +299,7 @@ export default function Analytics() {
                 ) : (
                   <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>No data</div>
                 )}
+                </div>
               </div>
             </div>
           </>
