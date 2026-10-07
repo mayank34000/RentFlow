@@ -47,7 +47,7 @@ const USER_MENU = [
 ];
 
 /* Date range presets use the currently loaded user records. Start with all records. */
-const DEFAULT_RANGE = 'all';
+export const DEFAULT_RANGE = 'all';
 const RANGE_PRESETS = [
   { key: 'month', label: 'This month' },
   { key: 'last-month', label: 'Last month' },
@@ -84,7 +84,7 @@ const daysBack = (n) => {
 const parseInputDate = (s, endOfDayFlag) =>
   s ? new Date(`${s}T${endOfDayFlag ? '23:59:59.999' : '00:00:00'}`) : null;
 
-function getRange(key, custom = {}) {
+export function getRange(key, custom = {}) {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -100,7 +100,7 @@ function getRange(key, custom = {}) {
   }
 }
 
-const inRange = (u, { start, end }) => {
+export const inRange = (u, { start, end }) => {
   if (!start && !end) return true;
   if (!u.createdAt) return false;
   const t = new Date(u.createdAt);
@@ -109,7 +109,7 @@ const inRange = (u, { start, end }) => {
   return true;
 };
 
-const rangeLabel = (key, { start, end }) => {
+export const rangeLabel = (key, { start, end }) => {
   if (key === 'all') return 'All time';
   if (!start && !end) return 'Select dates';
   return `${start ? fmtDate(start) : 'Start'} - ${end ? fmtDate(end) : 'Today'}`;
@@ -241,7 +241,7 @@ export function AdminNavbar({ pendingCount = 0, onBellClick = () => {}, activePa
 
 /* ---------- date range picker ---------- */
 
-function DateRangePicker({ rangeKey, custom, label, onPick, onCustom }) {
+export function DateRangePicker({ rangeKey, custom, label, onPick, onCustom }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 

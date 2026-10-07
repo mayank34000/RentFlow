@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from './services/api';
 import { adminApiErrorMessage } from './adminApiMessages';
 import { useTheme } from './useNavbarBehavior';
-import { AdminNavbar } from './AdminDashboard';
+import { AdminNavbar, DateRangePicker, DEFAULT_RANGE, getRange, rangeLabel, inRange } from './AdminDashboard';
 import './styles/admin-dashboard.css';
 import './styles/analytics.css';
 
@@ -38,6 +38,8 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [rangeKey, setRangeKey] = useState(DEFAULT_RANGE);
+  const [custom, setCustom] = useState({ from: '', to: '' });
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -89,6 +91,19 @@ export default function Analytics() {
   const ratingDistribution = asArray(feedbackStats.ratingDistribution).slice().sort((a, b) => Number(a._id) - Number(b._id));
   const feedbackTrend = asArray(feedbackStats.feedbackTrend);
   const totalUsers = Number(userStats.totalUsers) || 0;
+  const range = useMemo(() => getRange(rangeKey, custom), [rangeKey, custom]);
+  const isAllDataRange = !range.start && !range.end;
+  const selectedRangeLabel = rangeLabel(rangeKey, range);
+  const rangeRegistrationTrend = useMemo(() => registrationTrend.filter((entry) =>
+    inRange({ createdAt: new Date(`${entry._id}T12:00:00`) }, range)
+  ), [registrationTrend, range]);
+  const rangeFeedbackTrend = useMemo(() => feedbackTrend.filter((entry) =>
+    inRange({ createdAt: new Date(`${entry._id}T12:00:00`) }, range)
+  ), [feedbackTrend, range]);
+  const rangeTotalUsers = isAllDataRange ? totalUsers : rangeRegistrationTrend.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
+  const rangeTotalFeedback = isAllDataRange
+    ? Number(feedbackStats.totalFeedback) || 0
+    : rangeFeedbackTrend.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
   const distributionLabel = (entry, total) => {
     const name = entry._id || 'Unknown';
     const count = Number(entry.count) || 0;
@@ -107,7 +122,13 @@ export default function Analytics() {
             <p>System metrics and insights</p>
           </div>
           <div className="analytics-admin-actions">
-            <span className="analytics-range-label">All available data</span>
+            <DateRangePicker
+              rangeKey={rangeKey}
+              custom={custom}
+              label={selectedRangeLabel}
+              onPick={setRangeKey}
+              onCustom={setCustom}
+            />
             <button onClick={fetchAnalytics} className="ad-refresh" disabled={loading}><span aria-hidden="true">↻</span> Refresh Data</button>
             {lastUpdated && <small>Last updated: {lastUpdated}</small>}
           </div>
@@ -128,19 +149,19 @@ export default function Analytics() {
               <div className="kpi-card analytics-admin-kpi analytics-users-kpi">
                 <span className="analytics-kpi-icon" aria-hidden="true">♟</span>
                 <h3>Total Users</h3>
-                <div className="value">{userStats.totalUsers ?? '—'}</div>
+                <div className="value">{rangeTotalUsers}</div>
                 <small>— from previous period</small>
               </div>
               <div className="kpi-card analytics-admin-kpi analytics-feedback-kpi">
                 <span className="analytics-kpi-icon" aria-hidden="true">▤</span>
                 <h3>Total Feedback</h3>
-                <div className="value">{feedbackStats.totalFeedback ?? '—'}</div>
+                <div className="value">{rangeTotalFeedback}</div>
                 <small>— from previous period</small>
               </div>
               <div className="kpi-card analytics-admin-kpi analytics-rating-kpi">
                 <span className="analytics-kpi-icon" aria-hidden="true">★</span>
                 <h3>Average Rating</h3>
-                <div className="value">{feedbackStats.totalFeedback ? feedbackStats.averageRating ?? '—' : '—'}</div>
+                <div className="value">{isAllDataRange && rangeTotalFeedback ? feedbackStats.averageRating ?? '—' : '—'}</div>
                 <small>— from previous period</small>
               </div>
             </div>
@@ -215,14 +236,14 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Registration Trend</h3>
                 <div className="analytics-chart-container">
-                {registrationTrend.length > 0 ? (
+                {rangeRegistrationTrend.length > 0 ? (
                   <Line 
                     options={chartOptions}
                     data={{
-                      labels: registrationTrend.map(t => t._id),
+                      labels: rangeRegistrationTrend.map(t => t._id),
                       datasets: [{
                         label: 'New Users',
-                        data: registrationTrend.map(t => t.count),
+                        data: rangeRegistrationTrend.map(t => t.count),
                         borderColor: '#3b82f6',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         fill: true,
@@ -281,14 +302,14 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Feedback Trend</h3>
                 <div className="analytics-chart-container">
-                {feedbackTrend.length > 0 ? (
+                {rangeFeedbackTrend.length > 0 ? (
                   <Line 
                     options={chartOptions}
                     data={{
-                      labels: feedbackTrend.map(t => t._id),
+                      labels: rangeFeedbackTrend.map(t => t._id),
                       datasets: [{
                         label: 'New Feedback',
-                        data: feedbackTrend.map(t => t.count),
+                        data: rangeFeedbackTrend.map(t => t.count),
                         borderColor: '#f59e0b',
                         backgroundColor: 'rgba(245, 158, 11, 0.1)',
                         fill: true,
