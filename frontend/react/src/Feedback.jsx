@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { apiRequest, getAuthUser } from './services/api';
 import { adminApiErrorMessage } from './adminApiMessages';
 import { useTheme } from './useNavbarBehavior';
-import { AdminNavbar } from './AdminDashboard';
+import { AdminNavbar, DateRangePicker, DEFAULT_RANGE, getRange, rangeLabel, inRange } from './AdminDashboard';
 import './styles/admin-feedback.css';
 
 const FILTERS = ['all', '5', '4', '3', '2', '1'];
@@ -28,6 +28,8 @@ export default function Feedback() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [rangeKey, setRangeKey] = useState(DEFAULT_RANGE);
+  const [custom, setCustom] = useState({ from: '', to: '' });
   const sessionUser = storedSessionUser();
 
   const fetchFeedback = async () => {
@@ -54,21 +56,25 @@ export default function Feedback() {
     if (sessionUser?.role === 'admin') fetchFeedback();
   }, []);
 
+  const range = useMemo(() => getRange(rangeKey, custom), [rangeKey, custom]);
+  const selectedRangeLabel = rangeLabel(rangeKey, range);
+  const rangeFeedbacks = useMemo(() => feedbacks.filter((feedback) => inRange(feedback, range)), [feedbacks, range]);
+
   const filteredFeedback = useMemo(() => {
     const search = query.trim().toLowerCase();
-    return feedbacks.filter((feedback) => {
+    return rangeFeedbacks.filter((feedback) => {
       if (activeFilter !== 'all' && String(feedback.rating) !== activeFilter) return false;
       if (!search) return true;
       return [userName(feedback), feedback.user?.email, feedback.comment]
         .some((value) => String(value || '').toLowerCase().includes(search));
     });
-  }, [feedbacks, activeFilter, query]);
+  }, [rangeFeedbacks, activeFilter, query]);
 
-  const average = feedbacks.length
-    ? (feedbacks.reduce((sum, feedback) => sum + (Number(feedback.rating) || 0), 0) / feedbacks.length).toFixed(1)
+  const average = rangeFeedbacks.length
+    ? (rangeFeedbacks.reduce((sum, feedback) => sum + (Number(feedback.rating) || 0), 0) / rangeFeedbacks.length).toFixed(1)
     : '—';
-  const positive = feedbacks.filter((feedback) => Number(feedback.rating) >= 4).length;
-  const negative = feedbacks.filter((feedback) => Number(feedback.rating) <= 2).length;
+  const positive = rangeFeedbacks.filter((feedback) => Number(feedback.rating) >= 4).length;
+  const negative = rangeFeedbacks.filter((feedback) => Number(feedback.rating) <= 2).length;
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this feedback?')) return;
@@ -101,13 +107,19 @@ export default function Feedback() {
             <p>View and manage all user feedback and ratings</p>
           </div>
           <div className="feedback-header-actions">
-            <span className="feedback-range-label">All available feedback</span>
+            <DateRangePicker
+              rangeKey={rangeKey}
+              custom={custom}
+              label={selectedRangeLabel}
+              onPick={setRangeKey}
+              onCustom={setCustom}
+            />
             <button className="ad-refresh" type="button" onClick={fetchFeedback} disabled={loading}>↻ <span>Refresh</span></button>
           </div>
         </header>
 
         <section className="feedback-kpis" aria-label="Feedback summary">
-          <article className="feedback-kpi feedback-kpi-orange"><span className="feedback-kpi-icon">▤</span><div><span>Total Feedback</span><strong>{feedbacks.length}</strong></div></article>
+          <article className="feedback-kpi feedback-kpi-orange"><span className="feedback-kpi-icon">▤</span><div><span>Total Feedback</span><strong>{rangeFeedbacks.length}</strong></div></article>
           <article className="feedback-kpi feedback-kpi-amber"><span className="feedback-kpi-icon">★</span><div><span>Average Rating</span><strong>{average}</strong></div></article>
           <article className="feedback-kpi feedback-kpi-green"><span className="feedback-kpi-icon">↑</span><div><span>Positive Reviews</span><strong>{positive}</strong></div></article>
           <article className="feedback-kpi feedback-kpi-red"><span className="feedback-kpi-icon">↓</span><div><span>Negative Reviews</span><strong>{negative}</strong></div></article>
@@ -116,7 +128,7 @@ export default function Feedback() {
         <div className="feedback-toolbar">
           <div className="feedback-filters" role="group" aria-label="Filter by rating">
             {FILTERS.map((filter) => {
-              const count = filter === 'all' ? feedbacks.length : feedbacks.filter((feedback) => String(feedback.rating) === filter).length;
+              const count = filter === 'all' ? rangeFeedbacks.length : rangeFeedbacks.filter((feedback) => String(feedback.rating) === filter).length;
               const label = filter === 'all' ? 'All' : `${filter} Star${filter === '1' ? '' : 's'}`;
               return <button key={filter} type="button" className={`feedback-filter${activeFilter === filter ? ' is-active' : ''}`} onClick={() => setActiveFilter(filter)}>{label} ({count})</button>;
             })}
@@ -152,7 +164,7 @@ export default function Feedback() {
               </tbody>
             </table>
           </div>
-          <footer className="feedback-table-footer">Showing {filteredFeedback.length} of {feedbacks.length} feedback</footer>
+          <footer className="feedback-table-footer">Showing {filteredFeedback.length} of {rangeFeedbacks.length} feedback</footer>
         </section>
       </main>
 
