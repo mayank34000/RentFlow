@@ -32,9 +32,35 @@ ChartJS.register(
   Legend
 );
 
+const groupedCounts = (records, getKey, orderedKeys = []) => {
+  if (!records.length) return [];
+  const counts = records.reduce((result, record) => {
+    const key = getKey(record);
+    result[key] = (result[key] || 0) + 1;
+    return result;
+  }, {});
+  const keys = [...orderedKeys, ...Object.keys(counts).filter((key) => !orderedKeys.includes(key))];
+  return keys.map((key) => ({ _id: key, count: counts[key] || 0 }));
+};
+
+const dailyCounts = (records) => {
+  const counts = records.reduce((result, record) => {
+    const date = new Date(record.createdAt);
+    if (!Number.isFinite(date.getTime())) return result;
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    result[key] = (result[key] || 0) + 1;
+    return result;
+  }, {});
+  return Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)).map(([_id, count]) => ({ _id, count }));
+};
+
 export default function Analytics() {
   useTheme();
   const [data, setData] = useState(null);
+  const [users, setUsers] = useState(null);
+  const [feedbackRecords, setFeedbackRecords] = useState(null);
+  const [usersError, setUsersError] = useState(null);
+  const [feedbackError, setFeedbackError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -44,15 +70,35 @@ export default function Analytics() {
   const fetchAnalytics = async () => {
     setLoading(true);
     setError(null);
-    try {
-      const res = await apiRequest('/api/admin/analytics/overview');
-      setData(res.data.data || {});
+    setUsersError(null);
+    setFeedbackError(null);
+    const [overviewResult, usersResult, feedbackResult] = await Promise.allSettled([
+      apiRequest('/api/admin/analytics/overview'),
+      apiRequest('/api/admin/users'),
+      apiRequest('/api/feedback')
+    ]);
+
+    if (overviewResult.status === 'fulfilled') {
+      setData(overviewResult.value.data.data || {});
       setLastUpdated(new Date().toLocaleTimeString());
-    } catch (err) {
-      setError(adminApiErrorMessage(err, 'load analytics'));
-    } finally {
-      setLoading(false);
+    } else {
+      setError(adminApiErrorMessage(overviewResult.reason, 'load analytics'));
     }
+
+    if (usersResult.status === 'fulfilled') {
+      setUsers(Array.isArray(usersResult.value.data.users) ? usersResult.value.data.users : []);
+    } else {
+      setUsers(null);
+      setUsersError(adminApiErrorMessage(usersResult.reason, 'load users for analytics'));
+    }
+
+    if (feedbackResult.status === 'fulfilled') {
+      setFeedbackRecords(Array.isArray(feedbackResult.value.data.feedbacks) ? feedbackResult.value.data.feedbacks : []);
+    } else {
+      setFeedbackRecords(null);
+      setFeedbackError(adminApiErrorMessage(feedbackResult.reason, 'load feedback for analytics'));
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -83,27 +129,57 @@ export default function Analytics() {
   const userStats = data?.userStats ?? {};
   const feedbackStats = data?.feedbackStats ?? {};
   const asArray = (value) => Array.isArray(value) ? value : [];
-  const roleDistribution = asArray(userStats.roleDistribution);
-  const kycDistribution = asArray(userStats.kycDistribution);
-  const proUsers = Number.isFinite(userStats.proUsers) ? userStats.proUsers : null;
-  const nonProUsers = Number.isFinite(userStats.nonProUsers) ? userStats.nonProUsers : null;
-  const registrationTrend = asArray(userStats.registrationTrend);
-  const ratingDistribution = asArray(feedbackStats.ratingDistribution).slice().sort((a, b) => Number(a._id) - Number(b._id));
-  const feedbackTrend = asArray(feedbackStats.feedbackTrend);
+  const allTimeRoleDistribution = asArray(userStats.roleDistribution);
+  const allTimeKycDistribution = asArray(userStats.kycDistribution);
+  const allTimeProUsers = Number.isFinite(userStats.proUsers) ? userStats.proUsers : null;
+  const allTimeNonProUsers = Number.isFinite(userStats.nonProUsers) ? userStats.nonProUsers : null;
+  const allTimeRegistrationTrend = asArray(userStats.registrationTrend);
+  const allTimeRatingDistribution = asArray(feedbackStats.ratingDistribution).slice().sort((a, b) => Number(a._id) - Number(b._id));
+  const allTimeFeedbackTrend = asArray(feedbackStats.feedbackTrend);
   const totalUsers = Number(userStats.totalUsers) || 0;
   const range = useMemo(() => getRange(rangeKey, custom), [rangeKey, custom]);
   const isAllDataRange = !range.start && !range.end;
   const selectedRangeLabel = rangeLabel(rangeKey, range);
-  const rangeRegistrationTrend = useMemo(() => registrationTrend.filter((entry) =>
-    inRange({ createdAt: new Date(`${entry._id}T12:00:00`) }, range)
-  ), [registrationTrend, range]);
-  const rangeFeedbackTrend = useMemo(() => feedbackTrend.filter((entry) =>
-    inRange({ createdAt: new Date(`${entry._id}T12:00:00`) }, range)
-  ), [feedbackTrend, range]);
-  const rangeTotalUsers = isAllDataRange ? totalUsers : rangeRegistrationTrend.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
+  const filteredUsers = useMemo(() => users === null ? null : users.filter((user) => inRange(user, range)), [users, range]);
+  const filteredFeedback = useMemo(() => feedbackRecords === null ? null : feedbackRecords.filter((feedback) => inRange(feedback, range)), [feedbackRecords, range]);
+  const roleDistribution = useMemo(() => isAllDataRange
+    ? allTimeRoleDistribution
+    : filteredUsers === null ? [] : groupedCounts(filteredUsers, (user) => user.role || 'unknown', ['customer', 'seller', 'admin']),
+  [isAllDataRange, allTimeRoleDistribution, filteredUsers]);
+  const kycDistribution = useMemo(() => isAllDataRange
+    ? allTimeKycDistribution
+    : filteredUsers === null ? [] : groupedCounts(filteredUsers, (user) => user.kycStatus || 'none', ['approved', 'pending', 'rejected', 'none']),
+  [isAllDataRange, allTimeKycDistribution, filteredUsers]);
+  const proUsers = isAllDataRange
+    ? allTimeProUsers
+    : filteredUsers === null ? null : filteredUsers.filter((user) => user.isPro === true).length;
+  const nonProUsers = isAllDataRange
+    ? allTimeNonProUsers
+    : filteredUsers === null ? null : filteredUsers.length - proUsers;
+  const ratingDistribution = useMemo(() => {
+    if (isAllDataRange) return allTimeRatingDistribution;
+    return filteredFeedback === null ? [] : groupedCounts(filteredFeedback, (feedback) => String(Number(feedback.rating)), ['1', '2', '3', '4', '5']);
+  }, [isAllDataRange, allTimeRatingDistribution, filteredFeedback]);
+  const rangeRegistrationTrend = useMemo(() => isAllDataRange
+    ? allTimeRegistrationTrend
+    : filteredUsers === null ? [] : dailyCounts(filteredUsers),
+  [isAllDataRange, allTimeRegistrationTrend, filteredUsers]);
+  const rangeFeedbackTrend = useMemo(() => isAllDataRange
+    ? allTimeFeedbackTrend
+    : filteredFeedback === null ? [] : dailyCounts(filteredFeedback),
+  [isAllDataRange, allTimeFeedbackTrend, filteredFeedback]);
+  const rangeTotalUsers = isAllDataRange ? totalUsers : filteredUsers === null ? null : filteredUsers.length;
   const rangeTotalFeedback = isAllDataRange
     ? Number(feedbackStats.totalFeedback) || 0
-    : rangeFeedbackTrend.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
+    : filteredFeedback === null ? null : filteredFeedback.length;
+  const averageRating = isAllDataRange
+    ? (rangeTotalFeedback ? feedbackStats.averageRating ?? '—' : '—')
+    : filteredFeedback === null || !filteredFeedback.length
+      ? '—'
+      : Math.round((filteredFeedback.reduce((sum, feedback) => sum + (Number(feedback.rating) || 0), 0) / filteredFeedback.length) * 100) / 100;
+  const userChartUnavailable = !isAllDataRange && filteredUsers === null;
+  const feedbackChartUnavailable = !isAllDataRange && filteredFeedback === null;
+  const userDistributionTotal = isAllDataRange ? totalUsers : filteredUsers?.length || 0;
   const distributionLabel = (entry, total) => {
     const name = entry._id || 'Unknown';
     const count = Number(entry.count) || 0;
@@ -140,6 +216,12 @@ export default function Analytics() {
             <button onClick={fetchAnalytics}>Retry</button>
           </div>
         )}
+        {userChartUnavailable && (
+          <div className="error-card" role="alert"><p>{usersError || 'User data could not be loaded for this date range.'}</p><button onClick={fetchAnalytics} disabled={loading}>Retry</button></div>
+        )}
+        {feedbackChartUnavailable && (
+          <div className="error-card" role="alert"><p>{feedbackError || 'Feedback data could not be loaded for this date range.'}</p><button onClick={fetchAnalytics} disabled={loading}>Retry</button></div>
+        )}
 
         {loading && !data ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>Loading analytics...</div>
@@ -149,19 +231,19 @@ export default function Analytics() {
               <div className="kpi-card analytics-admin-kpi analytics-users-kpi">
                 <span className="analytics-kpi-icon" aria-hidden="true">♟</span>
                 <h3>Total Users</h3>
-                <div className="value">{rangeTotalUsers}</div>
+                <div className="value">{rangeTotalUsers ?? '—'}</div>
                 <small>— from previous period</small>
               </div>
               <div className="kpi-card analytics-admin-kpi analytics-feedback-kpi">
                 <span className="analytics-kpi-icon" aria-hidden="true">▤</span>
                 <h3>Total Feedback</h3>
-                <div className="value">{rangeTotalFeedback}</div>
+                <div className="value">{rangeTotalFeedback ?? '—'}</div>
                 <small>— from previous period</small>
               </div>
               <div className="kpi-card analytics-admin-kpi analytics-rating-kpi">
                 <span className="analytics-kpi-icon" aria-hidden="true">★</span>
                 <h3>Average Rating</h3>
-                <div className="value">{isAllDataRange && rangeTotalFeedback ? feedbackStats.averageRating ?? '—' : '—'}</div>
+                <div className="value">{averageRating}</div>
                 <small>— from previous period</small>
               </div>
             </div>
@@ -170,11 +252,13 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Users by Role</h3>
                 <div className="analytics-chart-container">
-                {roleDistribution.length > 0 ? (
+                {userChartUnavailable ? (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>User data unavailable</div>
+                ) : roleDistribution.length > 0 ? (
                   <Pie 
                     options={pieOptions}
                     data={{
-                      labels: roleDistribution.map((r) => distributionLabel(r, totalUsers)),
+                      labels: roleDistribution.map((r) => distributionLabel(r, userDistributionTotal)),
                       datasets: [{
                         data: roleDistribution.map(r => r.count),
                         backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
@@ -191,11 +275,13 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>KYC Status</h3>
                 <div className="analytics-chart-container">
-                {kycDistribution.length > 0 ? (
+                {userChartUnavailable ? (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>User data unavailable</div>
+                ) : kycDistribution.length > 0 ? (
                   <Pie 
                     options={pieOptions}
                     data={{
-                      labels: kycDistribution.map((k) => distributionLabel(k, totalUsers)),
+                      labels: kycDistribution.map((k) => distributionLabel(k, userDistributionTotal)),
                       datasets: [{
                         data: kycDistribution.map(k => k.count),
                         backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#6b7280'],
@@ -212,13 +298,15 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Pro vs Standard</h3>
                 <div className="analytics-chart-container">
-                {(proUsers > 0 || nonProUsers > 0) ? (
+                {userChartUnavailable ? (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>User data unavailable</div>
+                ) : (proUsers > 0 || nonProUsers > 0) ? (
                   <Pie 
                     options={pieOptions}
                     data={{
                       labels: [
-                        distributionLabel({ _id: 'Pro', count: proUsers }, totalUsers),
-                        distributionLabel({ _id: 'Standard', count: nonProUsers }, totalUsers)
+                        distributionLabel({ _id: 'Pro', count: proUsers }, userDistributionTotal),
+                        distributionLabel({ _id: 'Standard', count: nonProUsers }, userDistributionTotal)
                       ],
                       datasets: [{
                         data: [proUsers, nonProUsers],
@@ -236,7 +324,9 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Registration Trend</h3>
                 <div className="analytics-chart-container">
-                {rangeRegistrationTrend.length > 0 ? (
+                {userChartUnavailable ? (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>User data unavailable</div>
+                ) : rangeRegistrationTrend.length > 0 ? (
                   <Line 
                     options={chartOptions}
                     data={{
@@ -260,7 +350,9 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Rating Distribution</h3>
                 <div className="analytics-chart-container">
-                {ratingDistribution.length > 0 ? (
+                {feedbackChartUnavailable ? (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>Feedback data unavailable</div>
+                ) : ratingDistribution.length > 0 ? (
                   <Bar 
                     options={chartOptions}
                     data={{
@@ -281,7 +373,9 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Rating Breakdown</h3>
                 <div className="analytics-chart-container">
-                {ratingDistribution.length > 0 ? (
+                {feedbackChartUnavailable ? (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>Feedback data unavailable</div>
+                ) : ratingDistribution.length > 0 ? (
                   <Doughnut 
                     options={pieOptions}
                     data={{
@@ -302,7 +396,9 @@ export default function Analytics() {
               <div className="chart-card glass-card" style={{ padding: '20px', borderRadius: '8px', height: '300px', gridColumn: '1 / -1' }}>
                 <h3 style={{ marginBottom: '15px', color: '#0f172a' }}>Feedback Trend</h3>
                 <div className="analytics-chart-container">
-                {rangeFeedbackTrend.length > 0 ? (
+                {feedbackChartUnavailable ? (
+                  <div style={{ color: '#64748b', textAlign: 'center', paddingTop: '80px' }}>Feedback data unavailable</div>
+                ) : rangeFeedbackTrend.length > 0 ? (
                   <Line 
                     options={chartOptions}
                     data={{
