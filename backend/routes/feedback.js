@@ -49,7 +49,7 @@ router.post('/', auth, async (req, res, next) => {
 router.get('/', auth, admin, async (req, res, next) => {
   try {
     const feedbacks = await Feedback.find()
-      .populate('user', 'name avatar')
+      .populate('user', 'name email avatar')
       .sort({ createdAt: -1 });
 
     res.json({
