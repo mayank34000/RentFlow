@@ -866,4 +866,26 @@ body.light-theme .listing-management-container {
     scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.03);
 }
 
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-admin-header h1,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .chart-card h3 { color: #f8fafc !important; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-admin-header p,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-admin-actions small,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-admin-kpi h3,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-admin-kpi small { color: #b8c2cf; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-admin-kpi,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .chart-card,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-empty-state {
+  background: var(--bg-card);
+  border-color: var(--border);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
+}
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-admin-kpi .value { color: #f8fafc; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-chart-container > div { color: #b8c2cf !important; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-users-kpi { --kpi-bg: rgba(255, 116, 37, .18); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-feedback-kpi { --kpi-bg: rgba(52, 152, 232, .18); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-rating-kpi { --kpi-bg: rgba(237, 174, 32, .18); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .error-card { border-color: #713b3b; background: #351f25; color: #fecaca; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .error-card button { border-color: #7c4a4a; background: var(--bg-card); color: #fecaca; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .analytics-admin-page .analytics-empty-state { color: #c7d0db; }
+
 

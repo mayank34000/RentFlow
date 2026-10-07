@@ -27,3 +27,16 @@
 .give-feedback-submit:hover:not(:disabled) { filter: brightness(1.05); }
 .give-feedback-submit:disabled, .give-feedback-stars button:disabled { opacity: .65; cursor: not-allowed; }
 @media (max-width: 640px) { .give-feedback-container { padding-top: 22px; } .give-feedback-card { padding: 20px 16px; } .give-feedback-stars { gap: 4px; } .give-feedback-stars button { font-size: 31px; } .give-feedback-stars span { margin-left: 4px; font-size: .75rem; } }
+
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-header h1,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-rating legend,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment { color: #f8fafc; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-header p,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-stars span,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment > span,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment small { color: #b8c2cf; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-card { background: #101e2d; border-color: #24364a; box-shadow: 0 8px 28px rgba(0, 0, 0, .3); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment textarea { background: #0d1a28; border-color: #31465d; color: #f8fafc; color-scheme: dark; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment textarea::placeholder { color: #8795a7; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-message.is-error { border-color: #713b3b; background: #351f25; color: #fecaca; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-message.is-success { border-color: #225b46; background: #142d27; color: #a7f3d0; }

@@ -73,3 +73,51 @@
 .feedback-modal-close { position: absolute; top: 13px; right: 14px; border: 0; background: transparent; color: #64748b; font-size: 26px; cursor: pointer; }
 @media (max-width: 1100px) { .feedback-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .feedback-toolbar { align-items: stretch; flex-direction: column; } .feedback-search { width: 100%; } }
 @media (max-width: 700px) { .feedback-admin-container { padding-top: 22px; } .feedback-admin-header { align-items: flex-start; flex-direction: column; } .feedback-header-actions { width: 100%; } .feedback-range-label { flex: 1; } .feedback-kpis { grid-template-columns: 1fr; gap: 10px; } .feedback-kpi { padding: 15px; } .feedback-filters { display: grid; grid-template-columns: repeat(3, 1fr); } .feedback-filter { padding: 0 8px; } }
+
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-admin-header h1,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-table-heading h2,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-user strong,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-modal h2,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-modal-identity strong { color: #f8fafc; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-admin-header p,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-kpi div span,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-user small,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-date,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-table-heading p,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-table-footer,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-empty,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-modal-identity small { color: #b8c2cf; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-kpi,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-table-card,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-modal {
+  background: var(--bg-card);
+  border-color: var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .3);
+}
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-kpi-orange { background: linear-gradient(135deg, rgba(255, 116, 37, .12), #101e2d 80%); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-kpi-amber { --kpi-bg: rgba(237, 174, 32, .18); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-kpi-green { background: linear-gradient(135deg, rgba(25, 184, 120, .12), #101e2d 80%); --kpi-bg: rgba(25, 184, 120, .18); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-kpi-red { background: linear-gradient(135deg, rgba(237, 81, 71, .12), #101e2d 80%); --kpi-bg: rgba(237, 81, 71, .18); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-filter,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-search,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-actions button {
+  background: var(--bg-input);
+  border-color: #31465d;
+  color: #c7d0db;
+}
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-filter.is-active { background: #ff7425; border-color: #ff7425; color: #fff; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-search input { color: #f8fafc; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-table { color: var(--text-primary); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-table th { background: var(--bg-input); color: var(--text-secondary); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-table td { border-color: var(--border); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-table tbody tr:hover { background: #16283a; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-rating-number,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-modal-stars span { color: #d3dbe5; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-modal-comment { color: #c7d0db; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-view { color: #93c5fd; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-delete { color: #fca5a5; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-rating-stars > span { color: #566579; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-comment { color: #c7d0db; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-error { border-color: #713b3b; background: #351f25; color: #fecaca; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-success { border-color: #225b46; background: #142d27; color: #a7f3d0; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .feedback-admin-page .feedback-modal-close { color: #b8c2cf; }
