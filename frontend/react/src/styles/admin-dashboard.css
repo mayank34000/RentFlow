@@ -266,3 +266,78 @@
   .ad-refresh { width: 100%; justify-content: center; }
   .ad-pill { padding: 8px 16px; }
 }
+
+/* Dark theme uses the existing root theme attribute; light styles above stay unchanged. */
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page {
+  --bg: var(--bg-page);
+  --card: var(--bg-card);
+  --line: var(--border);
+  --text: var(--text-primary);
+  --navy: var(--text-strongest);
+  --muted: var(--text-secondary);
+  --orange: var(--primary-orange);
+  --orange-soft: rgba(255, 116, 37, .16);
+  color-scheme: dark;
+}
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-nav,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-menu,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-range-menu,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-modal-card {
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text-primary);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .35);
+}
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-nav { box-shadow: 0 1px 0 var(--border), 0 6px 24px rgba(0, 0, 0, .25); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-bell-badge { border-color: #101e2d; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-nav-link,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-bell,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-menu-item { color: #c7d0db; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-menu-item:hover,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-close:hover { background: #16283a; color: #f8fafc; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-range-btn,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-pill,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-search,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-act,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-field input,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-field select,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-range-custom input,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-error button {
+  background: var(--bg-input);
+  border-color: #31465d;
+  color: var(--text-primary);
+}
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-kpi { background: linear-gradient(135deg, rgba(255, 116, 37, .12), #101e2d 78%); border-color: #24364a; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-kpi--blue { --tint: rgba(255, 116, 37, .12); --tile: rgba(255, 116, 37, .18); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-kpi--purple { --tint: rgba(124, 58, 237, .12); --tile: rgba(124, 58, 237, .2); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-kpi--green { --tint: rgba(22, 163, 74, .12); --tile: rgba(22, 163, 74, .2); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-kpi-label,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-email,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-date { color: #b8c2cf; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-table th { background: #0d1a28; color: #b8c2cf; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-table td { border-color: #24364a; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-table tbody tr:hover { background: #16283a; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-error { border-color: #713b3b; background: #351f25; color: #fecaca; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-success { border-color: #225b46; background: #142d27; color: #a7f3d0; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .ad-act { background: #101e2d; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .act-approve:hover:not(:disabled) { background: #143528; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .act-reject:hover:not(:disabled),
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .act-delete:hover:not(:disabled) { background: #3a2028; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .act-pending:hover:not(:disabled) { background: #3a3020; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .act-edit:hover:not(:disabled) { background: #1b2c46; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .tone-0 { background: #3b202b; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .tone-1 { background: #1b2d45; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .tone-2 { background: #3a3020; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .tone-3,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .tone-4 { background: #302344; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .tone-5 { background: #17372f; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .role-owner { background: rgba(255, 116, 37, .16); color: #ffad7b; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .role-tenant,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .tier-pro { background: rgba(59, 130, 246, .16); color: #93c5fd; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .role-admin { background: rgba(139, 92, 246, .18); color: #c4b5fd; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .role-customer,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .tier-standard,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .kyc-none { background: #26364a; color: #c7d0db; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .kyc-approved { background: rgba(16, 185, 129, .17); color: #6ee7b7; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .kyc-pending { background: rgba(245, 158, 11, .17); color: #fcd34d; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .ad-page .kyc-rejected { background: rgba(239, 68, 68, .17); color: #fca5a5; }

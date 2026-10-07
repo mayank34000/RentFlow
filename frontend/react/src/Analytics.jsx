@@ -56,6 +56,15 @@ const dailyCounts = (records) => {
 
 export default function Analytics() {
   useTheme();
+  const [darkTheme, setDarkTheme] = useState(() => {
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme === 'dark') return true;
+    if (storedTheme === 'light') return false;
+    const rootTheme = document.documentElement.getAttribute('data-theme');
+    if (rootTheme === 'dark') return true;
+    if (rootTheme === 'light') return false;
+    return !document.body.classList.contains('light-theme');
+  });
   const [data, setData] = useState(null);
   const [users, setUsers] = useState(null);
   const [feedbackRecords, setFeedbackRecords] = useState(null);
@@ -105,15 +114,36 @@ export default function Analytics() {
     fetchAnalytics();
   }, []);
 
+  useEffect(() => {
+    const syncTheme = () => {
+      const storedTheme = localStorage.getItem('theme');
+      const rootTheme = document.documentElement.getAttribute('data-theme');
+      setDarkTheme(storedTheme === 'dark' || (storedTheme === 'system' && rootTheme === 'dark') || (!storedTheme && rootTheme !== 'light' && !document.body.classList.contains('light-theme')));
+    };
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('storage', syncTheme);
+    syncTheme();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('storage', syncTheme);
+    };
+  }, []);
+
+  const chartTextColor = darkTheme ? '#c7d0db' : '#475569';
+  const chartTickColor = darkTheme ? '#b8c2cf' : '#64748b';
+  const chartGridColor = darkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: '#475569' } }
+      legend: { labels: { color: chartTextColor } },
+      tooltip: { backgroundColor: darkTheme ? '#101e2d' : '#1f2937', titleColor: darkTheme ? '#f8fafc' : '#fff', bodyColor: darkTheme ? '#c7d0db' : '#fff' }
     },
     scales: {
-      x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(0,0,0,0.1)' } },
-      y: { ticks: { color: '#64748b' }, grid: { color: 'rgba(0,0,0,0.1)' } }
+      x: { ticks: { color: chartTickColor }, grid: { color: chartGridColor } },
+      y: { ticks: { color: chartTickColor }, grid: { color: chartGridColor } }
     }
   };
 
@@ -121,7 +151,8 @@ export default function Analytics() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'right', labels: { color: '#475569' } }
+      legend: { position: 'right', labels: { color: chartTextColor } },
+      tooltip: { backgroundColor: darkTheme ? '#101e2d' : '#1f2937', titleColor: darkTheme ? '#f8fafc' : '#fff', bodyColor: darkTheme ? '#c7d0db' : '#fff' }
     }
   };
 
