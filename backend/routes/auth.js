@@ -163,8 +163,4 @@ router.post(
   resetPassword
 );
 
-// Upgrade to Premium
-const { upgradePremium } = require('../controllers/authController');
-router.post('/premium', authenticateToken, upgradePremium);
-
 module.exports = router;

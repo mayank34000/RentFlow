@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAuthUser, fetchMyListings, createListing, getBookings, updateBookingStatus, processWalletSettlement } from './services/api';
+import { getAuthUser, getListings, saveListing, deleteListing, getBookings, updateBookingStatus, processWalletSettlement } from './services/api';
 import './styles/create-listing.css';
 
 export default function CreateListing() {
