@@ -800,3 +800,35 @@ module.exports = {
     verifyForgotPasswordOtp,
     resetPassword,
 };
+
+
+// @route   POST /api/auth/premium
+// @desc    Upgrade user to premium
+// @access  Private
+const upgradePremium = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id || req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        user.isPro = true;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Successfully upgraded to premium',
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                isPro: user.isPro
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server error upgrading to premium' });
+    }
+};
+
+module.exports.upgradePremium = upgradePremium;

@@ -42,8 +42,10 @@ export function isLoggedIn() {
 
 export function getAuthUser() {
     try {
-        const user = localStorage.getItem('rf_user');
-        return user ? JSON.parse(user) : null;
+        const userData = localStorage.getItem('rf_user') || 
+                         localStorage.getItem('user') || 
+                         localStorage.getItem('current_user');
+        return userData ? JSON.parse(userData) : null;
     } catch {
         return null;
     }
@@ -136,42 +138,52 @@ export async function apiRequest(endpoint, options = {}) {
 }
 
 // ==========================================
-// MOCK LISTING API (Fallback until backend is ready)
+// LISTING API
 // ==========================================
 
-export function getListings() {
-    try {
-        return JSON.parse(localStorage.getItem('rentflow_listings')) || [];
-    } catch {
-        return [];
-    }
+export async function fetchListings() {
+    const res = await apiRequest('/api/listings');
+    return res.data?.data || [];
 }
 
-export function saveListing(listing) {
-    const listings = getListings();
-    listings.push(listing);
-    localStorage.setItem('rentflow_listings', JSON.stringify(listings));
-    window.dispatchEvent(new Event('storage')); // Notify other tabs/components
-    return listing;
+export async function fetchMyListings() {
+    const res = await apiRequest('/api/listings/my');
+    return res.data?.data || [];
 }
 
-export function updateListing(id, updates) {
-    const listings = getListings();
-    const index = listings.findIndex(l => l.id === id);
-    if (index !== -1) {
-        listings[index] = { ...listings[index], ...updates };
-        localStorage.setItem('rentflow_listings', JSON.stringify(listings));
-        window.dispatchEvent(new Event('storage'));
-        return listings[index];
-    }
-    throw new Error('Listing not found');
+export async function fetchListing(id) {
+    const res = await apiRequest(`/api/listings/${id}`);
+    return res.data?.data;
 }
 
-export function deleteListing(id) {
-    const listings = getListings();
-    const newListings = listings.filter(l => l.id !== id);
-    localStorage.setItem('rentflow_listings', JSON.stringify(newListings));
-    window.dispatchEvent(new Event('storage'));
+export async function createListing(formData) {
+    const headers = getAuthHeaders();
+    // Do not set Content-Type for FormData, browser sets it with boundary
+    const res = await fetch(`${API_URL}/api/listings`, {
+        method: 'POST',
+        headers,
+        body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to create listing');
+    return data;
+}
+
+export async function updateListing(id, updates) {
+    const res = await apiRequest(`/api/listings/${id}`, {
+        method: 'PUT',
+        body: updates
+    });
+    return res.data;
+}
+
+export async function deleteListing(id) {
+    await apiRequest(`/api/listings/${id}`, { method: 'DELETE' });
+}
+
+export async function upgradePremium() {
+    const res = await apiRequest('/api/auth/premium', { method: 'POST' });
+    return res.data;
 }
 
 export function getBookings() {

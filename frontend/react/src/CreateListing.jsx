@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAuthUser, getListings, saveListing, deleteListing, getBookings, updateBookingStatus, processWalletSettlement } from './services/api';
+import { getAuthUser, fetchMyListings, createListing, getBookings, updateBookingStatus, processWalletSettlement } from './services/api';
 import './styles/create-listing.css';
 
 export default function CreateListing() {
@@ -19,6 +19,7 @@ export default function CreateListing() {
     const [sellerPhone, setSellerPhone] = useState('');
     const [sellerCity, setSellerCity] = useState('');
     const [imagePreview, setImagePreview] = useState('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=600&q=80');
+    const [imageFile, setImageFile] = useState(null);
     
     // Amenities
     const [amenities, setAmenities] = useState({
@@ -457,3 +458,4 @@ export default function CreateListing() {
         </div>
     );
 }
+

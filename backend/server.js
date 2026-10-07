@@ -74,11 +74,16 @@ app.use('/api/contact', require('./routes/contact'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/auth', authRoutes);
+app.use('/api/listings', require('./routes/listings'));
 
 // Admin & Auth routes (from feature/admin)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/feedback', require('./routes/feedback'));
+
+// Serve uploaded files statically
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 // ── 5a. Health check ──────────────────────────────────────────────────────────
