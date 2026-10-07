@@ -134,3 +134,89 @@ export async function apiRequest(endpoint, options = {}) {
         data,
     };
 }
+
+// ==========================================
+// MOCK LISTING API (Fallback until backend is ready)
+// ==========================================
+
+export function getListings() {
+    try {
+        return JSON.parse(localStorage.getItem('rentflow_listings')) || [];
+    } catch {
+        return [];
+    }
+}
+
+export function saveListing(listing) {
+    const listings = getListings();
+    listings.push(listing);
+    localStorage.setItem('rentflow_listings', JSON.stringify(listings));
+    window.dispatchEvent(new Event('storage')); // Notify other tabs/components
+    return listing;
+}
+
+export function updateListing(id, updates) {
+    const listings = getListings();
+    const index = listings.findIndex(l => l.id === id);
+    if (index !== -1) {
+        listings[index] = { ...listings[index], ...updates };
+        localStorage.setItem('rentflow_listings', JSON.stringify(listings));
+        window.dispatchEvent(new Event('storage'));
+        return listings[index];
+    }
+    throw new Error('Listing not found');
+}
+
+export function deleteListing(id) {
+    const listings = getListings();
+    const newListings = listings.filter(l => l.id !== id);
+    localStorage.setItem('rentflow_listings', JSON.stringify(newListings));
+    window.dispatchEvent(new Event('storage'));
+}
+
+export function getBookings() {
+    try {
+        return JSON.parse(localStorage.getItem('rentflow_bookings')) || [];
+    } catch {
+        return [];
+    }
+}
+
+export function updateBookingStatus(bookingId, status) {
+    const bookings = getBookings();
+    const index = bookings.findIndex(b => b.id === bookingId);
+    if (index !== -1) {
+        bookings[index].status = status;
+        localStorage.setItem('rentflow_bookings', JSON.stringify(bookings));
+        window.dispatchEvent(new Event('storage'));
+        return bookings[index];
+    }
+    throw new Error('Booking not found');
+}
+
+export function processWalletSettlement(booking) {
+    const securityAmount = Math.round(booking.subtotal * 0.10);
+    const rentAmount = booking.subtotal;
+    const commission = Math.round(rentAmount * 0.02);
+    const sellerEarnings = rentAmount - commission;
+    const buyerEmail = booking.renterEmail || 'aryanharit14@gmail.com';
+    const sellerEmail = booking.lenderEmail || 'madhvtaneja@gmail.com';
+
+    const addTx = (email, type, amount, desc) => {
+        const txs = JSON.parse(localStorage.getItem(`wallet_tx_${email}`)) || [];
+        txs.push({
+            type,
+            amount,
+            desc,
+            date: new Date().toLocaleDateString('en-IN')
+        });
+        localStorage.setItem(`wallet_tx_${email}`, JSON.stringify(txs));
+    };
+
+    addTx(buyerEmail, 'Credit', securityAmount, `Refund: Security Deposit (${booking.itemTitle})`);
+    addTx(sellerEmail, 'Credit', sellerEarnings, `Rent Earning: ${booking.itemTitle} (2% commission cut)`);
+    
+    updateBookingStatus(booking.id, 'Returned');
+    
+    return { securityAmount, sellerEarnings, commission, buyerEmail, sellerEmail };
+}
