@@ -169,7 +169,9 @@ export function AdminNavbar({ pendingCount = 0, onBellClick = () => {}, activePa
               type="button"
               className={`ad-nav-link${link.page === activePage ? ' is-active' : ''}`}
               aria-current={link.page === activePage ? 'page' : undefined}
-              onClick={() => navigate(link.path)}
+              onClick={() => navigate(
+                link.page === 'feedback' && me?.role !== 'admin' ? '/give-feedback' : link.path
+              )}
             >
               {link.label}
             </button>
@@ -653,8 +655,8 @@ export default function AdminDashboard() {
               <div className="ad-field">
                 <label htmlFor="eu-role">Role</label>
                 <select id="eu-role" value={editUser.role || 'customer'} onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}>
-                  <option value="customer">Customer</option>
-                  <option value="seller">Seller</option>
+                  {/* <option value="customer">Customer</option> */}
+                  <option value="seller">User</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
