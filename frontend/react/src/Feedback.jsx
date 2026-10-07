@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { apiRequest, getAuthUser } from './services/api';
 import { adminApiErrorMessage } from './adminApiMessages';
 import { useTheme } from './useNavbarBehavior';
@@ -27,10 +28,11 @@ export default function Feedback() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const sessionUser = storedSessionUser();
 
   const fetchFeedback = async () => {
     const sessionUser = storedSessionUser();
-    if (sessionUser?.role && sessionUser.role !== 'admin') {
+    if (sessionUser?.role !== 'admin') {
       setError('Access denied. This page requires an admin account.');
       setLoading(false);
       return;
@@ -48,7 +50,9 @@ export default function Feedback() {
     }
   };
 
-  useEffect(() => { fetchFeedback(); }, []);
+  useEffect(() => {
+    if (sessionUser?.role === 'admin') fetchFeedback();
+  }, []);
 
   const filteredFeedback = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -82,6 +86,10 @@ export default function Feedback() {
       setDeletingId(null);
     }
   };
+
+  if (sessionUser?.role !== 'admin') {
+    return <Navigate to="/give-feedback" replace />;
+  }
 
   return (
     <div className="ad-page feedback-admin-page">
