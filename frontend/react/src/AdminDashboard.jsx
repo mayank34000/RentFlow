@@ -170,7 +170,11 @@ export function AdminNavbar({ pendingCount = 0, onBellClick = () => {}, activePa
               className={`ad-nav-link${link.page === activePage ? ' is-active' : ''}`}
               aria-current={link.page === activePage ? 'page' : undefined}
               onClick={() => navigate(
-                link.page === 'feedback' && me?.role !== 'admin' ? '/give-feedback' : link.path
+                link.page === 'feedback' && me?.role !== 'admin'
+                  ? '/give-feedback'
+                  : link.page === 'dashboard' && me?.role !== 'admin'
+                    ? '/'
+                    : link.path
               )}
             >
               {link.label}
