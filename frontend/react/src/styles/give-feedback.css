@@ -1,0 +1,42 @@
+.give-feedback-page { min-height: 100vh; }
+.give-feedback-container { max-width: 900px; padding-top: 34px; padding-bottom: 60px; }
+.give-feedback-header { margin-bottom: 22px; }
+.give-feedback-header h1 { margin: 0; color: #10213f; font-size: clamp(2rem, 3.2vw, 2.55rem); font-weight: 800; letter-spacing: -.04em; }
+.give-feedback-header h1 span { color: #f15a24; }
+.give-feedback-header p { margin: 6px 0 0; color: #718096; font-size: 1.05rem; }
+.give-feedback-card { padding: 28px; border: 1px solid rgba(20, 40, 72, .06); border-radius: 16px; background: #fff; box-shadow: 0 8px 28px rgba(18, 38, 63, .06); }
+.give-feedback-card form { display: grid; gap: 23px; }
+.give-feedback-rating { min-width: 0; margin: 0; padding: 0; border: 0; }
+.give-feedback-rating legend, .give-feedback-comment { display: block; margin-bottom: 10px; color: #20314c; font-size: .98rem; font-weight: 650; }
+.give-feedback-stars { display: flex; align-items: center; gap: 8px; }
+.give-feedback-stars button { padding: 0; border: 0; background: transparent; color: #d8dee8; font-size: 35px; line-height: 1; cursor: pointer; transition: color .15s ease, transform .15s ease; }
+.give-feedback-stars button:hover { transform: scale(1.08); }
+.give-feedback-stars button.is-selected { color: #f5a623; }
+.give-feedback-stars button:focus-visible { outline: 2px solid #f15a24; outline-offset: 3px; border-radius: 4px; }
+.give-feedback-stars span { margin-left: 7px; color: #718096; font-size: .84rem; }
+.give-feedback-comment { margin: 0; }
+.give-feedback-comment > span { color: #8792a2; font-size: .82rem; font-weight: 400; }
+.give-feedback-comment textarea { display: block; width: 100%; min-height: 150px; margin-top: 9px; padding: 13px 14px; resize: vertical; border: 1px solid #dfe5ed; border-radius: 10px; color: #172b4d; background: #fff; font: inherit; font-size: .92rem; line-height: 1.55; }
+.give-feedback-comment textarea:focus { outline: 0; border-color: #f15a24; box-shadow: 0 0 0 3px rgba(241, 90, 36, .1); }
+.give-feedback-comment textarea::placeholder { color: #9aa5b3; }
+.give-feedback-comment small { display: block; margin-top: 5px; color: #8792a2; font-size: .78rem; font-weight: 400; text-align: right; }
+.give-feedback-message { margin: -5px 0 0; padding: 11px 13px; border: 1px solid; border-radius: 9px; font-size: .9rem; }
+.give-feedback-message.is-error { border-color: #fecaca; background: #fff7f6; color: #b42318; }
+.give-feedback-message.is-success { border-color: #a7e7c8; background: #effcf5; color: #137a4b; }
+.give-feedback-submit { min-height: 46px; padding: 0 22px; justify-self: start; border: 0; border-radius: 10px; background: #f15a24; color: #fff; font: inherit; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px rgba(241, 90, 36, .2); }
+.give-feedback-submit:hover:not(:disabled) { filter: brightness(1.05); }
+.give-feedback-submit:disabled, .give-feedback-stars button:disabled { opacity: .65; cursor: not-allowed; }
+@media (max-width: 640px) { .give-feedback-container { padding-top: 22px; } .give-feedback-card { padding: 20px 16px; } .give-feedback-stars { gap: 4px; } .give-feedback-stars button { font-size: 31px; } .give-feedback-stars span { margin-left: 4px; font-size: .75rem; } }
+
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-header h1,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-rating legend,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment { color: #f8fafc; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-header p,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-stars span,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment > span,
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment small { color: #b8c2cf; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-card { background: #101e2d; border-color: #24364a; box-shadow: 0 8px 28px rgba(0, 0, 0, .3); }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment textarea { background: #0d1a28; border-color: #31465d; color: #f8fafc; color-scheme: dark; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-comment textarea::placeholder { color: #8795a7; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-message.is-error { border-color: #713b3b; background: #351f25; color: #fecaca; }
+:is(:root[data-theme="dark"], :root:not([data-theme]) body:not(.light-theme)) .give-feedback-page .give-feedback-message.is-success { border-color: #225b46; background: #142d27; color: #a7f3d0; }
