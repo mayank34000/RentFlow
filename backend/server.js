@@ -100,24 +100,24 @@ const loginLimiter = rateLimit({
 const otpLimiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
     max: parseInt(process.env.RATE_LIMIT_OTP_MAX) || 5,
-    keyGenerator: (req) => {
-        const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    keyGenerator: (req, res) => {
+        const ip = rateLimit.ipKeyGenerator(req, res);
         const email = req.body && req.body.email ? req.body.email.toLowerCase() : '';
         return `${ip}_${email}`;
     },
     message: { success: false, message: 'Too many requests, please try again later' },
-    validate: { trustProxy: false, xForwardedForHeader: false, keyGenerator: false }
+    validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
 // 3. Payment limiter
 const paymentLimiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
     max: parseInt(process.env.RATE_LIMIT_PAYMENT_MAX) || 10,
-    keyGenerator: (req) => {
-        return req.user ? req.user._id.toString() : (req.ip || req.socket.remoteAddress || 'unknown');
+    keyGenerator: (req, res) => {
+        return req.user ? req.user._id.toString() : rateLimit.ipKeyGenerator(req, res);
     },
     message: { success: false, message: 'Too many payment attempts, please try again later' },
-    validate: { trustProxy: false, xForwardedForHeader: false, keyGenerator: false }
+    validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
 // Mount limiters by path
