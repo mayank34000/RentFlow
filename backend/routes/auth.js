@@ -35,8 +35,8 @@ router.post('/signup', async (req, res, next) => {
 
     const { name, email, password, role } = req.body;
 
-    const allowedRoles = ['customer', 'seller'];
-    const assignedRole = allowedRoles.includes(role) ? role : 'customer';
+    const allowedRoles = ['user'];
+    const assignedRole = 'user'; // Prevent admin creation
 
     const existing = await User.findOne({ email: email.toLowerCase().trim() });
     if (existing) {
@@ -107,7 +107,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: (user.role === 'customer' || user.role === 'seller') ? 'user' : user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -120,7 +120,7 @@ router.post('/login', async (req, res, next) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: (user.role === 'customer' || user.role === 'seller') ? 'user' : user.role,
         isPro: user.isPro,
         avatar: user.avatar,
       },

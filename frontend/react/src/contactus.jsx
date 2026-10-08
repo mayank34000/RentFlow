@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import '../../css/index.css';
 import './styles/contactus.css';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
+import Navbar from './components/Navbar';
 
 export default function ContactUs() {
     const [openFaq, setOpenFaq] = useState(null);
@@ -144,49 +145,7 @@ export default function ContactUs() {
             <div className="overlay"></div>
 
             <div className="page-wrapper" onClick={() => setShowProfileMenu(false)}>
-                <header className={`site-header ${scrollState.hidden ? 'hidden-nav' : ''} ${scrollState.scrolled ? 'scrolled' : ''}`} id="site-header">
-                    <Link to="/" className="logo">Rent<span style={{color: '#3a5bd9'}}>Flow</span></Link>
-                    <nav className="nav-links" id="main-nav">
-                        <Link to="/">Home</Link>
-                        <Link to="/booking">Explore Rentals</Link>
-                        <Link to="/booking-history">My Rentals</Link>
-                        <Link to="/create-listing" style={{color: '#3b82f6', fontWeight: 600}}>+ Post Listing</Link>
-                        <Link to="/about">About</Link>
-                    </nav>
-                    <div className="nav-cta" id="auth-buttons">
-                        {!isLoggedIn ? (
-                            <>
-                                <Link to="/login" className="btn-ghost">Log In</Link>
-                                <Link to="/signup" className="btn-nav-primary">Get Started</Link>
-                            </>
-                        ) : (
-                            <div style={{ position: 'relative' }}>
-                                <div
-                                    className="profile-dropdown-trigger"
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
-                                    onClick={(e) => { e.stopPropagation(); setShowProfileMenu(prev => !prev); }}
-                                >
-                                    <div style={{ width: '32px', height: '32px', background: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
-                                        <img src={savedImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
-                                    <span style={{ fontWeight: 600, color: '#fff' }}>{firstName}</span>
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: '2px' }}><polyline points="6 9 12 15 18 9"/></svg>
-                                </div>
-
-                                <div
-                                    className="profile-dropdown-menu"
-                                    style={{ display: showProfileMenu ? 'flex' : 'none', position: 'absolute', top: '40px', right: 0, background: '#12172b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', width: '180px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', zIndex: 1000, padding: '6px 0', flexDirection: 'column' }}
-                                >
-                                    <Link to="/profile" style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: '14px', fontWeight: 500, display: 'block' }}>My Profile</Link>
-                                    <a href="#" onClick={(e) => { e.preventDefault(); setShowProfileMenu(false); if(window.openWalletModal) window.openWalletModal(); }} style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: '14px', fontWeight: 500, display: 'block' }}>My Wallet</a>
-                                    <Link to="/premium" style={{ padding: '10px 16px', color: '#eab308', textDecoration: 'none', fontSize: '14px', fontWeight: 600, display: 'block', whiteSpace: 'nowrap' }}>👑 {premiumText}</Link>
-                                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '6px 0' }}></div>
-                                    <a href="#" onClick={handleLogout} style={{ padding: '10px 16px', color: '#ef4444', textDecoration: 'none', fontSize: '14px', fontWeight: 600, display: 'block' }}>Logout</a>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </header>
+                <Navbar />
 
                 <main className="main-content">
                     <div className="text-center">

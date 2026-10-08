@@ -4,6 +4,7 @@ import '../../css/index.css';
 import './styles/booking-history.css';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
 import { apiRequest } from './services/api';
+import Navbar from './components/Navbar';
 
 // ============================================================================
 // UTILITIES
@@ -496,52 +497,7 @@ export default function BookingHistory() {
             <div className="page-wrapper" onClick={() => setShowProfileMenu(false)}>
 
                 {/* ── Navbar ── */}
-                <header
-                    className={`site-header${scrollState.hidden ? ' hidden-nav' : ''}${scrollState.scrolled ? ' scrolled' : ''}`}
-                    id="site-header"
-                >
-                    <Link to="/" className="logo">Rent<span style={{ color: '#3a5bd9' }}>Flow</span></Link>
-                    <nav className="nav-links" id="main-nav">
-                        <Link to="/">Home</Link>
-                        <Link to="/booking">Explore Rentals</Link>
-                        <Link to="/booking-history" className="active">My Rentals</Link>
-                        <Link to="/create-listing" style={{ color: 'var(--accent-blue-bright)', fontWeight: 600 }}>+ Post Listing</Link>
-                        <Link to="/contact">Contact &amp; FAQ</Link>
-                    </nav>
-                    <div className="nav-cta" id="auth-buttons" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        {!isLoggedIn ? (
-                            <>
-                                <Link to="/login" className="btn-ghost">Log In</Link>
-                                <Link to="/signup" className="btn-nav-primary">Get Started</Link>
-                            </>
-                        ) : (
-                            <div style={{ position: 'relative' }}>
-                                <div
-                                    className="profile-dropdown-trigger"
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
-                                    onClick={e => { e.stopPropagation(); setShowProfileMenu(p => !p); }}
-                                >
-                                    <div style={{ width: 32, height: 32, background: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
-                                        <img src={savedImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
-                                    <span style={{ fontWeight: 600, color: '#fff' }}>{firstName}</span>
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 2 }}><polyline points="6 9 12 15 18 9" /></svg>
-                                </div>
-
-                                <div
-                                    className="profile-dropdown-menu"
-                                    style={{ display: showProfileMenu ? 'flex' : 'none', position: 'absolute', top: 40, right: 0, background: '#12172b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, width: 180, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', zIndex: 1000, padding: '6px 0', flexDirection: 'column' }}
-                                >
-                                    <Link to="/profile" style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'block' }}>My Profile</Link>
-                                    <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); setShowProfileMenu(false); if (window.openWalletModal) window.openWalletModal(); }} style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'block' }}>My Wallet</a>
-                                    <Link to="/premium" style={{ padding: '10px 16px', color: '#eab308', textDecoration: 'none', fontSize: 14, fontWeight: 600, display: 'block', whiteSpace: 'nowrap' }}>👑 {premiumText}</Link>
-                                    <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 0' }} />
-                                    <a href="#" onClick={handleLogout} style={{ padding: '10px 16px', color: '#ef4444', textDecoration: 'none', fontSize: 14, fontWeight: 600, display: 'block' }}>Logout</a>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </header>
+                <Navbar />
 
                 {/* ── Main Content ── */}
                 <main className="main-content">

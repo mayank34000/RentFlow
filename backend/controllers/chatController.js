@@ -68,7 +68,7 @@ exports.getOrCreateConversation = async (req, res) => {
         if (err.name === 'MissingSchemaError') {
             return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
         }
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -126,7 +126,7 @@ exports.markConversationRead = async (req, res) => {
     } catch (err) {
         return res.status(500).json({
             success: false,
-            message: err.message || 'Internal server error'
+            message: 'Internal server error'
         });
     }
 };
@@ -177,7 +177,7 @@ exports.getMyConversations = async (req, res) => {
         if (err.name === 'MissingSchemaError') {
             return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
         }
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -248,7 +248,7 @@ exports.getConversationMessages = async (req, res) => {
         if (err.name === 'MissingSchemaError') {
             return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
         }
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -313,7 +313,7 @@ exports.sendMessage = async (req, res) => {
     } catch (err) {
         return res.status(500).json({
             success: false,
-            message: err.message || 'Internal server error'
+            message: 'Internal server error'
         });
     }
 };
@@ -375,7 +375,7 @@ exports.toggleArchiveConversation = async (req, res) => {
     } catch (err) {
         return res.status(500).json({
             success: false,
-            message: err.message || 'Internal server error'
+            message: 'Internal server error'
         });
     }
 };
@@ -437,7 +437,7 @@ exports.reportConversation = async (req, res) => {
     } catch (err) {
         return res.status(500).json({
             success: false,
-            message: err.message || 'Internal server error'
+            message: 'Internal server error'
         });
     }
 };

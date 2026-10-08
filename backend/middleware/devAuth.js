@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 
 module.exports = (req, res, next) => {
     const devUserId = req.header('x-dev-user-id');
-    const devRole = req.header('x-dev-role') || 'customer';
+    const devRole = req.header('x-dev-role') || 'user';
 
     if (!devUserId) {
         return res.status(401).json({

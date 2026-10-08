@@ -5,10 +5,15 @@ const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 
-// Ensure destination exists just in case
+// Ensure destination directories exist
 const uploadDir = path.join(__dirname, '..', 'uploads', 'returns');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const listingUploadDir = path.join(__dirname, '..', 'uploads', 'listings');
+if (!fs.existsSync(listingUploadDir)) {
+    fs.mkdirSync(listingUploadDir, { recursive: true });
 }
 
 // ── Storage Configuration ─────────────────────────────────────────────────────
@@ -76,7 +81,38 @@ const profileUpload = multer({
     }
 });
 
+// ── Listing Image Upload ──────────────────────────────────────────────────────
+
+const listingStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, listingUploadDir);
+    },
+    filename: function (req, file, cb) {
+        const randomHex = crypto.randomBytes(8).toString('hex');
+        const timestamp = Date.now();
+        let ext = '';
+        if (file.mimetype === 'image/jpeg') ext = '.jpg';
+        else if (file.mimetype === 'image/png') ext = '.png';
+        else if (file.mimetype === 'image/webp') ext = '.webp';
+        else {
+            const originalExt = path.extname(file.originalname).toLowerCase();
+            ext = originalExt;
+        }
+        cb(null, `listing-${timestamp}-${randomHex}${ext}`);
+    }
+});
+
+const listingUpload = multer({
+    storage: listingStorage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5 MB
+        files: 1
+    }
+});
+
 module.exports = {
     upload,
-    profileUpload
+    profileUpload,
+    listingUpload
 };

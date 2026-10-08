@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import '../../css/index.css';
 import './styles/chat.css';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
+import Navbar from './components/Navbar';
 import { apiRequest, API_URL } from './services/api';
 
 // ============================================================================
@@ -36,11 +37,8 @@ export default function Chat() {
     const messagesEndRef = useRef(null);
     const typingTimeoutRef = useRef(null);
 
-    // ── Dev user identity ─────────────────────────────────────────────────────
-    // The authoritative development user identity is localStorage.devUserId.
-    // This is the same identity used by booking, booking-history, and all
-    // backend devAuth-protected endpoints.
-    const devUserId = localStorage.getItem('devUserId') || '';
+    // ── Current user identity ──────────────────────────────────────────────────
+    const currentUserId = currentUser ? String(currentUser._id || currentUser.id) : '';
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -58,20 +56,23 @@ export default function Chat() {
     // ── Init (Auth & Data fetching) ───────────────────────────────────────────
 
     useEffect(() => {
-        // Init Auth exactly as Booking History does
-        const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
-        setIsLoggedIn(loggedIn);
-        let user = null;
-        if (loggedIn) {
-            try { user = JSON.parse(localStorage.getItem('current_user')) || null; } catch (_e) {}
-            setCurrentUser(user);
+        const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+
+        if (!token || !storedUser) {
+            setError('Authentication required. Please log in to access chat.');
+            setLoading(false);
+            return;
         }
 
-        // Fetch initial conversations via the shared apiRequest helper
+        setIsLoggedIn(true);
+        try {
+            setCurrentUser(JSON.parse(storedUser));
+        } catch (_e) {}
+
         const fetchConversations = async () => {
             try {
                 const { data: responseData } = await apiRequest('/api/chat/conversations');
-
                 if (responseData?.success) {
                     setConversations(responseData.data);
                 } else {
@@ -81,15 +82,7 @@ export default function Chat() {
                 if (err.name === 'TypeError' && err.message.includes('fetch')) {
                     setError('Cannot reach the server. Please try again.');
                 } else if (err.status === 401) {
-                    if (import.meta.env.DEV) {
-                        setError('Development: Set localStorage.devUserId to a valid 24-character MongoDB ObjectId.');
-                    } else {
-                        setError('Authentication required. Please log in to access chat.');
-                    }
-                } else if (err.status === 503) {
-                    setError('A required backend service is temporarily unavailable. Please try again later.');
-                } else if (err.status >= 500) {
-                    setError('Unable to load conversations. Please try again later.');
+                    setError('Authentication required. Please log in to access chat.');
                 } else {
                     setError(err.message || 'Failed to load conversations.');
                 }
@@ -98,17 +91,7 @@ export default function Chat() {
             }
         };
 
-        // Only fetch if devUserId is set (backend will reject otherwise)
-        if (devUserId) {
-            fetchConversations();
-        } else {
-            if (import.meta.env.DEV) {
-                setError('Development: Set localStorage.devUserId to a valid 24-character MongoDB ObjectId.');
-            } else {
-                setError('Authentication required. Please log in to access chat.');
-            }
-            setLoading(false);
-        }
+        fetchConversations();
 
         // Wallet legacy script fallback
         window.__DISABLE_LEGACY_NAVBAR_SCROLL__ = true;
@@ -118,17 +101,17 @@ export default function Chat() {
             script.src = '../../js/navbar-scroll.js';
             document.body.appendChild(script);
         }
-    }, [devUserId]);
+    }, [currentUserId]);
 
     // ── Socket initialization ─────────────────────────────────────────────────
 
     useEffect(() => {
-        if (!devUserId) return;
+        const token = localStorage.getItem('token');
+        if (!token) return;
 
-        // Connect to Socket.IO using the same devUserId identity
+        // Connect to Socket.IO using JWT authentication
         const newSocket = io(API_URL, {
-            extraHeaders: { 'x-dev-user-id': devUserId },
-            auth: { userId: devUserId }
+            auth: { token }
         });
 
         newSocket.on('connect', () => {
@@ -190,7 +173,7 @@ export default function Chat() {
         return () => {
             newSocket.disconnect();
         };
-    }, [devUserId, activeConversation]);
+    }, [currentUserId, activeConversation]);
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -282,51 +265,7 @@ export default function Chat() {
             <div className="page-wrapper" onClick={() => setShowProfileMenu(false)}>
 
                 {/* ── Navbar ── */}
-                <header
-                    className={`site-header${scrollState.hidden ? ' hidden-nav' : ''}${scrollState.scrolled ? ' scrolled' : ''}`}
-                    id="site-header"
-                >
-                    <Link to="/" className="logo">Rent<span style={{ color: '#3a5bd9' }}>Flow</span></Link>
-                    <nav className="nav-links" id="main-nav">
-                        <Link to="/">Home</Link>
-                        <Link to="/booking">Explore Rentals</Link>
-                        <Link to="/booking-history">My Rentals</Link>
-                        <Link to="/create-listing" style={{ color: 'var(--accent-blue-bright)', fontWeight: 600 }}>+ Post Listing</Link>
-                        <Link to="/contact">Contact &amp; FAQ</Link>
-                    </nav>
-                    <div className="nav-cta" id="auth-buttons" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        {!isLoggedIn ? (
-                            <>
-                                <Link to="/login" className="btn-ghost">Log In</Link>
-                                <Link to="/signup" className="btn-nav-primary">Get Started</Link>
-                            </>
-                        ) : (
-                            <div style={{ position: 'relative' }}>
-                                <div
-                                    className="profile-dropdown-trigger"
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
-                                    onClick={e => { e.stopPropagation(); setShowProfileMenu(p => !p); }}
-                                >
-                                    <div style={{ width: 32, height: 32, background: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
-                                        <img src={savedImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
-                                    <span style={{ fontWeight: 600, color: '#fff' }}>{firstName}</span>
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 2 }}><polyline points="6 9 12 15 18 9" /></svg>
-                                </div>
-                                <div
-                                    className="profile-dropdown-menu"
-                                    style={{ display: showProfileMenu ? 'flex' : 'none', position: 'absolute', top: 40, right: 0, background: '#12172b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, width: 180, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', zIndex: 1000, padding: '6px 0', flexDirection: 'column' }}
-                                >
-                                    <Link to="/profile" style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'block' }}>My Profile</Link>
-                                    <Link to="/chat" style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'block' }}>Messages</Link>
-                                    <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); setShowProfileMenu(false); if (window.openWalletModal) window.openWalletModal(); }} style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'block' }}>My Wallet</a>
-                                    <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 0' }} />
-                                    <a href="#" onClick={() => { localStorage.removeItem('isLoggedIn'); window.location.reload(); }} style={{ padding: '10px 16px', color: '#ef4444', textDecoration: 'none', fontSize: 14, fontWeight: 600, display: 'block' }}>Logout</a>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </header>
+                <Navbar />
 
                 {/* ── Main Chat Layout ── */}
                 <div className="chat-container">
@@ -347,7 +286,7 @@ export default function Chat() {
                             <ul className="conversation-list">
                                 {conversations.map(conv => {
                                     // Determine the "other" participant name for display
-                                    const otherParticipant = conv.participants?.find(p => String(p._id) !== devUserId);
+                                    const otherParticipant = conv.participants?.find(p => String(p._id) !== currentUserId);
                                     const title = otherParticipant ? (otherParticipant.name || otherParticipant.username) : 'Chat';
                                     const initials = title.substring(0, 2).toUpperCase();
 
@@ -379,7 +318,7 @@ export default function Chat() {
                         <div className="chat-main">
                             <div className="chat-header">
                                 <div className="chat-header-title">
-                                    {activeConversation.participants?.find(p => String(p._id) !== devUserId)?.name || 'Conversation'}
+                                    {activeConversation.participants?.find(p => String(p._id) !== currentUserId)?.name || 'Conversation'}
                                 </div>
                                 <div className="chat-header-status">
                                     {/* Mock online status or use real presence if available */}
@@ -389,7 +328,7 @@ export default function Chat() {
 
                             <div className="messages-container">
                                 {messages.map((msg, idx) => {
-                                    const isSentByMe = String(msg.sender) === devUserId;
+                                    const isSentByMe = String(msg.sender) === currentUserId;
                                     return (
                                         <div key={msg._id || idx} className={`message-wrapper ${isSentByMe ? 'sent' : 'received'}`}>
                                             <div className="message-bubble">{msg.text}</div>

@@ -161,7 +161,7 @@ exports.createBooking = async (req, res) => {
         }
 
         // Validation: Self-booking check
-        if (String(req.user._id) === String(listing.seller)) {
+        if (String(req.user._id) === String(listing.owner)) {
             return res.status(400).json({
                 success: false,
                 message: 'You cannot book your own listing.'
@@ -185,7 +185,7 @@ exports.createBooking = async (req, res) => {
         const newBooking = new Booking({
             listing: listing._id,
             renter: req.user._id,
-            lender: listing.seller,
+            lender: listing.owner,
             startDate: parsedStart,
             endDate: parsedEnd,
             pricePerDay: pricing.pricePerDay,
@@ -207,7 +207,7 @@ exports.createBooking = async (req, res) => {
     } catch (err) {
         res.status(500).json({
             success: false,
-            message: err.message || 'Internal server error while creating booking'
+            message: 'Internal server error'
         });
     }
 };
@@ -299,7 +299,7 @@ exports.checkAvailability = async (req, res) => {
     } catch (err) {
         res.status(500).json({
             success: false,
-            message: err.message || 'Internal server error while checking availability'
+            message: 'Internal server error'
         });
     }
 };
@@ -312,11 +312,14 @@ exports.checkAvailability = async (req, res) => {
  */
 exports.getMyBookings = async (req, res) => {
     try {
-        const bookings = await Booking.find({ renter: req.user._id })
+        const isPro = await getIsPro(req.user._id);
+        const bookingsDocs = await Booking.find({ renter: req.user._id })
             .sort({ createdAt: -1 })
             .populate('listing')
-            .populate('renter', '-passwordHash')
-            .populate('lender', '-passwordHash');
+            .populate('renter', 'name email avatar profileImage phone role')
+            .populate('lender', 'name email avatar profileImage phone role');
+
+        const bookings = bookingsDocs.map(doc => scrubBookingPhones(doc, req.user._id, isPro));
 
         return res.status(200).json({
             success: true,
@@ -326,7 +329,7 @@ exports.getMyBookings = async (req, res) => {
         if (err.name === 'MissingSchemaError') {
             return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
         }
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -336,11 +339,14 @@ exports.getMyBookings = async (req, res) => {
  */
 exports.getLenderBookings = async (req, res) => {
     try {
-        const bookings = await Booking.find({ lender: req.user._id })
+        const isPro = await getIsPro(req.user._id);
+        const bookingsDocs = await Booking.find({ lender: req.user._id })
             .sort({ createdAt: -1 })
             .populate('listing')
-            .populate('renter', '-passwordHash')
-            .populate('lender', '-passwordHash');
+            .populate('renter', 'name email avatar profileImage phone role')
+            .populate('lender', 'name email avatar profileImage phone role');
+
+        const bookings = bookingsDocs.map(doc => scrubBookingPhones(doc, req.user._id, isPro));
 
         return res.status(200).json({
             success: true,
@@ -350,7 +356,7 @@ exports.getLenderBookings = async (req, res) => {
         if (err.name === 'MissingSchemaError') {
             return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
         }
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -366,20 +372,23 @@ exports.getBookingById = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid booking ID.' });
         }
 
-        const booking = await Booking.findById(bookingId)
+        const bookingDoc = await Booking.findById(bookingId)
             .populate('listing')
-            .populate('renter', '-passwordHash')
-            .populate('lender', '-passwordHash');
+            .populate('renter', 'name email avatar profileImage phone role')
+            .populate('lender', 'name email avatar profileImage phone role');
 
-        if (!booking) {
+        if (!bookingDoc) {
             return res.status(404).json({ success: false, message: 'Booking not found.' });
         }
 
         // Authorization: only renter or lender can view
-        if (String(booking.renter._id || booking.renter) !== String(req.user._id) &&
-            String(booking.lender._id || booking.lender) !== String(req.user._id)) {
+        if (String(bookingDoc.renter._id || bookingDoc.renter) !== String(req.user._id) &&
+            String(bookingDoc.lender._id || bookingDoc.lender) !== String(req.user._id)) {
             return res.status(403).json({ success: false, message: 'Not authorized to view this booking.' });
         }
+        
+        const isPro = await getIsPro(req.user._id);
+        const booking = scrubBookingPhones(bookingDoc, req.user._id, isPro);
 
         return res.status(200).json({
             success: true,
@@ -389,7 +398,7 @@ exports.getBookingById = async (req, res) => {
         if (err.name === 'MissingSchemaError') {
             return res.status(503).json({ success: false, message: 'Referenced model not available yet' });
         }
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -428,7 +437,7 @@ exports.cancelBooking = async (req, res) => {
             data: booking
         });
     } catch (err) {
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -465,7 +474,7 @@ exports.approveBooking = async (req, res) => {
             data: booking
         });
     } catch (err) {
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -524,7 +533,7 @@ exports.payBooking = async (req, res) => {
             data: booking
         });
     } catch (err) {
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -589,6 +598,6 @@ exports.returnBooking = async (req, res) => {
         });
     } catch (err) {
         cleanupUpload();
-        return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
