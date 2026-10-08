@@ -194,7 +194,7 @@
 .ad-avatar { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-size: 0.8rem; font-weight: 700; flex: none; }
 .ad-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .tone-0 { background: #ffe4e6; color: #e11d48; }
-.tone-1 { background: #dbeafe; color: #2563eb; }
+.tone-1 { background: #dbeafe; color: var(--orange-hover); }
 .tone-2 { background: #fef3c7; color: #b45309; }
 .tone-3 { background: #ede9fe; color: #7c3aed; }
 .tone-4 { background: #f3e8ff; color: #9333ea; }
@@ -202,10 +202,10 @@
 
 .ad-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
 .role-owner    { background: #fff0e6; color: #ea580c; }
-.role-tenant   { background: #e8f1ff; color: #2563eb; }
+.role-tenant   { background: #e8f1ff; color: var(--orange-hover); }
 .role-admin    { background: #f3ecff; color: #7c3aed; }
-.role-customer { background: #eef0f5; color: #475569; }
-.tier-pro      { background: #eaf2ff; color: #2563eb; }
+.role-user { background: #eef0f5; color: #475569; }
+.tier-pro      { background: #eaf2ff; color: var(--orange-hover); }
 .tier-standard { background: #f1f3f8; color: #475569; font-weight: 500; }
 .kyc-approved  { background: #e3f8ec; color: #15803d; }
 .kyc-pending   { background: #fff6d6; color: #b7791f; }
@@ -221,7 +221,7 @@
 .act-approve { color: #16a34a; } .act-approve:hover:not(:disabled) { background: #f0fdf4; }
 .act-reject  { color: #ef4444; } .act-reject:hover:not(:disabled)  { background: #fef2f2; }
 .act-pending { color: #f59e0b; } .act-pending:hover:not(:disabled) { background: #fffbeb; }
-.act-edit    { color: #2563eb; } .act-edit:hover:not(:disabled)    { background: #eff6ff; }
+.act-edit    { color: var(--orange-hover); } .act-edit:hover:not(:disabled)    { background: #eff6ff; }
 .act-delete  { color: #ef4444; } .act-delete:hover:not(:disabled)  { background: #fef2f2; }
 .ad-act:disabled { opacity: 0.35; cursor: not-allowed; }
 

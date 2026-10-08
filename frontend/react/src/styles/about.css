@@ -1,0 +1,223 @@
+/* src/styles/about.css */
+
+.about-page-wrapper {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 100px;
+    min-height: 100vh;
+}
+
+.about-bg-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    opacity: 0.15;
+}
+
+body.light-theme .about-bg-video {
+    opacity: 0.04;
+}
+
+.about-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-page);
+    opacity: 0.85;
+    z-index: 1;
+}
+
+.about-hero-section {
+    text-align: center;
+    padding: 60px 24px;
+    max-width: 800px;
+    width: 100%;
+}
+
+.about-hero-title {
+    font-family: var(--font-display);
+    font-size: 46px;
+    font-weight: 800;
+    color: var(--text-strongest);
+    letter-spacing: -1.5px;
+    line-height: 1.15;
+    margin-bottom: 20px;
+}
+
+.about-hero-subtitle {
+    font-size: 17px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    max-width: 580px;
+    margin: 0 auto;
+}
+
+.about-mission-section {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1000px;
+    width: 100%;
+    padding: 0 24px 60px;
+}
+
+.about-mission-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 28px 26px;
+    text-align: center;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.about-mission-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--ring-focus);
+}
+
+.about-mission-icon {
+    font-size: 30px;
+    margin-bottom: 14px;
+}
+
+.about-mission-card h3 {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--text-strongest);
+    margin-bottom: 10px;
+}
+
+.about-mission-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+}
+
+.about-team-section {
+    max-width: 1000px;
+    width: 100%;
+    padding: 0 24px 70px;
+    text-align: center;
+}
+
+.about-section-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--primary-orange);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+}
+
+.about-section-title {
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--text-strongest);
+    letter-spacing: -1px;
+    margin-bottom: 12px;
+}
+
+.about-section-subtitle {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    line-height: 1.6;
+}
+
+.about-team-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.about-team-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.about-team-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--ring-focus);
+}
+
+.about-member-info {
+    padding: 18px 16px 22px;
+    text-align: center;
+}
+
+.about-member-name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-strongest);
+    margin-bottom: 4px;
+}
+
+.about-member-role {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary-orange);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+}
+
+.about-member-bio {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.about-member-email {
+    font-size: 14px;
+    margin-top: 8px;
+    color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+    .about-team-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .about-mission-section {
+        grid-template-columns: repeat(1, 1fr);
+        max-width: 560px;
+    }
+    .about-hero-title {
+        font-size: 36px;
+    }
+}
+
+@media (max-width: 600px) {
+    .about-hero-title {
+        font-size: 28px;
+    }
+    .about-hero-subtitle {
+        font-size: 15px;
+    }
+    .about-team-grid {
+        grid-template-columns: repeat(1, 1fr);
+        max-width: 380px;
+        margin: 0 auto;
+    }
+    .about-section-title {
+        font-size: 26px;
+    }
+}

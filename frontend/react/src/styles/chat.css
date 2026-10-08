@@ -51,7 +51,7 @@
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background-color: #3a5bd9;
+    background-color: var(--primary-orange);
     margin-right: 15px;
     flex-shrink: 0;
     display: flex;
@@ -151,7 +151,7 @@
 }
 
 .message-wrapper.sent .message-bubble {
-    background-color: #3a5bd9;
+    background-color: var(--primary-orange);
     color: #fff;
     border-bottom-right-radius: 4px;
 }
@@ -206,7 +206,7 @@
 }
 
 .chat-input:focus {
-    border-color: #3a5bd9;
+    border-color: var(--primary-orange);
 }
 
 .chat-input:disabled {
@@ -215,7 +215,7 @@
 }
 
 .btn-send {
-    background-color: #3a5bd9;
+    background-color: var(--primary-orange);
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -226,7 +226,7 @@
 }
 
 .btn-send:hover:not(:disabled) {
-    background-color: #2e4ab8;
+    background-color: var(--orange-hover);
 }
 
 .btn-send:disabled {

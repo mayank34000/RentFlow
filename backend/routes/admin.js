@@ -14,7 +14,7 @@ const ALLOWED_UPDATE_FIELDS = ['name', 'email', 'role', 'isPro', 'kycStatus', 'a
 
 // Valid enum values — mirrors the User schema so we can give clear errors
 // before Mongoose even touches the database.
-const VALID_ROLES = ['customer', 'seller', 'admin'];
+const VALID_ROLES = ['user', 'admin'];
 const VALID_KYC_STATUSES = ['none', 'pending', 'approved', 'rejected'];
 
 // Helper: returns true when the given string is not a valid MongoDB ObjectId.

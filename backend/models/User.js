@@ -26,13 +26,28 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ['customer', 'seller', 'admin'],
-      default: 'customer',
+      enum: ['user', 'admin'],
+      default: 'user',
     },
 
     isPro: {
       type: Boolean,
       default: false,
+    },
+
+    premiumUntil: {
+      type: Date,
+      default: null,
+    },
+
+    razorpayOrderId: {
+      type: String,
+      default: null,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: null,
     },
 
     avatar: {
