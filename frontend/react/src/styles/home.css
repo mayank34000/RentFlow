@@ -265,36 +265,117 @@ body.light-theme .home-header.scrolled {
 
 .home-dropdown-menu {
   position: absolute;
-  top: 50px;
+  top: 54px;
   right: 0;
-  width: 200px;
-  background: var(--bg-dark-blue);
+  width: 280px;
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-  padding: 8px 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 12px 0;
   display: flex;
   flex-direction: column;
   z-index: 1000;
 }
 
-.home-dropdown-menu a, .home-dropdown-menu button {
-  padding: 12px 18px;
+.home-dropdown-header-new {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  gap: 14px;
+}
+
+.home-dropdown-avatar-new {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+}
+
+.home-dropdown-user-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.home-dropdown-user-info strong {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-dropdown-user-info span {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+}
+
+.home-dropdown-links a {
+  display: block;
+  padding: 10px 20px;
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-align: left;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.home-dropdown-links a:hover {
+  background: var(--bg-card-hover);
+  color: var(--primary-orange);
+}
+
+.home-dropdown-theme-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.home-dropdown-theme-toggle:hover {
+  background: var(--bg-card-hover);
+  color: var(--primary-orange);
+}
+
+.home-dropdown-theme-toggle .theme-status {
+  background: var(--border);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.home-dropdown-logout-btn {
+  display: block;
+  padding: 10px 20px;
+  color: var(--status-danger) !important;
+  text-decoration: none;
+  font-size: 14px;
   background: transparent;
   border: none;
   width: 100%;
+  text-align: left;
   cursor: pointer;
-  transition: var(--transition-smooth);
+  transition: all 0.2s;
 }
 
-.home-dropdown-menu a:hover, .home-dropdown-menu button:hover {
-  background: var(--border);
-  color: var(--text-primary);
+.home-dropdown-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* OMNICOM EDITORIAL CENTERED HERO SECTION */

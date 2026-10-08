@@ -31,6 +31,26 @@ function ProfileDropdown({ user, profileImage, isPremium, logout }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   
+  const [isDark, setIsDark] = useState(() => {
+      if (typeof document !== 'undefined') {
+          return !document.body.classList.contains('light-theme');
+      }
+      return true;
+  });
+
+  const toggleTheme = (e) => {
+    e.stopPropagation();
+    if (isDark) {
+        document.body.classList.add("light-theme");
+        localStorage.setItem("theme", "light");
+        setIsDark(false);
+    } else {
+        document.body.classList.remove("light-theme");
+        localStorage.setItem("theme", "dark");
+        setIsDark(true);
+    }
+  };
+  
   useEffect(() => {
     function handleClickOutside(e) {
       if (ref.current && !ref.current.contains(e.target)) {
@@ -49,18 +69,35 @@ function ProfileDropdown({ user, profileImage, isPremium, logout }) {
       </button>
 
       {open && (
-        <div className="home-profile-dropdown">
-          <div className="home-dropdown-header">
-            <strong>{user.name}</strong>
-            <span>{user.email}</span>
-            {isPremium && <span className="home-pro-badge">PRO</span>}
+        <div className="home-dropdown-menu">
+          <div className="home-dropdown-header-new">
+            <img src={profileImage} alt="Profile" className="home-dropdown-avatar-new" />
+            <div className="home-dropdown-user-info">
+              <strong>{user.name} {isPremium && <span className="home-pro-badge">PRO</span>}</strong>
+              <span title={user.email}>{user.email}</span>
+            </div>
           </div>
-          <Link to="/profile" onClick={() => setOpen(false)}>My Profile</Link>
-          <Link to="/booking-history" onClick={() => setOpen(false)}>My Rentals</Link>
-          <Link to="/chat" onClick={() => setOpen(false)}>Messages</Link>
+          
+          <div className="home-dropdown-divider"></div>
+
+          <div className="home-dropdown-links">
+            <Link to="/profile" onClick={() => setOpen(false)}>My Profile</Link>
+            <Link to="/booking-history" onClick={() => setOpen(false)}>My Rentals</Link>
+            <Link to="/chat" onClick={() => setOpen(false)}>Messages</Link>
+          </div>
+
+          <div className="home-dropdown-divider"></div>
+
+          <div className="home-dropdown-theme-toggle" onClick={toggleTheme}>
+            <span>Theme</span>
+            <span className="theme-status">{isDark ? 'Dark' : 'Light'}</span>
+          </div>
+
+          <div className="home-dropdown-divider"></div>
+
           <button
             onClick={() => { setOpen(false); logout(); }}
-            style={{ background: 'transparent', border: 'none', color: '#ef4444', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}
+            className="home-dropdown-logout-btn"
           >
             Logout
           </button>
