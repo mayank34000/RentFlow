@@ -157,7 +157,7 @@ export default function Analytics() {
                   <Pie 
                     options={pieOptions}
                     data={{
-                      labels: roleDistribution.map(r => r._id || 'customer'),
+                      labels: roleDistribution.map(r => r._id || 'user'),
                       datasets: [{
                         data: roleDistribution.map(r => r.count),
                         backgroundColor: ['var(--primary-orange)', '#10b981', '#f59e0b'],

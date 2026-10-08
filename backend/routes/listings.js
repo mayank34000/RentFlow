@@ -9,19 +9,20 @@ const {
 } = require('../controllers/listingController');
 
 const authenticateToken = require('../middleware/authMiddleware');
+const optionalAuth = require('../middleware/optionalAuth');
 const { listingUpload } = require('../middleware/upload');
 
 const router = express.Router();
 
 router.route('/')
-    .get(getListings)
+    .get(optionalAuth, getListings)
     .post(authenticateToken, listingUpload.single('image'), createListing);
 
 router.route('/my')
     .get(authenticateToken, getMyListings);
 
 router.route('/:id')
-    .get(getListing)
+    .get(optionalAuth, getListing)
     .put(authenticateToken, listingUpload.single('image'), updateListing)
     .delete(authenticateToken, deleteListing);
 

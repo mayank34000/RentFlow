@@ -553,7 +553,7 @@ export default function AdminDashboard() {
                 ) : (
                   filteredUsers.map((u) => {
                     const status = kycOf(u);
-                    const role = u.role || 'customer';
+                    const role = (u.role === 'customer' || u.role === 'seller') ? 'user' : (u.role || 'user');
                     return (
                       <tr key={u._id}>
                         <td className="ad-check">
@@ -612,10 +612,8 @@ export default function AdminDashboard() {
               </div>
               <div className="ad-field">
                 <label htmlFor="eu-role">Role</label>
-                <select id="eu-role" value={editUser.role || 'customer'} onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}>
-                  <option value="customer">Customer</option>
-                  <option value="owner">Owner</option>
-                  <option value="tenant">Tenant</option>
+                <select id="eu-role" value={editUser.role || 'user'} onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}>
+                  <option value="user">User</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>

@@ -31,7 +31,7 @@ const authenticateToken = (req, res, next) => {
         req.user = {
             _id: userId,
             id: userId,
-            role: decoded.role,
+            role: (decoded.role === 'customer' || decoded.role === 'seller') ? 'user' : decoded.role,
         };
 
         next();

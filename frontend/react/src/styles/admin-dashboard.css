@@ -201,7 +201,7 @@
 .role-owner    { background: #fff0e6; color: #ea580c; }
 .role-tenant   { background: #e8f1ff; color: var(--orange-hover); }
 .role-admin    { background: #f3ecff; color: #7c3aed; }
-.role-customer { background: #eef0f5; color: #475569; }
+.role-user { background: #eef0f5; color: #475569; }
 .tier-pro      { background: #eaf2ff; color: var(--orange-hover); }
 .tier-standard { background: #f1f3f8; color: #475569; font-weight: 500; }
 .kyc-approved  { background: #e3f8ec; color: #15803d; }

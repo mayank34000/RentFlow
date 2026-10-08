@@ -10,6 +10,12 @@ exports.getListings = async (req, res, next) => {
     try {
         const query = { status: 'Active' };
 
+        // Type coercion / Injection protection
+        if (typeof req.query.category === 'object' || typeof req.query.city === 'object' || typeof req.query.search === 'object') {
+            return res.status(400).json({ success: false, message: 'Invalid query parameters' });
+        }
+
+
         // Basic filtering
         if (req.query.category && req.query.category !== 'All') {
             query.category = req.query.category;
@@ -36,9 +42,19 @@ exports.getListings = async (req, res, next) => {
             if (req.query.maxPrice !== undefined) query.price.$lte = Number(req.query.maxPrice);
         }
 
-        const listings = await Listing.find(query)
+        let listings = await Listing.find(query)
             .populate('owner', 'name phone city avatar profileImage')
             .sort({ createdAt: -1 });
+
+        listings = listings.map(doc => {
+            const listing = doc.toJSON();
+            const isOwner = req.user && req.user.id === listing.owner._id.toString();
+            const isPro = req.user && req.user.isPro;
+            if (!isPro && !isOwner && listing.owner) {
+                delete listing.owner.phone;
+            }
+            return listing;
+        });
 
         res.status(200).json({
             success: true,
@@ -78,11 +94,18 @@ exports.getListing = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Invalid listing ID' });
         }
 
-        const listing = await Listing.findById(req.params.id)
+        let listingDoc = await Listing.findById(req.params.id)
             .populate('owner', 'name phone city avatar profileImage');
 
-        if (!listing) {
+        if (!listingDoc) {
             return res.status(404).json({ success: false, message: 'Listing not found' });
+        }
+
+        const listing = listingDoc.toJSON();
+        const isOwner = req.user && req.user.id === listing.owner._id.toString();
+        const isPro = req.user && req.user.isPro;
+        if (!isPro && !isOwner && listing.owner) {
+            delete listing.owner.phone;
         }
 
         res.status(200).json({

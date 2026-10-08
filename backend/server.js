@@ -32,6 +32,9 @@ const httpServer = http.createServer(app);
 const defaultOrigins = 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:5501,http://127.0.0.1:5501,http://127.0.0.1:5500';
 
 function getAllowedOrigins() {
+    if (process.env.NODE_ENV === 'production') {
+        return process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : [];
+    }
     const originsString = process.env.CORS_ORIGIN || defaultOrigins;
     return originsString.split(',').map(o => o.trim());
 }
@@ -71,13 +74,66 @@ app.use(requestLogger);
 const path = require('path');
 app.use('/uploads', (req, res, next) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     next();
 }, express.static(path.join(__dirname, 'uploads')));
+
+
+const rateLimit = require('express-rate-limit');
+const authenticateToken = require('./middleware/authMiddleware');
+
+// Trust proxy for production rate limiting
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
+// 1. Login limiter
+const loginLimiter = rateLimit({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    max: parseInt(process.env.RATE_LIMIT_LOGIN_MAX) || 5,
+    skipSuccessfulRequests: true,
+    message: { success: false, message: 'Too many login attempts, please try again later' },
+    validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
+// 2. OTP limiter
+const otpLimiter = rateLimit({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    max: parseInt(process.env.RATE_LIMIT_OTP_MAX) || 5,
+    keyGenerator: (req) => {
+        const ip = req.ip || req.socket.remoteAddress || 'unknown';
+        const email = req.body && req.body.email ? req.body.email.toLowerCase() : '';
+        return `${ip}_${email}`;
+    },
+    message: { success: false, message: 'Too many requests, please try again later' },
+    validate: { trustProxy: false, xForwardedForHeader: false, keyGenerator: false }
+});
+
+// 3. Payment limiter
+const paymentLimiter = rateLimit({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    max: parseInt(process.env.RATE_LIMIT_PAYMENT_MAX) || 10,
+    keyGenerator: (req) => {
+        return req.user ? req.user._id.toString() : (req.ip || req.socket.remoteAddress || 'unknown');
+    },
+    message: { success: false, message: 'Too many payment attempts, please try again later' },
+    validate: { trustProxy: false, xForwardedForHeader: false, keyGenerator: false }
+});
+
+// Mount limiters by path
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/send-otp', otpLimiter);
+app.use('/api/auth/forgot-password/send-otp', otpLimiter);
+app.use('/api/auth/forgot-password/verify-otp', otpLimiter);
+app.use('/api/auth/forgot-password/reset', otpLimiter);
+
+// Payment routing with limiter
+// authMiddleware -> paymentLimiter -> existing payment route
 
 // ── 5. API Routes ─────────────────────────────────────────────────────────────
 // User-facing routes (from main)
 app.use('/api/listings', require('./routes/listings'));
-app.use("/api/payment", require("./routes/payment"));
+app.use("/api/payment", authenticateToken, paymentLimiter, require("./routes/payment"));
 
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/contact', require('./routes/contact'));
