@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
+const admin = require('../middleware/admin');
 const Feedback = require('../models/Feedback');
 
 const router = express.Router();
@@ -43,12 +44,12 @@ router.post('/', auth, async (req, res, next) => {
 });
 
 // ─── GET /api/feedback ────────────────────────────────────────
-// Authenticated users can fetch a list of feedback.
+// Admins can fetch the feedback list used by the admin console.
 // We optionally populate the basic user info (no sensitive data).
-router.get('/', auth, async (req, res, next) => {
+router.get('/', auth, admin, async (req, res, next) => {
   try {
     const feedbacks = await Feedback.find()
-      .populate('user', 'name avatar')
+      .populate('user', 'name email avatar')
       .sort({ createdAt: -1 });
 
     res.json({

@@ -2,6 +2,7 @@ import React from 'react';
 import AdminDashboard from './AdminDashboard';
 import Analytics from './Analytics';
 import Feedback from './Feedback';
+import GiveFeedback from './GiveFeedback';
 import ContactUs from './contactus';
 import BookingHistory from './booking-history';
 import Chat from './chat';
@@ -36,6 +37,7 @@ const routes = [
   { path: '/admin-dashboard', element: <AdminDashboard />, owner: 'Mayank', title: 'Admin Dashboard' },
   { path: '/analytics', element: <Analytics />, owner: 'Mayank', title: 'Analytics' },
   { path: '/feedback', element: <Feedback />, owner: 'Mayank', title: 'Feedback' },
+  { path: '/give-feedback', element: <GiveFeedback />, owner: 'Mayank', title: 'Give Feedback' },
 
   // ==========================================
   // MADHAV'S ROUTES
