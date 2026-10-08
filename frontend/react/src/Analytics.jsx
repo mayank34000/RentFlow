@@ -160,7 +160,7 @@ export default function Analytics() {
                       labels: roleDistribution.map(r => r._id || 'customer'),
                       datasets: [{
                         data: roleDistribution.map(r => r.count),
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+                        backgroundColor: ['var(--primary-orange)', '#10b981', '#f59e0b'],
                         borderColor: '#ffffff'
                       }]
                     }}
@@ -218,7 +218,7 @@ export default function Analytics() {
                       datasets: [{
                         label: 'New Users',
                         data: registrationTrend.map(t => t.count),
-                        borderColor: '#3b82f6',
+                        borderColor: 'var(--primary-orange)',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         fill: true,
                         tension: 0.4
@@ -258,7 +258,7 @@ export default function Analytics() {
                       labels: ratingDistribution.map(r => `${r._id} Stars`),
                       datasets: [{
                         data: ratingDistribution.map(r => r.count),
-                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#6b7280'],
+                        backgroundColor: ['#10b981', 'var(--primary-orange)', '#f59e0b', '#ef4444', '#6b7280'],
                         borderColor: '#ffffff'
                       }]
                     }}

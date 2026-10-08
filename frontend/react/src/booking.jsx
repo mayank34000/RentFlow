@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
 import '../../css/index.css';
 import './styles/booking.css';
-import productsData from '../../js/products.json';
+import { getListings, getAuthHeaders, getAuthUser } from './services/api';
+import Navbar from './components/Navbar';
 
 // ============================================================================
 // CALCULATE BOOKING (Pure Function)
@@ -148,28 +149,18 @@ try {
     navigate('/login');
 }
 
-        // Load listings
-        let listingsToUse = [];
-        try {
-            const stored = localStorage.getItem('RentFlow_listings');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    listingsToUse = parsed;
-                }
+        // Load initial categories
+        async function fetchInitialCategories() {
+            try {
+                const fetchedListings = await getListings();
+                const cats = Array.from(new Set(fetchedListings.map(l => l.category).filter(Boolean)));
+                setCategories(['All', ...cats]);
+            } catch (error) {
+                console.error("Error fetching initial categories", error);
             }
-        } catch (e) {
-            console.error("Error reading RentFlow_listings", e);
         }
-
-        if (listingsToUse.length === 0) {
-            listingsToUse = Array.isArray(productsData) ? productsData : [];
-        }
-        setAllListings(listingsToUse);
-
-        // Derive categories safely
-        const cats = Array.from(new Set(listingsToUse.map(l => l.category).filter(Boolean)));
-        setCategories(['All', ...cats]);
+        
+        fetchInitialCategories();
 
         // Fallback for legacy wallet logic (preserve exact approach from contactus.jsx)
         window.__DISABLE_LEGACY_NAVBAR_SCROLL__ = true;
@@ -181,54 +172,36 @@ try {
         }
     }, [navigate]);
 
+    // ── Search API Fetch ──
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            try {
+                const params = {};
+                if (activeCategory !== 'All') params.category = activeCategory;
+                if (searchQuery.trim()) {
+                    params.search = searchQuery.trim();
+                }
+                const results = await getListings(params);
+                setAllListings(results);
+            } catch (err) {
+                console.error("Error searching API", err);
+            }
+        }, 300);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery, activeCategory]);
+
     // ── Pro Status Gating ──
     const checkProStatus = () => {
-        try {
-            const userStr = localStorage.getItem('current_user');
-            if (!userStr) return false;
-            const user = JSON.parse(userStr);
-            if (user.isPremium || user.isPro) {
-                if (user.premiumExpiryDate) {
-                    const expiry = new Date(user.premiumExpiryDate);
-                    if (new Date() > expiry) {
-                        user.isPremium = false;
-                        user.isPro = false;
-                        localStorage.setItem('current_user', JSON.stringify(user));
-                        const allUsersStr = localStorage.getItem('user');
-                        if (allUsersStr) {
-                            let allUsers = JSON.parse(allUsersStr);
-                            const userIndex = allUsers.findIndex(u => u.useremail === user.useremail);
-                            if (userIndex !== -1) {
-                                allUsers[userIndex].isPremium = false;
-                                allUsers[userIndex].isPro = false;
-                                localStorage.setItem('user', JSON.stringify(allUsers));
-                            }
-                        }
-                        alert("Your Premium subscription has expired. Phone numbers are hidden.");
-                        return false;
-                    }
-                }
-                return true;
-            }
-        } catch (e) {
-            console.error(e);
-        }
-        return false;
+        const user = getAuthUser();
+        if (!user) return false;
+        return !!user.isPro;
     };
+
     const isPro = checkProStatus();
 
     // ── Filter Listings ──
-    const filteredListings = allListings.filter(item => {
-        if (activeCategory !== 'All' && item.category !== activeCategory) return false;
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            const title = (item.title || '').toLowerCase();
-            const category = (item.category || '').toLowerCase();
-            const location = (item.seller?.address || item.seller?.city || '').toLowerCase();
-            return title.includes(query) || category.includes(query) || location.includes(query);
-        }
-        return true;
-    });
+    const filteredListings = allListings;
 
     // ── Modal Interactions ──
     const openModal = (listing) => {
@@ -323,15 +296,11 @@ try {
             return;
         }
 
-        const devUserId = localStorage.getItem('devUserId');
+        const token = localStorage.getItem('token');
         const objectIdRegex = /^[a-f\d]{24}$/i;
 
-        if (!devUserId || !objectIdRegex.test(devUserId)) {
-            if (import.meta.env.DEV) {
-                setApiError("Development Error: Set localStorage devUserId to a valid 24-character MongoDB ObjectId.");
-            } else {
-                setApiError("Authentication required. Please log in.");
-            }
+        if (!token) {
+            setApiError("Authentication required. Please log in.");
             return;
         }
 
@@ -354,7 +323,7 @@ try {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-dev-user-id': devUserId
+                    ...getAuthHeaders()
                 },
                 body: JSON.stringify(payload),
                 signal: abortControllerRef.current.signal
@@ -368,7 +337,7 @@ try {
             } else if (response.status === 400) {
                 setApiError(data?.message || "Invalid booking request.");
             } else if (response.status === 401) {
-                setApiError(import.meta.env.DEV ? "Development Error: Set localStorage devUserId to a valid 24-character MongoDB ObjectId." : "Authentication required. Please log in.");
+                setApiError("Authentication required. Please log in.");
             } else if (response.status === 404) {
                 setApiError("Listing not found.");
             } else if (response.status === 409 && data?.error === "LISTING_UNAVAILABLE") {
@@ -403,47 +372,7 @@ try {
         <div className="booking-page">
 
             {/* ── Navbar ── */}
-            <header
-                className={`site-header${scrollState.hidden ? ' hidden-nav' : ''}${scrollState.scrolled ? ' scrolled' : ''}`}
-                id="site-header"
-            >
-                <Link to="/" className="logo">Rent<span style={{ color: '#3a5bd9' }}>Flow</span></Link>
-                <nav className="nav-links" id="main-nav">
-                    <Link to="/">Home</Link>
-                    <Link to="/booking" className="active" style={{ color: '#3a5bd9', fontWeight: 600 }}>Explore Rentals</Link>
-                    <Link to="/booking-history">My Rentals</Link>
-                    <Link to="/create-listing" style={{ color: 'var(--accent-blue-bright)', fontWeight: 600 }}>+ Post Listing</Link>
-                    <Link to="/contact">Contact &amp; FAQ</Link>
-                </nav>
-                <div className="nav-cta" id="auth-buttons" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    {isLoggedIn && currentUser && (
-                        <div style={{ position: 'relative' }}>
-                            <div
-                                className="profile-dropdown-trigger"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
-                                onClick={e => { e.stopPropagation(); setShowProfileMenu(p => !p); }}
-                            >
-                                <div style={{ width: 32, height: 32, background: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
-                                    <img src={savedImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                </div>
-                                <span style={{ fontWeight: 600, color: '#fff' }}>{firstName}</span>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 2 }}><polyline points="6 9 12 15 18 9" /></svg>
-                            </div>
-                            <div
-                                className="profile-dropdown-menu"
-                                style={{ display: showProfileMenu ? 'flex' : 'none', position: 'absolute', top: 40, right: 0, background: '#12172b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, width: 180, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', zIndex: 1000, padding: '6px 0', flexDirection: 'column' }}
-                            >
-                                <Link to="/profile" style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'block' }}>My Profile</Link>
-                                <Link to="/chat" style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'block' }}>Messages</Link>
-                                <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); setShowProfileMenu(false); if (window.openWalletModal) window.openWalletModal(); }} style={{ padding: '10px 16px', color: '#b0b8c6', textDecoration: 'none', fontSize: 14, fontWeight: 500, display: 'block' }}>My Wallet</a>
-                                <Link to="/premium" style={{ padding: '10px 16px', color: '#eab308', textDecoration: 'none', fontSize: 14, fontWeight: 600, display: 'block', whiteSpace: 'nowrap' }}>👑 {premiumText}</Link>
-                                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 0' }} />
-                                <a href="#" onClick={() => { localStorage.removeItem('isLoggedIn'); navigate('/login'); }} style={{ padding: '10px 16px', color: '#ef4444', textDecoration: 'none', fontSize: 14, fontWeight: 600, display: 'block' }}>Logout</a>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </header>
+            <Navbar />
 
             {/* ── Main Browse UI ── */}
             <div className="booking-container" onClick={() => setShowProfileMenu(false)}>
@@ -479,9 +408,7 @@ try {
                         </div>
                     ) : (
                         filteredListings.map(item => {
-                            const rawImages = Array.isArray(item.images) ? item.images : [];
-                            const validImages = rawImages.filter(img => img && typeof img === 'string' && img.trim() !== '');
-                            const imageSrc = validImages.length > 0 ? validImages[0] : '../../assets/profile.png'; // using a safe local fallback if via.placeholder isn't allowed
+                            const imageSrc = item.image ? item.image : '../../assets/profile.png';
                             const initial = item.seller?.name?.charAt(0).toUpperCase() || 'S';
 
                             return (

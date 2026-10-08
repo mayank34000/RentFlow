@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAuthUser, clearAuthSession } from './services/api';
 import './styles/upcoming-features.css';
+import Navbar from './components/Navbar';
 
 export default function UpcomingFeatures() {
     const navigate = useNavigate();
@@ -39,45 +40,7 @@ export default function UpcomingFeatures() {
 
     return (
         <div className="roadmap-page-wrapper">
-            <header className={`site-header ${hiddenNav ? 'hidden-nav' : ''} ${scrolled ? 'scrolled' : ''}`} id="site-header">
-                <Link to="/" className="logo">Rent<span style={{ color: '#3b82f6' }}>Flow</span></Link>
-                <nav className="nav-links" id="main-nav">
-                    <Link to="/">Home</Link>
-                    <Link to="/booking">Explore Rentals</Link>
-                    <Link to="/create-listing" style={{ color: 'var(--primary-orange)', fontWeight: '600' }}>+ Post Listing</Link>
-                    <Link to="/contact">Contact & FAQ</Link>
-                </nav>
-
-                {isLoggedIn ? (
-                    <div className="nav-cta" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <Link to="/profile" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-                            <div style={{ width: '32px', height: '32px', background: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                                <img src="/assets/profile.png" alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            </div>
-                            <span style={{ fontWeight: '600', color: 'var(--text-strongest)' }}>{user?.name || user?.username || 'User'}</span>
-                        </Link>
-                        <button onClick={handleLogout} className="btn-ghost" style={{ padding: '8px 16px', border: '1px solid var(--border)' }}>Logout</button>
-                    </div>
-                ) : (
-                    <div className="nav-cta">
-                        <Link to="/login" className="btn-ghost">Log In</Link>
-                        <Link to="/signup" className="btn-nav-primary">Get Started</Link>
-                    </div>
-                )}
-
-                <button className={`hamburger ${mobileMenuOpen ? 'active' : ''}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle navigation">
-                    <span></span><span></span><span></span>
-                </button>
-            </header>
-
-            {mobileMenuOpen && (
-                <div className="mobile-menu" style={{ display: 'flex' }}>
-                    <Link to="/">Home</Link>
-                    <Link to="/booking">Explore Rentals</Link>
-                    <Link to="/create-listing">Post Listing</Link>
-                    <Link to="/contact">Contact</Link>
-                </div>
-            )}
+            <Navbar />
 
             <section className="roadmap-hero">
                 <div className="hero-badge" style={{ marginBottom: '24px' }}>
@@ -96,7 +59,7 @@ export default function UpcomingFeatures() {
                 <div className="roadmap-card card-1">
                     <div className="status-badge">Planned</div>
                     <div className="roadmap-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
                     </div>
                     <h3>OTP Email Login</h3>
                     <p>Passwordless authentication using secure email verification links for faster and safer access.</p>

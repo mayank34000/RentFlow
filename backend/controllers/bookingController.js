@@ -161,7 +161,7 @@ exports.createBooking = async (req, res) => {
         }
 
         // Validation: Self-booking check
-        if (String(req.user._id) === String(listing.seller)) {
+        if (String(req.user._id) === String(listing.owner)) {
             return res.status(400).json({
                 success: false,
                 message: 'You cannot book your own listing.'
@@ -185,7 +185,7 @@ exports.createBooking = async (req, res) => {
         const newBooking = new Booking({
             listing: listing._id,
             renter: req.user._id,
-            lender: listing.seller,
+            lender: listing.owner,
             startDate: parsedStart,
             endDate: parsedEnd,
             pricePerDay: pricing.pricePerDay,

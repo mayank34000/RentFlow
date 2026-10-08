@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAuthUser } from './services/api';
+import { getAuthUser, createPaymentOrder, verifyPayment } from './services/api';
 import './styles/premium.css';
 
 export default function Premium() {
     const navigate = useNavigate();
+    const user = getAuthUser();
 
     useEffect(() => {
-        const user = getAuthUser();
         if (!user) {
             navigate('/login?redirect=/premium');
             return;
@@ -21,74 +21,60 @@ export default function Premium() {
         return () => {
             document.body.removeChild(script);
         };
-    }, [navigate]);
+    }, [navigate, user]);
 
-    const handleUpgrade = () => {
+    const handleUpgrade = async () => {
         if (typeof window.Razorpay === 'undefined') {
             alert('Payment gateway is loading. Please try again in a moment.');
             return;
         }
 
-        const options = {
-            key: "rzp_test_TPWlCTZ9mczHSa",
-            amount: "30000",
-            currency: "INR",
-            name: "RentFlow",
-            description: "Premium Pass - 1 Month Access",
-            handler: function (response) {
-                console.log("Successful Payment ID:", response.razorpay_payment_id);
-                
-                let currentUser = JSON.parse(localStorage.getItem('current_user'));
-                let allUsers = JSON.parse(localStorage.getItem('user')) || [];
-
-                if (currentUser) {
-                    const today = new Date();
-                    let expiryDate = new Date();
-
-                    if (currentUser.isPremium && currentUser.premiumExpiryDate) {
-                        const currentExpiry = new Date(currentUser.premiumExpiryDate);
-                        if (currentExpiry > today) {
-                            expiryDate = currentExpiry;
-                        } else {
-                            expiryDate = today;
-                        }
-                    } else {
-                        expiryDate = today;
-                    }
-
-                    expiryDate.setDate(expiryDate.getDate() + 30);
-
-                    currentUser.isPremium = true;
-                    currentUser.premiumPurchaseDate = today.toISOString();
-                    currentUser.premiumExpiryDate = expiryDate.toISOString();
-                    
-                    localStorage.setItem('current_user', JSON.stringify(currentUser));
-                    
-                    // The generic auth service might use token, we sync both to be safe
-                    localStorage.setItem('rf_token', JSON.stringify(currentUser));
-
-                    const userIndex = allUsers.findIndex(u => u.useremail === currentUser.useremail);
-                    if (userIndex !== -1) {
-                        allUsers[userIndex].isPremium = true;
-                        allUsers[userIndex].premiumPurchaseDate = today.toISOString();
-                        allUsers[userIndex].premiumExpiryDate = expiryDate.toISOString();
-                        localStorage.setItem('user', JSON.stringify(allUsers));
-                    }
-                }
-
-                alert('Payment Successful! Welcome to RentFlow Premium.');
-                navigate('/');
-            },
-            prefill: {
-                name: "RentFlow User",
-                email: "user@example.com",
-            },
-            theme: {
-                color: "#2563eb"
-            }
-        };
-
         try {
+            // 1. Create backend order
+            const orderRes = await createPaymentOrder();
+            if (!orderRes || !orderRes.orderId) {
+                alert('Failed to initialize payment order.');
+                return;
+            }
+
+            // 2. Configure Razorpay using authoritative backend details
+            const options = {
+                key: orderRes.keyId,
+                amount: orderRes.amount,
+                currency: orderRes.currency,
+                order_id: orderRes.orderId,
+                name: "RentFlow",
+                description: "Premium Pass - 1 Month Access",
+                handler: async function (response) {
+                    try {
+                        // 3. Verify payment on backend
+                        const verifyRes = await verifyPayment({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature
+                        });
+                        
+                        if (verifyRes && verifyRes.user) {
+                            // Update local storage with the new authoritative user state
+                            localStorage.setItem('user', JSON.stringify(verifyRes.user));
+                            alert('Payment Successful! Welcome to RentFlow Premium.');
+                            window.dispatchEvent(new Event('storage')); // Trigger navbar update if it listens, or navigate will refresh
+                            navigate('/');
+                        }
+                    } catch (verifyError) {
+                        console.error("Verification Error:", verifyError);
+                        alert("Payment verification failed. Please contact support.");
+                    }
+                },
+                prefill: {
+                    name: user?.name || "RentFlow User",
+                    email: user?.email || "user@example.com",
+                },
+                theme: {
+                    color: "#f59e0b" // Match our primary orange theme
+                }
+            };
+
             const rzp = new window.Razorpay(options);
             rzp.on('payment.failed', function (response){
                 console.error("Razorpay Error Details:", response.error);
@@ -96,8 +82,8 @@ export default function Premium() {
             });
             rzp.open();
         } catch (error) {
-            console.error("SDK Error:", error);
-            alert("Failed to load payment gateway.");
+            console.error("Payment initiation error:", error);
+            alert("Failed to start payment process.");
         }
     };
 
@@ -134,7 +120,7 @@ export default function Premium() {
                     </ul>
 
                     <button className="btn-upgrade" onClick={handleUpgrade}>
-                        Upgrade to Premium
+                        {user && user.isPro ? 'Extend Premium' : 'Upgrade to Premium'}
                     </button>
                 </div>
 
@@ -143,4 +129,3 @@ export default function Premium() {
         </div>
     );
 }
-

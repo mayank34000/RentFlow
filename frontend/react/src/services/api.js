@@ -9,22 +9,12 @@ export const API_URL =
     import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 /**
- * Returns authentication headers for both the existing development
- * user flow and JWT-based authentication.
+ * Returns authentication headers using the canonical JWT based authentication.
  */
 export function getAuthHeaders() {
     const headers = {};
-    // Aryan's development user authentication.
-    const devUserId = localStorage.getItem('devUserId');
-    if (devUserId) {
-        headers['x-dev-user-id'] = devUserId;
-    }
-
-    // Mayank's existing admin/session JWT.
-    // Fall back to Dhruv's generic "token" key for newer auth pages.
-    const rfToken = localStorage.getItem('rf_token');
-    const token = rfToken || localStorage.getItem('token');
-
+    const token = localStorage.getItem('token');
+    
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
@@ -34,15 +24,12 @@ export function getAuthHeaders() {
 
 // JWT/session utilities.
 export function isLoggedIn() {
-    return !!(
-        localStorage.getItem('rf_token') ||
-        localStorage.getItem('token')
-    );
+    return !!localStorage.getItem('token');
 }
 
 export function getAuthUser() {
     try {
-        const user = localStorage.getItem('rf_user');
+        const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;
     } catch {
         return null;
@@ -50,18 +37,15 @@ export function getAuthUser() {
 }
 
 export function saveAuthSession(token, user) {
-    localStorage.setItem('rf_token', token);
     localStorage.setItem('token', token);
-
     if (user) {
-        localStorage.setItem('rf_user', JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(user));
     }
 }
 
 export function clearAuthSession() {
-    localStorage.removeItem('rf_token');
     localStorage.removeItem('token');
-    localStorage.removeItem('rf_user');
+    localStorage.removeItem('user');
 }
 
 /**
@@ -136,42 +120,70 @@ export async function apiRequest(endpoint, options = {}) {
 }
 
 // ==========================================
-// MOCK LISTING API (Fallback until backend is ready)
+// REAL LISTING API
 // ==========================================
 
-export function getListings() {
+export function adaptListing(listing) {
+    if (!listing) return listing;
+    
+    // Map id to _id for older components that might rely on id
+    const adapted = {
+        ...listing,
+        id: listing._id,
+        // Map backend's owner structure to what the frontend's mock used to be (seller) if needed for backwards compatibility in UI
+        seller: listing.owner ? {
+            name: listing.owner.name || 'Owner',
+            phone: listing.owner.phone || '',
+            city: listing.city || listing.owner.city || 'Unknown',
+            address: listing.city || listing.owner.city || 'Unknown'
+        } : null
+    };
+
+    if (adapted.image && adapted.image.startsWith('/uploads')) {
+        adapted.image = `${API_URL}${adapted.image}`;
+    }
+
+    return adapted;
+}
+
+export async function getListings(params = {}) {
     try {
-        return JSON.parse(localStorage.getItem('rentflow_listings')) || [];
-    } catch {
+        const queryParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value) queryParams.append(key, value);
+        });
+        
+        const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        const { data } = await apiRequest(`/api/listings${queryString}`);
+        // Unwraps { success, count, data } to just data
+        const rawListings = data.data || [];
+        return rawListings.map(adaptListing);
+    } catch (err) {
+        console.error("Error fetching listings:", err);
         return [];
     }
 }
 
-export function saveListing(listing) {
-    const listings = getListings();
-    listings.push(listing);
-    localStorage.setItem('rentflow_listings', JSON.stringify(listings));
-    window.dispatchEvent(new Event('storage')); // Notify other tabs/components
-    return listing;
+export async function saveListing(formData) {
+    const { data } = await apiRequest('/api/listings', {
+        method: 'POST',
+        body: formData
+    });
+    return adaptListing(data.data);
 }
 
-export function updateListing(id, updates) {
-    const listings = getListings();
-    const index = listings.findIndex(l => l.id === id);
-    if (index !== -1) {
-        listings[index] = { ...listings[index], ...updates };
-        localStorage.setItem('rentflow_listings', JSON.stringify(listings));
-        window.dispatchEvent(new Event('storage'));
-        return listings[index];
-    }
-    throw new Error('Listing not found');
+export async function updateListing(id, formData) {
+    const { data } = await apiRequest(`/api/listings/${id}`, {
+        method: 'PUT',
+        body: formData
+    });
+    return adaptListing(data.data);
 }
 
-export function deleteListing(id) {
-    const listings = getListings();
-    const newListings = listings.filter(l => l.id !== id);
-    localStorage.setItem('rentflow_listings', JSON.stringify(newListings));
-    window.dispatchEvent(new Event('storage'));
+export async function deleteListing(id) {
+    await apiRequest(`/api/listings/${id}`, {
+        method: 'DELETE'
+    });
 }
 
 export function getBookings() {
@@ -219,4 +231,23 @@ export function processWalletSettlement(booking) {
     updateBookingStatus(booking.id, 'Returned');
     
     return { securityAmount, sellerEarnings, commission, buyerEmail, sellerEmail };
+}
+
+// ==========================================
+// PAYMENT API
+// ==========================================
+
+export async function createPaymentOrder() {
+    const { data } = await apiRequest('/api/payment/create-order', {
+        method: 'POST'
+    });
+    return data;
+}
+
+export async function verifyPayment(paymentData) {
+    const { data } = await apiRequest('/api/payment/verify', {
+        method: 'POST',
+        body: paymentData
+    });
+    return data;
 }

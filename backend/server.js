@@ -67,8 +67,18 @@ app.use(express.json());
 // any route handlers so every request is captured.
 app.use(requestLogger);
 
-// ── 4. API Routes ─────────────────────────────────────────────────────────────
+// ── 4. Static Files ───────────────────────────────────────────────────────────
+const path = require('path');
+app.use('/uploads', (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+}, express.static(path.join(__dirname, 'uploads')));
+
+// ── 5. API Routes ─────────────────────────────────────────────────────────────
 // User-facing routes (from main)
+app.use('/api/listings', require('./routes/listings'));
+app.use("/api/payment", require("./routes/payment"));
+
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/chat', require('./routes/chat'));

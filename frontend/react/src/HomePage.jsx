@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './styles/tokens.css';
 import './styles/home.css';
+import Navbar from './components/Navbar';
 
 // ============================================================================
 // 1. STATIC DATA CONSTANTS
@@ -38,7 +39,7 @@ const SHOWCASE_ITEMS = [
     tagline: 'Bikes, SUVs & Luxury Cars',
     video: '/assets/vehicles-video.mp4',
     fallbackVideo: './assets/vehicles-video.mp4',
-    accentColor: '#3b82f6',
+    accentColor: 'var(--primary-orange)',
     glowColor: 'rgba(59, 130, 246, 0.6)',
     bgGradient: 'radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, rgba(5, 10, 24, 0.95) 75%)',
   },
@@ -100,7 +101,7 @@ const FEATURES_DATA = [
     title: 'Smart Location Search',
     text: 'Filter thousands of listings by location, radius, and availability for immediate pickup or delivery.',
     iconType: 'search',
-    accentColor: '#3b82f6',
+    accentColor: 'var(--primary-orange)',
     isPro: false,
   },
   {
@@ -246,7 +247,7 @@ function useAuth() {
         user: currentUser || null,
         profileImage,
         isPremium: currentUser
-          ? !!currentUser.isPremium
+          ? !!currentUser.isPro
           : false,
       };
     } catch {
@@ -461,7 +462,7 @@ function MobileMenu({ open, isLoggedIn, isPremium, logout, onClose }) {
   );
 }
 
-function Navbar({ auth }) {
+function OldNavbar({ auth }) {
   const { scrolled, hiddenNav } = useScrollDirection();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isLoggedIn, user, profileImage, isPremium, logout } = auth;
@@ -550,10 +551,10 @@ function HeroCircleFeatureMix() {
             r="235"
             className="home-r-ring-active"
             style={{
-              stroke: current.accentColor || '#3b82f6',
+              stroke: current.accentColor || 'var(--primary-orange)',
               strokeDasharray: '1476',
               strokeDashoffset: 1476 - (1476 / FEATURES_DATA.length) * (activeFeature + 1),
-              filter: `drop-shadow(0 0 16px ${current.accentColor || '#3b82f6'})`,
+              filter: `drop-shadow(0 0 16px ${current.accentColor || 'var(--primary-orange)'})`,
             }}
           />
         </svg>
@@ -1099,7 +1100,7 @@ export default function HomePage() {
       </video>
       <div className="home-overlay" />
 
-      <Navbar auth={auth} />
+      <Navbar />
       <main>
         <Hero isLoggedIn={auth.isLoggedIn} />
         <OmniCircleShowcase />

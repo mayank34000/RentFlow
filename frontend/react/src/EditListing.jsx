@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getAuthUser, getListings, updateListing } from './services/api';
+import Navbar from './components/Navbar';
 
 export default function EditListing() {
     const { id } = useParams();
@@ -14,7 +15,6 @@ export default function EditListing() {
     const [period, setPeriod] = useState('');
     const [description, setDescription] = useState('');
     const [city, setCity] = useState('');
-    
     const [statusMsg, setStatusMsg] = useState({ text: '', type: '' });
 
     useEffect(() => {
@@ -25,23 +25,31 @@ export default function EditListing() {
         }
         setUser(currentUser);
 
-        const allListings = getListings();
-        const found = allListings.find(l => l.id === id);
-        
-        if (found) {
-            setListing(found);
-            setTitle(found.title || '');
-            setCategory(found.category || '');
-            setPrice(found.price || '');
-            setPeriod(found.period || 'day');
-            setDescription(found.description || '');
-            setCity(found.seller?.city || '');
-        } else {
-            setStatusMsg({ text: 'Listing not found.', type: 'error' });
+        async function fetchListing() {
+            try {
+                const allListings = await getListings();
+                const found = allListings.find(l => String(l.id) === String(id));
+                
+                if (found) {
+                    setListing(found);
+                    setTitle(found.title || '');
+                    setCategory(found.category || '');
+                    setPrice(found.price || '');
+                    setPeriod(found.period || 'day');
+                    setDescription(found.description || '');
+                    setCity(found.seller?.city || '');
+                } else {
+                    setStatusMsg({ text: 'Listing not found.', type: 'error' });
+                }
+            } catch (err) {
+                setStatusMsg({ text: 'Failed to load listing.', type: 'error' });
+            }
         }
+        
+        fetchListing();
     }, [id, navigate]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (!title) {
@@ -54,23 +62,22 @@ export default function EditListing() {
         }
 
         try {
-            updateListing(id, {
-                title,
-                category,
-                price: parseFloat(price),
-                period,
-                description,
-                seller: {
-                    ...listing.seller,
-                    city
-                }
-            });
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('category', category || 'Electronics');
+            formData.append('price', parseFloat(price));
+            formData.append('period', period || 'day');
+            formData.append('description', description || '');
+            formData.append('city', city || 'Unknown');
+
+            await updateListing(id, formData);
+            
             setStatusMsg({ text: 'Listing updated successfully!', type: 'success' });
             setTimeout(() => {
                 navigate('/create-listing');
             }, 1500);
-        } catch (e) {
-            setStatusMsg({ text: 'Listing no longer exists.', type: 'error' });
+        } catch (error) {
+            setStatusMsg({ text: `Failed to update listing: ${error.data?.message || error.message}`, type: 'error' });
         }
     };
 
@@ -80,14 +87,7 @@ export default function EditListing() {
 
     return (
         <div style={{minHeight: '100vh', backgroundColor: 'var(--bg-page)', color: 'var(--text-strongest)', paddingTop: '80px', paddingBottom: '60px'}}>
-            <header className="site-header scrolled">
-                <Link to="/" className="logo">Rent<span style={{color: '#3b82f6'}}>Flow</span></Link>
-                <nav className="nav-links">
-                    <Link to="/">Home</Link>
-                    <Link to="/booking">Explore Rentals</Link>
-                    <Link to="/create-listing">Post Listing</Link>
-                </nav>
-            </header>
+            <Navbar />
 
             <div style={{maxWidth: '600px', margin: '0 auto', padding: '0 20px'}}>
                 <div style={{marginBottom: '30px'}}>
@@ -114,7 +114,7 @@ export default function EditListing() {
                     <form onSubmit={handleSubmit} style={{background: 'var(--bg-card)', padding: '30px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)'}}>
                         <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                             <span style={{color: 'var(--text-secondary)', fontSize: '14px'}}>ID: {listing.id}</span>
-                            <span style={{background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '4px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase'}}>{listing.status}</span>
+                            <span style={{background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-orange)', padding: '4px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase'}}>{listing.status}</span>
                         </div>
 
                         <div style={{marginBottom: '20px'}}>
@@ -159,7 +159,7 @@ export default function EditListing() {
                             <textarea value={description} onChange={e => setDescription(e.target.value)} rows="4" style={{width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-strongest)', resize: 'vertical'}}></textarea>
                         </div>
 
-                        <button type="submit" style={{width: '100%', padding: '14px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '16px', cursor: 'pointer'}}>Save Changes</button>
+                        <button type="submit" style={{width: '100%', padding: '14px', background: 'linear-gradient(135deg, var(--primary-orange), #2563eb)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '16px', cursor: 'pointer'}}>Save Changes</button>
                     </form>
                 )}
             </div>

@@ -1,6 +1,6 @@
 .booking-page {
     padding-top: 80px;
-    background-color: var(--bg-primary, #0f121e);
+    background-color: var(--bg-page);
     min-height: 100vh;
     color: var(--text-primary, #fff);
     font-family: var(--font-primary, system-ui, -apple-system, sans-serif);
@@ -42,7 +42,7 @@
 }
 
 .search-input:focus {
-    border-color: #3a5bd9;
+    border-color: var(--primary-orange);
 }
 
 .category-filters {
@@ -67,8 +67,8 @@
 }
 
 .category-pill.active {
-    background-color: #3a5bd9;
-    border-color: #3a5bd9;
+    background-color: var(--primary-orange);
+    border-color: var(--primary-orange);
     color: #fff;
 }
 
@@ -79,7 +79,9 @@
 }
 
 .listing-card {
-    background-color: var(--bg-secondary, #1a1f33);
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--primary-orange);
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -144,7 +146,7 @@
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background-color: #3a5bd9;
+    background-color: var(--primary-orange);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -190,7 +192,7 @@
 .listing-price {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #3a5bd9;
+    color: var(--primary-orange);
 }
 
 .listing-price span {
@@ -200,7 +202,7 @@
 }
 
 .btn-book {
-    background-color: #3a5bd9;
+    background-color: var(--primary-orange);
     color: #fff;
     border: none;
     padding: 8px 16px;
@@ -211,14 +213,16 @@
 }
 
 .btn-book:hover {
-    background-color: #2e4ab8;
+    background-color: var(--orange-hover);
 }
 
 .empty-state {
     grid-column: 1 / -1;
     text-align: center;
     padding: 60px 20px;
-    background-color: var(--bg-secondary, #1a1f33);
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--primary-orange);
     border-radius: 12px;
     color: #a0aabe;
 }
@@ -240,7 +244,9 @@
 }
 
 .modal-content {
-    background-color: var(--bg-secondary, #1a1f33);
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--primary-orange);
     width: 100%;
     max-width: 600px;
     border-radius: 12px;
@@ -310,7 +316,7 @@
 
 .selected-price {
     font-weight: 600;
-    color: #3a5bd9;
+    color: var(--primary-orange);
 }
 
 .form-group {
@@ -336,7 +342,7 @@
 }
 
 .form-control:focus {
-    border-color: #3a5bd9;
+    border-color: var(--primary-orange);
 }
 
 .validation-error {

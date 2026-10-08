@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAuthUser, clearAuthSession } from './services/api';
 import './styles/about.css';
+import Navbar from './components/Navbar';
 
 export default function About() {
     const navigate = useNavigate();
@@ -53,45 +54,7 @@ export default function About() {
             </video>
             <div className="about-overlay"></div>
 
-            <header className={`site-header ${hiddenNav ? 'hidden-nav' : ''} ${scrolled ? 'scrolled' : ''}`} id="site-header">
-                <Link to="/" className="logo">Rent<span style={{ color: '#3b82f6' }}>Flow</span></Link>
-                <nav className="nav-links" id="main-nav">
-                    <Link to="/">Home</Link>
-                    <Link to="/booking">Explore Rentals</Link>
-                    <Link to="/create-listing" style={{ color: 'var(--primary-orange)', fontWeight: '600' }}>+ Post Listing</Link>
-                    <Link to="/contact">Contact & FAQ</Link>
-                </nav>
-
-                {isLoggedIn ? (
-                    <div className="nav-cta" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <Link to="/profile" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-                            <div style={{ width: '32px', height: '32px', background: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
-                                <img src="/assets/profile.png" alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            </div>
-                            <span style={{ fontWeight: '600', color: 'var(--text-strongest)' }}>{user?.name || user?.username || 'User'}</span>
-                        </Link>
-                        <button onClick={handleLogout} className="btn-ghost" style={{ padding: '8px 16px', border: '1px solid var(--border)' }}>Logout</button>
-                    </div>
-                ) : (
-                    <div className="nav-cta">
-                        <Link to="/login" className="btn-ghost">Log In</Link>
-                        <Link to="/signup" className="btn-nav-primary">Get Started</Link>
-                    </div>
-                )}
-
-                <button className={`hamburger ${mobileMenuOpen ? 'active' : ''}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle navigation">
-                    <span></span><span></span><span></span>
-                </button>
-            </header>
-
-            {mobileMenuOpen && (
-                <div className="mobile-menu" style={{ display: 'flex' }}>
-                    <Link to="/">Home</Link>
-                    <Link to="/booking">Explore Rentals</Link>
-                    <Link to="/create-listing">Post Listing</Link>
-                    <Link to="/contact">Contact</Link>
-                </div>
-            )}
+            <Navbar />
 
             <div className="about-page-wrapper">
                 <section className="about-hero-section">
@@ -119,7 +82,7 @@ export default function About() {
 
                 <section className="about-team-section">
                     <p className="about-section-eyebrow">THE TEAM</p>
-                    <h2 className="about-section-title">The people behind Rent<span style={{ color: '#3b82f6' }}>Flow</span></h2>
+                    <h2 className="about-section-title">The people behind Rent<span style={{ color: 'var(--primary-orange)' }}>Flow</span></h2>
                     <p className="about-section-subtitle">A small team with big dreams — and a shared obsession with making renting not suck.</p>
 
                     <div className="about-team-grid">

@@ -35,6 +35,21 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    premiumUntil: {
+      type: Date,
+      default: null,
+    },
+
+    razorpayOrderId: {
+      type: String,
+      default: null,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: null,
+    },
+
     avatar: {
       type: String,
       default: '',

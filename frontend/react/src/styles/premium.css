@@ -36,7 +36,7 @@ body.light-theme .premium-page-wrapper {
 }
 
 .premium-header h1 span {
-    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    background: linear-gradient(135deg, #60a5fa, var(--primary-orange));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -73,7 +73,7 @@ body.light-theme .premium-pricing-card {
     left: 0;
     width: 100%;
     height: 4px;
-    background: linear-gradient(90deg, var(--accent-light-blue), #3b82f6);
+    background: linear-gradient(90deg, var(--accent-light-blue), var(--primary-orange));
 }
 
 .premium-plan-badge {
@@ -124,12 +124,12 @@ body.light-theme .premium-pricing-card {
 }
 
 .premium-benefits li svg {
-    color: #3b82f6;
+    color: var(--primary-orange);
     flex-shrink: 0;
 }
 
 .btn-upgrade {
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    background: linear-gradient(135deg, var(--orange-hover), var(--primary-orange));
     color: white;
     border: none;
     padding: 16px 32px;
