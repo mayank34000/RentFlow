@@ -50,7 +50,8 @@ export function calculateBooking(listing, start, end) {
     const price = parseFloat(listing.price) || 0;
     const deposit = parseFloat(listing.securityDeposit) || 0;
     const subtotal = chargedDays * price;
-    const total = subtotal + deposit;
+    const platformFee = Math.round(subtotal * 0.02);
+    const total = subtotal + platformFee + deposit;
 
     return {
         hours: totalHours,
@@ -58,6 +59,7 @@ export function calculateBooking(listing, start, end) {
         chargedDays: chargedDays,
         description: desc,
         subtotal,
+        platformFee,
         deposit,
         total
     };
@@ -95,6 +97,30 @@ export function formatForDatetimeLocal(date) {
     return `${y}-${m}-${d}T${h}:${min}`;
 }
 
+export function getCategoryFallback(category) {
+    const cat = (category || '').toLowerCase();
+    if (cat.includes('elect') || cat.includes('gadget') || cat.includes('device') || cat.includes('camera')) return '/assets/electronics-clean.jpg';
+    if (cat.includes('vehic') || cat.includes('car') || cat.includes('bike')) return '/assets/vehicles-clean.jpg';
+    if (cat.includes('fash') || cat.includes('cloth') || cat.includes('wear')) return '/assets/fashion-clean.jpg';
+    if (cat.includes('prop') || cat.includes('real') || cat.includes('furn') || cat.includes('apart')) return '/assets/property-clean.jpg';
+    if (cat.includes('sport') || cat.includes('fit') || cat.includes('out') || cat.includes('party')) return '/assets/sports-clean.jpg';
+    if (cat.includes('tool') || cat.includes('equip')) return '/assets/tools-clean.jpg';
+    return '/assets/browse-rentals-ai.jpg';
+}
+
+export function resolveImageUrl(img, category) {
+    const fallback = getCategoryFallback(category);
+    if (!img || img === '/assets/profile.png') return fallback;
+    if (img.startsWith('http://') || img.startsWith('https://')) return img;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    if (img.startsWith('/uploads')) {
+        return `${apiUrl}${img}`;
+    }
+    if (img.startsWith('uploads/')) {
+        return `${apiUrl}/${img}`;
+    }
+    return img;
+}
 
 // ============================================================================
 // BOOKING PAGE COMPONENT
@@ -110,10 +136,16 @@ export default function BookingPage() {
     const [showProfileMenu, setShowProfileMenu] = useState(false);
 
     // ── Listings Data ──
+    const CANONICAL_CATEGORIES = ['All', 'Vehicles', 'Electronics', 'Fashion', 'Tools', 'Property', 'Sports'];
     const [allListings, setAllListings] = useState([]);
-    const [categories, setCategories] = useState([]);
+    const [categories, setCategories] = useState(CANONICAL_CATEGORIES);
     const [activeCategory, setActiveCategory] = useState('All');
+    const [activeCondition, setActiveCondition] = useState('All');
+    const [sortBy, setSortBy] = useState('newest');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [fetchError, setFetchError] = useState('');
+    const [visibleCount, setVisibleCount] = useState(24);
 
     // ── Modal State ──
     const [selectedListing, setSelectedListing] = useState(null);
@@ -125,42 +157,30 @@ export default function BookingPage() {
     // ── API State ──
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [apiError, setApiError] = useState('');
+    const [availabilityConflict, setAvailabilityConflict] = useState(null);
     const [serverBooking, setServerBooking] = useState(null);
     const abortControllerRef = useRef(null);
 
-    // ── Init Data & Auth ──
+    // ── Init Data & Auth (Decision B Option 2: Restricted to logged-in users) ──
     useEffect(() => {
         const token = localStorage.getItem('token');
-const storedUser = localStorage.getItem('user');
+        const storedUser = localStorage.getItem('user');
 
-if (!token || !storedUser) {
-    navigate('/login');
-    return;
-}
-
-setIsLoggedIn(true);
-
-try {
-    const user = JSON.parse(storedUser);
-    setCurrentUser(user);
-} catch (_e) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
-}
-
-        // Load initial categories
-        async function fetchInitialCategories() {
-            try {
-                const fetchedListings = await getListings();
-                const cats = Array.from(new Set(fetchedListings.map(l => l.category).filter(Boolean)));
-                setCategories(['All', ...cats]);
-            } catch (error) {
-                console.error("Error fetching initial categories", error);
-            }
+        if (!token || !storedUser) {
+            navigate('/login');
+            return;
         }
-        
-        fetchInitialCategories();
+
+        setIsLoggedIn(true);
+
+        try {
+            const user = JSON.parse(storedUser);
+            setCurrentUser(user);
+        } catch (_e) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login');
+        }
 
         // Fallback for legacy wallet logic (preserve exact approach from contactus.jsx)
         window.__DISABLE_LEGACY_NAVBAR_SCROLL__ = true;
@@ -172,24 +192,40 @@ try {
         }
     }, [navigate]);
 
-    // ── Search API Fetch ──
+    // ── Search & Filter API Fetch ──
     useEffect(() => {
+        let isMounted = true;
+        setIsLoading(true);
+        setFetchError('');
+
         const delayDebounceFn = setTimeout(async () => {
             try {
                 const params = {};
                 if (activeCategory !== 'All') params.category = activeCategory;
-                if (searchQuery.trim()) {
-                    params.search = searchQuery.trim();
-                }
+                if (activeCondition !== 'All') params.condition = activeCondition;
+                if (searchQuery.trim()) params.search = searchQuery.trim();
+                if (sortBy) params.sortBy = sortBy;
+
                 const results = await getListings(params);
-                setAllListings(results);
+                if (isMounted) {
+                    setAllListings(results);
+                    setVisibleCount(24);
+                    setIsLoading(false);
+                }
             } catch (err) {
                 console.error("Error searching API", err);
+                if (isMounted) {
+                    setFetchError("Failed to load rental listings. Please try again.");
+                    setIsLoading(false);
+                }
             }
         }, 300);
 
-        return () => clearTimeout(delayDebounceFn);
-    }, [searchQuery, activeCategory]);
+        return () => {
+            isMounted = false;
+            clearTimeout(delayDebounceFn);
+        };
+    }, [searchQuery, activeCategory, activeCondition, sortBy]);
 
     // ── Pro Status Gating ──
     const checkProStatus = () => {
@@ -200,14 +236,26 @@ try {
 
     const isPro = checkProStatus();
 
-    // ── Filter Listings ──
-    const filteredListings = allListings;
+    // ── Client Deduplication & Pagination ──
+    const uniqueListings = React.useMemo(() => {
+        const seen = new Set();
+        return (allListings || []).filter(item => {
+            const sig = `${(item.title || '').trim().toLowerCase()}|${(item.category || '').toLowerCase()}`;
+            if (seen.has(sig)) return false;
+            seen.add(sig);
+            return true;
+        });
+    }, [allListings]);
+
+    const displayedListings = uniqueListings.slice(0, visibleCount);
 
     // ── Modal Interactions ──
     const openModal = (listing) => {
         setSelectedListing(listing);
         setIsConfirmed(false);
         setValidationError('');
+        setApiError('');
+        setAvailabilityConflict(null);
 
         const defaultStart = getMinStart();
         setBookingStart(formatForDatetimeLocal(defaultStart));
@@ -224,6 +272,7 @@ try {
         setIsConfirmed(false);
         setValidationError('');
         setApiError('');
+        setAvailabilityConflict(null);
         setServerBooking(null);
         setIsSubmitting(false);
         if (abortControllerRef.current) {
@@ -341,7 +390,11 @@ try {
             } else if (response.status === 404) {
                 setApiError("Listing not found.");
             } else if (response.status === 409 && data?.error === "LISTING_UNAVAILABLE") {
-                setApiError("The listing is unavailable for the selected dates.");
+                setAvailabilityConflict({
+                    availableFrom: data.availableFrom,
+                    message: data.message || "The listing is unavailable for the selected dates."
+                });
+                setApiError(data?.message || "The listing is unavailable for the selected dates.");
             } else if (response.status === 503) {
                 setApiError("Listing model not available yet. (Backend dependency issue)");
             } else {
@@ -365,7 +418,7 @@ try {
 
     // ── Render Helpers ──
     const firstName = currentUser ? (currentUser.name || currentUser.username || currentUser.userfname || 'User').split(' ')[0] : 'User';
-    const savedImage = currentUser ? (localStorage.getItem('profileImage') || '../assets/profile.png') : '../assets/profile.png';
+    const savedImage = currentUser ? (localStorage.getItem('profileImage') || '/assets/profile.png') : '/assets/profile.png';
     const premiumText = (currentUser && currentUser.isPro) ? 'Pro Member' : 'Premium';
 
     return (
@@ -379,13 +432,59 @@ try {
                 <div className="booking-header">
                     <h1>Explore Rentals</h1>
                     <div className="booking-controls">
-                        <input
-                            type="text"
-                            className="search-input"
-                            placeholder="Search by item, category, or location..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', width: '100%' }}>
+                            <input
+                                type="text"
+                                className="search-input"
+                                placeholder="Search by item, category, or location..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{ flex: '1 1 300px' }}
+                            />
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    style={{
+                                        padding: '10px 14px',
+                                        borderRadius: '100px',
+                                        border: '1px solid var(--border)',
+                                        background: 'var(--bg-card)',
+                                        color: 'var(--text-strongest)',
+                                        fontSize: '14px',
+                                        fontWeight: 500,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="newest">Newest First</option>
+                                    <option value="price_asc">Price: Low to High</option>
+                                    <option value="price_desc">Price: High to Low</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+
+                                <select
+                                    value={activeCondition}
+                                    onChange={(e) => setActiveCondition(e.target.value)}
+                                    style={{
+                                        padding: '10px 14px',
+                                        borderRadius: '100px',
+                                        border: '1px solid var(--border)',
+                                        background: 'var(--bg-card)',
+                                        color: 'var(--text-strongest)',
+                                        fontSize: '14px',
+                                        fontWeight: 500,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="All">All Conditions</option>
+                                    <option value="brand-new">Brand New</option>
+                                    <option value="like-new">Like New</option>
+                                    <option value="good">Good Condition</option>
+                                    <option value="fair">Fair</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div className="category-filters">
                             {categories.map(cat => (
                                 <button
@@ -400,61 +499,156 @@ try {
                     </div>
                 </div>
 
-                <div className="listings-grid">
-                    {filteredListings.length === 0 ? (
-                        <div className="empty-state">
-                            <h3>No listings found</h3>
-                            <p>Try adjusting your search or category filter.</p>
-                        </div>
-                    ) : (
-                        filteredListings.map(item => {
-                            const imageSrc = item.image ? item.image : '../../assets/profile.png';
-                            const initial = item.seller?.name?.charAt(0).toUpperCase() || 'S';
+                {isLoading ? (
+                    <div className="listings-grid">
+                        {[1, 2, 3, 4, 5, 6].map(n => (
+                            <div className="listing-card" key={n} style={{ opacity: 0.6, pointerEvents: 'none' }}>
+                                <div style={{ width: '100%', height: '180px', background: 'var(--border)', borderRadius: '12px 12px 0 0' }}></div>
+                                <div style={{ padding: '16px' }}>
+                                    <div style={{ height: '12px', width: '35%', background: 'var(--border)', borderRadius: '4px', marginBottom: '10px' }}></div>
+                                    <div style={{ height: '18px', width: '85%', background: 'var(--border)', borderRadius: '4px', marginBottom: '12px' }}></div>
+                                    <div style={{ height: '12px', width: '50%', background: 'var(--border)', borderRadius: '4px', marginBottom: '20px' }}></div>
+                                    <div style={{ height: '36px', width: '100%', background: 'var(--border)', borderRadius: '8px' }}></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : fetchError ? (
+                    <div className="empty-state" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                        <h3 style={{ color: '#ef4444', marginBottom: '8px' }}>Unable to load listings</h3>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>{fetchError}</p>
+                        <button onClick={() => { setActiveCategory('All'); setSearchQuery(''); }} className="btn-book" style={{ margin: '0 auto' }}>
+                            Retry
+                        </button>
+                    </div>
+                ) : uniqueListings.length === 0 ? (
+                    <div className="empty-state">
+                        <h3>No rentals found</h3>
+                        <p>No listings matched your criteria in {activeCategory !== 'All' ? activeCategory : 'any category'}.</p>
+                        {(activeCategory !== 'All' || searchQuery || activeCondition !== 'All') && (
+                            <button
+                                onClick={() => { setActiveCategory('All'); setActiveCondition('All'); setSearchQuery(''); }}
+                                style={{ marginTop: '14px', padding: '8px 18px', background: 'transparent', border: '1px solid var(--primary-orange)', color: 'var(--primary-orange)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                                Clear all filters
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <div className="listings-grid">
+                            {displayedListings.map((item, index) => {
+                                const rawImg = (Array.isArray(item.images) && item.images[0]) || item.image;
+                                const imageSrc = resolveImageUrl(rawImg, item.category);
+                                const initial = item.seller?.name?.charAt(0).toUpperCase() || 'S';
 
-                            return (
-                                <div className="listing-card" key={item.id}>
-                                    <img
-                                        src={imageSrc}
-                                        alt={item.title}
-                                        className="listing-image"
-                                        onError={(e) => { e.target.src = '../../assets/profile.png'; }}
-                                    />
-                                    <div className="listing-content">
-                                        <div className="listing-category">{item.category}</div>
-                                        <div className="listing-title">{item.title}</div>
-                                        <div className="listing-location">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                                            {item.seller?.address || item.seller?.city || 'Unknown Location'}
+                                return (
+                                    <div className="listing-card" key={`${item._id || item.id || 'item'}-${index}`}>
+                                        <div style={{ position: 'relative' }}>
+                                            <img
+                                                src={imageSrc}
+                                                alt={item.title}
+                                                className="listing-image"
+                                                loading="lazy"
+                                                decoding="async"
+                                                referrerPolicy="no-referrer"
+                                                onLoad={(e) => {
+                                                    if (e.target.naturalWidth <= 2 && e.target.naturalHeight <= 2) {
+                                                        const fb = getCategoryFallback(item.category);
+                                                        if (e.target.src !== fb) e.target.src = fb;
+                                                    }
+                                                }}
+                                                onError={(e) => {
+                                                    const fb = getCategoryFallback(item.category);
+                                                    if (e.target.src !== fb && !e.target.src.endsWith(fb)) {
+                                                        e.target.src = fb;
+                                                    }
+                                                }}
+                                            />
+                                            {item.conditionLabel && (
+                                                <span style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '100px' }}>
+                                                    {item.conditionLabel}
+                                                </span>
+                                            )}
                                         </div>
-
-                                        <div className="listing-price-row">
-                                            <div className="listing-price">
-                                                ₹{item.price} <span>/ day</span>
+                                        <div className="listing-content">
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div className="listing-category">{item.category}</div>
+                                                {item.condition && !item.conditionLabel && (
+                                                    <span style={{ fontSize: '11px', textTransform: 'capitalize', color: 'var(--primary-orange)', fontWeight: 600 }}>
+                                                        {item.condition.replace('-', ' ')}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <button className="btn-book" onClick={() => openModal(item)}>
-                                                Book Rental
-                                            </button>
-                                        </div>
+                                            <div className="listing-title">{item.title}</div>
 
-                                        <div className="listing-seller">
-                                            <div className="seller-avatar">{initial}</div>
-                                            <div className="seller-info">
-                                                <div className="seller-name">{item.seller?.name || 'Verified Owner'}</div>
-                                                <div className="seller-contact">
-                                                    {isPro ? (
-                                                        <span className="contact-unlocked">{item.seller?.phone || 'Contact Available'}</span>
-                                                    ) : (
-                                                        <Link to="/premium" className="contact-locked">Unlock Contact (Pro)</Link>
-                                                    )}
+                                            {/* Key category specs preview */}
+                                            {item.categorySpecs && Object.keys(item.categorySpecs).length > 0 && (
+                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', margin: '4px 0 8px 0' }}>
+                                                    {Object.entries(item.categorySpecs).filter(([_, v]) => v).slice(0, 2).map(([k, v]) => (
+                                                        <span key={k} style={{ fontSize: '11px', background: 'var(--bg-subtle, rgba(0,0,0,0.04))', border: '1px solid var(--border)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>
+                                                            {v}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div className="listing-location">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                                {item.seller?.address || item.seller?.city || 'Unknown Location'}
+                                            </div>
+
+                                            <div className="listing-price-row">
+                                                <div className="listing-price">
+                                                    ₹{item.price} <span>/ {item.period || 'day'}</span>
+                                                    <span style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: 'var(--text-secondary, #94a3b8)', marginTop: '2px' }}>+ 2% platform fee</span>
+                                                </div>
+                                                <button className="btn-book" onClick={() => openModal(item)}>
+                                                    Book Rental
+                                                </button>
+                                            </div>
+
+                                            <div className="listing-seller">
+                                                <div className="seller-avatar">{initial}</div>
+                                                <div className="seller-info">
+                                                    <div className="seller-name">{item.seller?.name || 'Verified Owner'}</div>
+                                                    <div className="seller-contact">
+                                                        {isPro ? (
+                                                            <span className="contact-unlocked">{item.seller?.phone || 'Contact Available'}</span>
+                                                        ) : (
+                                                            <Link to="/premium" className="contact-locked">Unlock Contact (Pro)</Link>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
+                                );
+                            })}
+                        </div>
+                        {uniqueListings.length > visibleCount && (
+                            <div style={{ textAlign: 'center', marginTop: '36px', marginBottom: '24px' }}>
+                                <button
+                                    onClick={() => setVisibleCount(prev => prev + 24)}
+                                    className="btn-book"
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '12px 28px',
+                                        fontSize: '15px',
+                                        fontWeight: 600,
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        margin: '0 auto'
+                                    }}
+                                >
+                                    Load More Rentals ({uniqueListings.length - visibleCount} more)
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
 
             {/* ── Booking Modal ── */}
@@ -491,15 +685,28 @@ try {
                                                 <span>₹{serverBooking.subtotal}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                                                <span>Security Deposit</span>
+                                                <span>Platform Service Fee (2%)</span>
+                                                <span>₹{(serverBooking.platformFee && serverBooking.platformFee > 0) ? serverBooking.platformFee : Math.round((serverBooking.subtotal || 0) * 0.02)}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                                <span>Security Deposit (Refundable to Wallet)</span>
                                                 <span>₹{serverBooking.securityDeposit}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
                                                 <span>Final Total</span>
-                                                <span>₹{serverBooking.total}</span>
+                                                <span>₹{(() => {
+                                                    const fee = (serverBooking.platformFee && serverBooking.platformFee > 0) ? serverBooking.platformFee : Math.round((serverBooking.subtotal || 0) * 0.02);
+                                                    const expected = (serverBooking.subtotal || 0) + fee + (serverBooking.securityDeposit || 0);
+                                                    return (serverBooking.total && serverBooking.total >= expected) ? serverBooking.total : expected;
+                                                })()}</span>
                                             </div>
 
-                                            {serverBooking.total !== calcResult.total && (
+                                            {(() => {
+                                                const fee = (serverBooking.platformFee && serverBooking.platformFee > 0) ? serverBooking.platformFee : Math.round((serverBooking.subtotal || 0) * 0.02);
+                                                const expected = (serverBooking.subtotal || 0) + fee + (serverBooking.securityDeposit || 0);
+                                                const finalT = (serverBooking.total && serverBooking.total >= expected) ? serverBooking.total : expected;
+                                                return finalT !== calcResult.total;
+                                            })() && (
                                                 <div style={{ marginTop: '15px', fontSize: '0.85rem', color: '#fbbf24', lineHeight: 1.4 }}>
                                                     * Note: The final amount was calculated by the server and differs from the initial estimate.
                                                 </div>
@@ -515,10 +722,22 @@ try {
                                 <>
                                     <div className="selected-listing-preview">
                                         <img
-                                            src={Array.isArray(selectedListing.images) && selectedListing.images[0] ? selectedListing.images[0] : '../../assets/profile.png'}
+                                            src={resolveImageUrl((Array.isArray(selectedListing.images) && selectedListing.images[0]) || selectedListing.image, selectedListing.category)}
                                             alt={selectedListing.title}
                                             className="selected-image"
-                                            onError={(e) => { e.target.src = '../../assets/profile.png'; }}
+                                            referrerPolicy="no-referrer"
+                                            onLoad={(e) => {
+                                                if (e.target.naturalWidth <= 2 && e.target.naturalHeight <= 2) {
+                                                    const fb = getCategoryFallback(selectedListing?.category);
+                                                    if (e.target.src !== fb) e.target.src = fb;
+                                                }
+                                            }}
+                                            onError={(e) => {
+                                                const fb = getCategoryFallback(selectedListing?.category);
+                                                if (e.target.src !== fb && !e.target.src.endsWith(fb)) {
+                                                    e.target.src = fb;
+                                                }
+                                            }}
                                         />
                                         <div className="selected-details">
                                             <h4>{selectedListing.title}</h4>
@@ -527,11 +746,61 @@ try {
                                         </div>
                                     </div>
 
-                                    {(validationError || apiError || (!isFormValid && (bookingStart && bookingEnd))) && (
+                                    {availabilityConflict ? (
+                                        <div style={{
+                                            background: '#fffbeb',
+                                            border: '1px solid #f59e0b',
+                                            color: '#92400e',
+                                            padding: '12px 16px',
+                                            borderRadius: '8px',
+                                            marginBottom: '16px',
+                                            fontSize: '0.88rem',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '8px',
+                                            lineHeight: 1.4
+                                        }}>
+                                            <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', color: '#b45309' }}>
+                                                <span>⚠️</span>
+                                                <span>Item Currently Booked</span>
+                                            </div>
+                                            <div>{availabilityConflict.message}</div>
+                                            {availabilityConflict.availableFrom && (
+                                                <button
+                                                    type="button"
+                                                    style={{
+                                                        alignSelf: 'flex-start',
+                                                        marginTop: '2px',
+                                                        padding: '6px 12px',
+                                                        fontSize: '0.82rem',
+                                                        background: '#f59e0b',
+                                                        color: '#ffffff',
+                                                        border: 'none',
+                                                        borderRadius: '5px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 600,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}
+                                                    onClick={() => {
+                                                        const availDate = new Date(availabilityConflict.availableFrom);
+                                                        setBookingStart(formatForDatetimeLocal(availDate));
+                                                        const nextEnd = new Date(availDate.getTime() + 24 * 60 * 60 * 1000);
+                                                        setBookingEnd(formatForDatetimeLocal(nextEnd));
+                                                        setAvailabilityConflict(null);
+                                                        setApiError('');
+                                                    }}
+                                                >
+                                                    📅 Set Start Date to Available Time
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (validationError || apiError || (!isFormValid && (bookingStart && bookingEnd))) ? (
                                         <div className="validation-error">
                                             {validationError || apiError || valError}
                                         </div>
-                                    )}
+                                    ) : null}
 
                                     <div className="form-group">
                                         <label>Start Date &amp; Time</label>
@@ -539,7 +808,11 @@ try {
                                             type="datetime-local"
                                             className="form-control"
                                             value={bookingStart}
-                                            onChange={(e) => setBookingStart(e.target.value)}
+                                            onChange={(e) => {
+                                                setBookingStart(e.target.value);
+                                                setAvailabilityConflict(null);
+                                                setApiError('');
+                                            }}
                                             min={formatForDatetimeLocal(getMinStart())}
                                         />
                                     </div>
@@ -550,7 +823,11 @@ try {
                                             type="datetime-local"
                                             className="form-control"
                                             value={bookingEnd}
-                                            onChange={(e) => setBookingEnd(e.target.value)}
+                                            onChange={(e) => {
+                                                setBookingEnd(e.target.value);
+                                                setAvailabilityConflict(null);
+                                                setApiError('');
+                                            }}
                                         />
                                     </div>
 
@@ -565,6 +842,10 @@ try {
                                             <div className="pricing-row">
                                                 <span>Subtotal</span>
                                                 <span>₹{calcResult.subtotal.toLocaleString('en-IN')}</span>
+                                            </div>
+                                            <div className="pricing-row">
+                                                <span>Platform Service Fee (2%)</span>
+                                                <span style={{ color: '#10b981' }}>+ ₹{(calcResult.platformFee || 0).toLocaleString('en-IN')}</span>
                                             </div>
                                             <div className="pricing-row">
                                                 <span>Security Deposit (Refundable)</span>

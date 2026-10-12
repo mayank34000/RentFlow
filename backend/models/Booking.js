@@ -87,6 +87,46 @@ const bookingSchema = new mongoose.Schema(
             required: true,
         },
 
+        // ── Stage 4/5 Financial Paise Fields ──────────────────────────────────
+        rentalPaise: {
+            type: Number,
+            default: 0,
+        },
+
+        depositPaise: {
+            type: Number,
+            default: 0,
+        },
+
+        commissionPaise: {
+            type: Number,
+            default: 0,
+        },
+
+        damagePaise: {
+            type: Number,
+            default: 0,
+        },
+
+        fundsState: {
+            type: String,
+            enum: ['NONE', 'HELD', 'SETTLED'],
+            default: 'NONE',
+            index: true,
+        },
+
+        paymentStatus: {
+            type: String,
+            enum: ['UNPAID', 'AWAITING_PAYMENT', 'PAID'],
+            default: 'UNPAID',
+            index: true,
+        },
+
+        paymentDueAt: {
+            type: Date,
+            default: null,
+        },
+
         // ── Status Machine ────────────────────────────────────────────────────
         // Allowed transitions (enforced by the controller, not here):
         //   Pending  → Approved  (lender approves)
@@ -103,12 +143,31 @@ const bookingSchema = new mongoose.Schema(
                 'Pending',
                 'Approved',
                 'Active',
-                'Completed',
                 'Returned',
+                'Completed',
                 'Cancelled',
                 'Rejected',
+                'Expired',
+                'Overdue',
+                'Disputed',
             ],
             default: 'Pending',
+        },
+
+        // ── Dispute & Resolution Fields (Stage 3) ─────────────────────────────
+        disputeReason: {
+            type: String,
+            default: '',
+        },
+
+        disputedAt: {
+            type: Date,
+            default: null,
+        },
+
+        completedAt: {
+            type: Date,
+            default: null,
         },
 
         // ── Return Condition (Phase 2 — Multer upload) ────────────────────────

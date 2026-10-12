@@ -14,12 +14,21 @@ const listingSchema = new mongoose.Schema(
         category: {
             type: String,
             required: [true, 'Category is required'],
-            enum: ['Electronics', 'Vehicles', 'Furniture', 'Equipment', 'Party'],
+            enum: ['Electronics', 'Vehicles', 'Fashion', 'Property', 'Sports', 'Tools', 'Furniture', 'Equipment', 'Party'],
         },
         condition: {
             type: String,
             required: [true, 'Condition is required'],
             enum: ['brand-new', 'like-new', 'good', 'fair'],
+        },
+        conditionLabel: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        categorySpecs: {
+            type: mongoose.Schema.Types.Mixed,
+            default: {},
         },
         price: {
             type: Number,
@@ -65,12 +74,25 @@ const listingSchema = new mongoose.Schema(
         viewsCount: {
             type: Number,
             default: 0,
+        },
+        isCatalog: {
+            type: Boolean,
+            default: false,
+            index: true,
         }
     },
     {
         timestamps: true,
     }
 );
+
+// Compound index: user-created listings first, then newest first
+listingSchema.index({ isCatalog: 1, createdAt: -1 });
+
+// Virtual for backward-compatible array representation of image
+listingSchema.virtual('images').get(function () {
+    return this.image ? [this.image] : [];
+});
 
 // Virtuals for computed payouts
 listingSchema.virtual('commission').get(function () {

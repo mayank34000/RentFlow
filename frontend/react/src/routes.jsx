@@ -16,6 +16,7 @@ import EditListing from './EditListing';
 import Premium from './Premium';
 import About from './About';
 import UpcomingFeatures from './UpcomingFeatures';
+import WalletPage from './WalletPage';
 
 const routes = [
   // ==========================================
@@ -48,6 +49,7 @@ const routes = [
   { path: '/about', element: <About />, owner: 'Madhav', title: 'About' },
   { path: '/policy', element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Policy</h2><p>Owner: Madhav</p></div>, owner: 'Madhav', title: 'Policy' },
   { path: '/upcoming-features', element: <UpcomingFeatures />, owner: 'Madhav', title: 'Upcoming Features' },
+  { path: '/wallet', element: <WalletPage />, owner: 'Madhav', title: 'Wallet' },
 
   // ==========================================
   // ARYAN'S ROUTES
