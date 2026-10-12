@@ -69,12 +69,19 @@ export async function apiRequest(endpoint, options = {}) {
         ...extraHeaders,
     };
 
-    if (
-        body &&
-        typeof body === 'object' &&
-        !(body instanceof FormData)
-    ) {
-        headers['Content-Type'] = 'application/json';
+    if (!headers['Content-Type']) {
+        if (
+            body &&
+            typeof body === 'object' &&
+            !(body instanceof FormData)
+        ) {
+            headers['Content-Type'] = 'application/json';
+        } else if (
+            typeof body === 'string' &&
+            (body.trim().startsWith('{') || body.trim().startsWith('['))
+        ) {
+            headers['Content-Type'] = 'application/json';
+        }
     }
 
     const fetchOptions = {
@@ -126,24 +133,36 @@ export async function apiRequest(endpoint, options = {}) {
 export function adaptListing(listing) {
     if (!listing) return listing;
     
-    // Map id to _id for older components that might rely on id
-    const adapted = {
-        ...listing,
-        id: listing._id,
-        // Map backend's owner structure to what the frontend's mock used to be (seller) if needed for backwards compatibility in UI
-        seller: listing.owner ? {
-            name: listing.owner.name || 'Owner',
-            phone: listing.owner.phone || '',
-            city: listing.city || listing.owner.city || 'Unknown',
-            address: listing.city || listing.owner.city || 'Unknown'
-        } : null
-    };
+    const id = listing.id || listing._id;
+    const mongoId = listing._id || listing.id;
 
-    if (adapted.image && adapted.image.startsWith('/uploads')) {
-        adapted.image = `${API_URL}${adapted.image}`;
+    let image = listing.image;
+    if (!image && Array.isArray(listing.images) && listing.images.length > 0) {
+        image = listing.images[0];
+    }
+    if (image && image.startsWith('/uploads')) {
+        image = `${API_URL}${image}`;
     }
 
-    return adapted;
+    const seller = listing.seller ? listing.seller : (listing.owner ? {
+        name: listing.owner.name || 'Owner',
+        phone: listing.owner.phone || '',
+        city: listing.city || listing.owner.city || 'Unknown',
+        address: listing.city || listing.owner.city || 'Unknown'
+    } : {
+        name: 'Verified Owner',
+        phone: '',
+        city: listing.city || 'Unknown',
+        address: listing.city || 'Unknown'
+    });
+
+    return {
+        ...listing,
+        id: id,
+        _id: mongoId,
+        image: image || '',
+        seller: seller
+    };
 }
 
 export async function getListings(params = {}) {
@@ -234,12 +253,25 @@ export function processWalletSettlement(booking) {
 }
 
 // ==========================================
-// PAYMENT API
+// PAYMENT API (PREMIUM & GATEWAY)
 // ==========================================
 
-export async function createPaymentOrder() {
-    const { data } = await apiRequest('/api/payment/create-order', {
+export async function getPremiumQuote() {
+    const { data } = await apiRequest('/api/payment/quote');
+    return data;
+}
+
+export async function payPremiumWithWallet() {
+    const { data } = await apiRequest('/api/payment/pay-wallet', {
         method: 'POST'
+    });
+    return data;
+}
+
+export async function createPaymentOrder(options = {}) {
+    const { data } = await apiRequest('/api/payment/create-order', {
+        method: 'POST',
+        body: options
     });
     return data;
 }
@@ -251,3 +283,36 @@ export async function verifyPayment(paymentData) {
     });
     return data;
 }
+
+// ==========================================
+// BOOKING PAYMENT API (PAY AFTER APPROVAL)
+// ==========================================
+
+export async function getBookingPaymentQuote(bookingId) {
+    const { data } = await apiRequest(`/api/bookings/${bookingId}/payment-quote`);
+    return data;
+}
+
+export async function payBookingWithWallet(bookingId) {
+    const { data } = await apiRequest(`/api/bookings/${bookingId}/pay-wallet`, {
+        method: 'POST'
+    });
+    return data;
+}
+
+export async function createBookingPaymentOrder(bookingId, options = {}) {
+    const { data } = await apiRequest(`/api/bookings/${bookingId}/pay-razorpay/order`, {
+        method: 'POST',
+        body: options
+    });
+    return data;
+}
+
+export async function verifyBookingPayment(bookingId, paymentData) {
+    const { data } = await apiRequest(`/api/bookings/${bookingId}/pay-razorpay/verify`, {
+        method: 'POST',
+        body: paymentData
+    });
+    return data;
+}
+

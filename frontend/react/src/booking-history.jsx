@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import '../../css/index.css';
 import './styles/booking-history.css';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
-import { apiRequest } from './services/api';
+import { apiRequest, getBookingPaymentQuote, payBookingWithWallet, createBookingPaymentOrder, verifyBookingPayment } from './services/api';
 import Navbar from './components/Navbar';
 
 // ============================================================================
@@ -30,6 +30,27 @@ function formatDate(dateString) {
     }
 }
 
+function getCategoryFallback(category) {
+    const cat = (category || '').toLowerCase();
+    if (cat.includes('elect') || cat.includes('gadget') || cat.includes('device') || cat.includes('camera')) return '/assets/electronics-clean.jpg';
+    if (cat.includes('vehic') || cat.includes('car') || cat.includes('bike')) return '/assets/vehicles-clean.jpg';
+    if (cat.includes('fash') || cat.includes('cloth') || cat.includes('wear')) return '/assets/fashion-clean.jpg';
+    if (cat.includes('prop') || cat.includes('real') || cat.includes('furn') || cat.includes('apart')) return '/assets/property-clean.jpg';
+    if (cat.includes('sport') || cat.includes('fit') || cat.includes('out') || cat.includes('party')) return '/assets/sports-clean.jpg';
+    if (cat.includes('tool') || cat.includes('equip')) return '/assets/tools-clean.jpg';
+    return '/assets/browse-rentals-ai.jpg';
+}
+
+function resolveImageUrl(img, category) {
+    const fallback = getCategoryFallback(category);
+    if (!img || img === '/assets/profile.png') return fallback;
+    if (img.startsWith('http://') || img.startsWith('https://')) return img;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    if (img.startsWith('/uploads')) return `${apiUrl}${img}`;
+    if (img.startsWith('uploads/')) return `${apiUrl}/${img}`;
+    return img;
+}
+
 /**
  * Maps a backend booking object (with populated listing/lender) to
  * the shape the existing UI cards expect.
@@ -37,34 +58,53 @@ function formatDate(dateString) {
 function mapBookingToUI(booking) {
     const listing = booking.listing || {};
     const lender = booking.lender || {};
+    const renter = booking.renter || {};
 
-    // Listing image: populated listing may have an images array
-    const rawImages = Array.isArray(listing.images) ? listing.images : [];
-    const validImages = rawImages.filter(img => img && typeof img === 'string' && img.trim() !== '');
-    const itemImage = validImages.length > 0 ? validImages[0] : '../../assets/profile.png';
+    // Standard image resolution: handles both listing.image and listing.images array
+    const rawImage = (Array.isArray(listing.images) && listing.images[0]) || listing.image;
+    const itemImage = resolveImageUrl(rawImage, listing.category);
 
     // Listing title
     const itemTitle = listing.title || listing.name || 'Untitled Listing';
 
-    // Lender name
+    // Lender & Renter names
     const lenderName = lender.name || lender.username || lender.userfname || 'Unknown Lender';
+    const renterName = renter.name || renter.username || renter.userfname || 'Anonymous Renter';
 
     return {
         id: booking._id,
         listingId: listing._id || booking.listing,
         itemTitle,
         itemImage,
+        category: listing.category || '',
         lenderName,
+        renterName,
         startDate: booking.startDate,
         endDate: booking.endDate,
         duration: booking.totalDays,
         rate: booking.pricePerDay,
         subtotal: booking.subtotal,
         deposit: booking.securityDeposit,
-        platformFee: booking.platformFee || 0,
-        grandTotal: booking.total,
+        platformFee: (booking.platformFee && booking.platformFee > 0)
+            ? booking.platformFee
+            : Math.round((booking.subtotal || 0) * 0.02),
+        grandTotal: (() => {
+            const fee = (booking.platformFee && booking.platformFee > 0)
+                ? booking.platformFee
+                : Math.round((booking.subtotal || 0) * 0.02);
+            const expected = (booking.subtotal || 0) + fee + (booking.securityDeposit || 0);
+            return (booking.total && booking.total >= expected) ? booking.total : expected;
+        })(),
         status: booking.status,
+        paymentStatus: booking.paymentStatus || 'UNPAID',
+        paymentDueAt: booking.paymentDueAt || null,
+        rentalPaise: booking.rentalPaise || 0,
+        depositPaise: booking.depositPaise || 0,
+        fundsState: booking.fundsState || 'NONE',
         createdAt: booking.createdAt,
+        returnedAt: booking.returnedAt || null,
+        disputeReason: booking.disputeReason || '',
+        completedAt: booking.completedAt || null,
     };
 }
 
@@ -84,15 +124,24 @@ export default function BookingHistory() {
 
     // ── Booking state ─────────────────────────────────────────────────────────
     const allBookingsRef = useRef([]);
+    const [viewMode, setViewMode] = useState('borrowing'); // 'borrowing' | 'lending'
     const [currentFilter, setCurrentFilter] = useState('All');
     const [displayedOrders, setDisplayedOrders] = useState([]);
+
+    // ── Action feedback state ─────────────────────────────────────────────────
+    const [actionLoading, setActionLoading] = useState({});
+    const [actionError, setActionError] = useState({});
+    const [actionMessage, setActionMessage] = useState('');
+
+    // ── Dispute modal state ───────────────────────────────────────────────────
+    const [disputeModal, setDisputeModal] = useState({ show: false, bookingId: null, reason: '', loading: false, error: '' });
 
     // ── API state ─────────────────────────────────────────────────────────────
     const [isLoading, setIsLoading] = useState(true);
     const [apiError, setApiError] = useState('');
 
     // ── Stats state ───────────────────────────────────────────────────────────
-    const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, returned: 0, spent: 0 });
+    const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, returned: 0, pending: 0, spent: 0 });
 
     // ── Countdown state (map: bookingId → string) ─────────────────────────────
     const [countdowns, setCountdowns] = useState({});
@@ -104,115 +153,110 @@ export default function BookingHistory() {
     // ── Return modal state ────────────────────────────────────────────────────
     const [returnModal, setReturnModal] = useState({ show: false, bookingId: null, file: null, note: '', loading: false, error: '' });
 
+    // ── Payment modal state (Pay After Seller Approval) ───────────────────────
+    const [paymentModal, setPaymentModal] = useState({
+        show: false,
+        booking: null,
+        quote: null,
+        loading: false,
+        actionLoading: false,
+        error: '',
+        success: ''
+    });
+
     const navigate = useNavigate();
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    const OTHER_STATUSES = ['Rejected', 'Cancelled', 'Expired', 'Overdue', 'Disputed'];
 
     const calcStats = useCallback((bookings) => {
         const activeCount    = bookings.reduce((c, b) => b.status === 'Active'    ? c + 1 : c, 0);
         const completedCount = bookings.reduce((c, b) => b.status === 'Completed' ? c + 1 : c, 0);
         const returnedCount  = bookings.reduce((c, b) => b.status === 'Returned'  ? c + 1 : c, 0);
-        const totalSpent     = bookings.reduce((s, b) => b.status !== 'Cancelled' ? s + (b.grandTotal || 0) : s, 0);
+        const pendingCount   = bookings.reduce((c, b) => b.status === 'Pending'   ? c + 1 : c, 0);
+        const totalSpent     = bookings.reduce((s, b) => !['Cancelled', 'Rejected', 'Expired'].includes(b.status) ? s + (b.grandTotal || 0) : s, 0);
 
         setStats({
             total:     bookings.length,
             active:    activeCount,
             completed: completedCount,
             returned:  returnedCount,
+            pending:   pendingCount,
             spent:     totalSpent
         });
     }, []);
 
     const buildDisplayedOrders = useCallback((bookings, filter) => {
-        const filtered = filter === 'All' ? bookings : bookings.filter(b => b.status === filter);
-        setDisplayedOrders(filtered);
+        if (filter === 'All') {
+            setDisplayedOrders(bookings);
+        } else if (filter === 'Other') {
+            setDisplayedOrders(bookings.filter(b => OTHER_STATUSES.includes(b.status)));
+        } else {
+            setDisplayedOrders(bookings.filter(b => b.status === filter));
+        }
     }, []);
 
-    // ── Fetch bookings from API ───────────────────────────────────────────────
+    const loadData = useCallback(async (mode) => {
+        setIsLoading(true);
+        setApiError('');
+        setActionMessage('');
 
-    useEffect(() => {
-    // Auth
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    const loggedIn = !!token && !!storedUser;
-
-    setIsLoggedIn(loggedIn);
-
-    if (loggedIn) {
+        const endpoint = mode === 'lending' ? '/api/bookings/lender' : '/api/bookings/my';
         try {
-            const user = JSON.parse(storedUser);
-            setCurrentUser(user);
-        } catch {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setIsLoggedIn(false);
-            navigate('/login');
-            return;
-        }
-    } else {
-        navigate('/login');
-        return;
-    }
+            const { data: responseData } = await apiRequest(endpoint);
+            const rawBookings = Array.isArray(responseData?.data)
+                ? responseData.data
+                : Array.isArray(responseData) ? responseData : [];
 
-    // Fetch from GET /api/bookings/my
+            const mapped = rawBookings.map(mapBookingToUI);
+            allBookingsRef.current = mapped;
 
-        // Fetch from GET /api/bookings/my
-        let cancelled = false;
-        const fetchBookings = async () => {
-            setIsLoading(true);
-            setApiError('');
-
-            try {
-                const { data: responseData } = await apiRequest('/api/bookings/my');
-
-                if (cancelled) return;
-
-                // Response shape: { success: true, data: [...bookings] }
-                const rawBookings = Array.isArray(responseData?.data)
-                    ? responseData.data
-                    : Array.isArray(responseData) ? responseData : [];
-
-                const mapped = rawBookings.map(mapBookingToUI);
-                allBookingsRef.current = mapped;
-
-                calcStats(mapped);
-                buildDisplayedOrders(mapped, 'All');
-            } catch (err) {
-                if (cancelled) return;
-
-                if (err.name === 'TypeError' && err.message.includes('fetch')) {
-                    setApiError('Cannot reach the server. Please try again.');
-                } else if (err.status === 401) {
-                    if (import.meta.env.DEV) {
-                        setApiError('Development: Set localStorage.devUserId to a valid 24-character MongoDB ObjectId.');
-                    } else {
-                        setApiError('Authentication required. Please log in to view your bookings.');
-                    }
-                } else if (err.status === 404) {
-                    setApiError('Booking history endpoint not found. Please contact support.');
-                } else if (err.status === 503) {
-                    setApiError('A required backend service is temporarily unavailable. Please try again later.');
-                } else if (err.status >= 500) {
-                    setApiError('Unable to load booking history. Please try again later.');
-                } else {
-                    setApiError(err.message || 'Unable to load booking history.');
-                }
-
-                allBookingsRef.current = [];
-            } finally {
-                if (!cancelled) {
-                    setIsLoading(false);
-                }
+            calcStats(mapped);
+            buildDisplayedOrders(mapped, currentFilter);
+        } catch (err) {
+            if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                setApiError('Cannot reach the server. Please try again.');
+            } else if (err.status === 401) {
+                setApiError('Authentication required. Please log in to view your bookings.');
+            } else if (err.status >= 500) {
+                setApiError('Unable to load bookings. Please try again later.');
+            } else {
+                setApiError(err.message || 'Unable to load bookings.');
             }
-        };
+            allBookingsRef.current = [];
+            setDisplayedOrders([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentFilter, calcStats, buildDisplayedOrders]);
 
-        fetchBookings();
+    // Existing hook 1: Initial auth check and data load
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
 
-        return () => { cancelled = true; };
-    }, [calcStats, buildDisplayedOrders]);
+        const loggedIn = !!token && !!storedUser;
+        setIsLoggedIn(loggedIn);
 
-    // Re-compute displayed orders when filter changes
+        if (loggedIn) {
+            try {
+                const user = JSON.parse(storedUser);
+                setCurrentUser(user);
+            } catch {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setIsLoggedIn(false);
+                navigate('/login');
+                return;
+            }
+            loadData('borrowing');
+        } else {
+            navigate('/login');
+        }
+    }, [loadData, navigate]);
+
+    // Existing hook 2: Re-compute displayed orders when filter changes
     useEffect(() => {
         if (!isLoading && !apiError) {
             buildDisplayedOrders(allBookingsRef.current, currentFilter);
@@ -241,6 +285,20 @@ export default function BookingHistory() {
                         newCountdowns[item.id] = `Time Left: ${d}d ${h}h ${m}m ${s}s`;
                     }
                 }
+
+                if (item.status === 'Approved' && item.paymentStatus === 'AWAITING_PAYMENT' && item.paymentDueAt) {
+                    const due = new Date(item.paymentDueAt);
+                    const diff = due - new Date();
+
+                    if (diff <= 0) {
+                        newCountdowns[`due_${item.id}`] = 'Payment Expired';
+                    } else {
+                        const h = Math.floor(diff / (1000 * 60 * 60));
+                        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                        const s = Math.floor((diff % (1000 * 60)) / 1000);
+                        newCountdowns[`due_${item.id}`] = `Pay within: ${h}h ${m}m ${s}s`;
+                    }
+                }
             });
 
             setCountdowns(newCountdowns);
@@ -250,44 +308,208 @@ export default function BookingHistory() {
         return () => clearInterval(intervalId);
     }, []);
 
-    // ── Razorpay payment ──────────────────────────────────────────────────────
+    // ── Mode Switch & Lifecycle Action Handlers (Stage 3) ───────────────────
 
-    const initiatePayment = (bookingId) => {
-        const booking = allBookingsRef.current.find(b => b.id === bookingId);
-        if (!booking) return;
+    const handleModeChange = (mode) => {
+        if (mode === viewMode) return;
+        setViewMode(mode);
+        setCurrentFilter('All');
+        loadData(mode);
+    };
 
-        const options = {
-            key: 'rzp_test_TPWlCTZ9mczHSa',
-            amount: booking.grandTotal * 100,
-            currency: 'INR',
-            name: 'RentFlow',
-            description: 'Payment for ' + booking.itemTitle,
-            handler: async function(response) {
-                console.log('Successful Payment ID:', response.razorpay_payment_id);
-                try {
-                    const { data } = await apiRequest(`/api/bookings/${bookingId}/pay`, { method: 'PATCH' });
-                    if (data?.success) {
-                        alert('Payment Successful! A receipt has been sent to your email.');
-                        window.location.reload();
-                    } else {
-                        alert('Payment recorded locally but failed on server: ' + data?.message);
-                    }
-                } catch (err) {
-                    alert('Error verifying payment with server: ' + err.message);
-                }
-            },
-            prefill: { name: 'User', email: 'user@example.com', contact: '9999999999' },
-            theme: { color: '#2563eb' }
-        };
-
+    const handleCancelBooking = async (bookingId) => {
+        if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+        setActionLoading(prev => ({ ...prev, [bookingId]: true }));
+        setActionError(prev => ({ ...prev, [bookingId]: '' }));
         try {
+            const { data } = await apiRequest(`/api/bookings/${bookingId}/cancel`, { method: 'PATCH' });
+            if (data?.success) {
+                setActionMessage('Booking cancelled successfully.');
+                loadData(viewMode);
+            } else {
+                setActionError(prev => ({ ...prev, [bookingId]: data?.message || 'Failed to cancel.' }));
+            }
+        } catch (err) {
+            setActionError(prev => ({ ...prev, [bookingId]: err.message || 'Error cancelling booking.' }));
+        } finally {
+            setActionLoading(prev => ({ ...prev, [bookingId]: false }));
+        }
+    };
+
+    const handleApproveBooking = async (bookingId) => {
+        setActionLoading(prev => ({ ...prev, [bookingId]: true }));
+        setActionError(prev => ({ ...prev, [bookingId]: '' }));
+        try {
+            const { data } = await apiRequest(`/api/bookings/${bookingId}/approve`, { method: 'PATCH' });
+            if (data?.success) {
+                setActionMessage('Booking approved successfully. Conflicting pending requests were auto-rejected.');
+                loadData(viewMode);
+            } else {
+                setActionError(prev => ({ ...prev, [bookingId]: data?.message || 'Failed to approve.' }));
+            }
+        } catch (err) {
+            setActionError(prev => ({ ...prev, [bookingId]: err.message || 'Error approving booking.' }));
+        } finally {
+            setActionLoading(prev => ({ ...prev, [bookingId]: false }));
+        }
+    };
+
+    const handleRejectBooking = async (bookingId) => {
+        if (!window.confirm('Are you sure you want to reject this rental request?')) return;
+        setActionLoading(prev => ({ ...prev, [bookingId]: true }));
+        setActionError(prev => ({ ...prev, [bookingId]: '' }));
+        try {
+            const { data } = await apiRequest(`/api/bookings/${bookingId}/reject`, { method: 'PATCH' });
+            if (data?.success) {
+                setActionMessage('Booking rejected successfully.');
+                loadData(viewMode);
+            } else {
+                setActionError(prev => ({ ...prev, [bookingId]: data?.message || 'Failed to reject.' }));
+            }
+        } catch (err) {
+            setActionError(prev => ({ ...prev, [bookingId]: err.message || 'Error rejecting booking.' }));
+        } finally {
+            setActionLoading(prev => ({ ...prev, [bookingId]: false }));
+        }
+    };
+
+    const handleConfirmReturn = async (bookingId) => {
+        if (!window.confirm('Confirm that the item has been returned in good condition?')) return;
+        setActionLoading(prev => ({ ...prev, [bookingId]: true }));
+        setActionError(prev => ({ ...prev, [bookingId]: '' }));
+        try {
+            const { data } = await apiRequest(`/api/bookings/${bookingId}/confirm-return`, { method: 'PATCH' });
+            if (data?.success) {
+                setActionMessage('Return confirmed and booking completed successfully.');
+                loadData(viewMode);
+            } else {
+                setActionError(prev => ({ ...prev, [bookingId]: data?.message || 'Failed to confirm return.' }));
+            }
+        } catch (err) {
+            setActionError(prev => ({ ...prev, [bookingId]: err.message || 'Error confirming return.' }));
+        } finally {
+            setActionLoading(prev => ({ ...prev, [bookingId]: false }));
+        }
+    };
+
+    const handleDisputeSubmit = async (e) => {
+        e.preventDefault();
+        if (!disputeModal.bookingId || !disputeModal.reason.trim()) return;
+        setDisputeModal(prev => ({ ...prev, loading: true, error: '' }));
+        try {
+            const { data } = await apiRequest(`/api/bookings/${disputeModal.bookingId}/dispute`, {
+                method: 'POST',
+                body: JSON.stringify({ reason: disputeModal.reason.trim() })
+            });
+            if (data?.success) {
+                setDisputeModal({ show: false, bookingId: null, reason: '', loading: false, error: '' });
+                setActionMessage('Dispute recorded. Escrow funds will remain held pending admin resolution.');
+                loadData(viewMode);
+            } else {
+                setDisputeModal(prev => ({ ...prev, error: data?.message || 'Failed to record dispute.' }));
+            }
+        } catch (err) {
+            setDisputeModal(prev => ({ ...prev, error: err.message || 'Error recording dispute.' }));
+        } finally {
+            setDisputeModal(prev => ({ ...prev, loading: false }));
+        }
+    };
+
+    // ── Payment Handlers (Pay After Seller Approval) ───────────────────────
+
+    const handleOpenPaymentModal = async (item) => {
+        setPaymentModal({ show: true, booking: item, quote: null, loading: true, actionLoading: false, error: '', success: '' });
+        try {
+            const res = await getBookingPaymentQuote(item.id);
+            if (res?.success && res?.data) {
+                setPaymentModal(prev => ({ ...prev, quote: res.data, loading: false }));
+            } else {
+                setPaymentModal(prev => ({ ...prev, loading: false, error: res?.message || 'Failed to fetch quote.' }));
+            }
+        } catch (err) {
+            setPaymentModal(prev => ({ ...prev, loading: false, error: err.message || 'Error connecting to payment service.' }));
+        }
+    };
+
+    const handlePayFromWallet = async (bookingId) => {
+        setPaymentModal(prev => ({ ...prev, actionLoading: true, error: '', success: '' }));
+        try {
+            const res = await payBookingWithWallet(bookingId);
+            if (res?.success) {
+                setPaymentModal(prev => ({ ...prev, actionLoading: false, success: 'Payment successful! Rental confirmed.' }));
+                setActionMessage('Payment confirmed from wallet! Your rental is locked in.');
+                loadData(viewMode);
+                setTimeout(() => {
+                    setPaymentModal(prev => ({ ...prev, show: false }));
+                }, 1200);
+            } else {
+                setPaymentModal(prev => ({ ...prev, actionLoading: false, error: res?.message || 'Payment failed.' }));
+            }
+        } catch (err) {
+            setPaymentModal(prev => ({ ...prev, actionLoading: false, error: err.message || 'Error processing wallet payment.' }));
+        }
+    };
+
+    const handlePayWithRazorpay = async (bookingId, useWallet = false) => {
+        if (typeof window.Razorpay === 'undefined') {
+            setPaymentModal(prev => ({ ...prev, error: 'Razorpay gateway is not loaded. Please refresh the page.' }));
+            return;
+        }
+
+        setPaymentModal(prev => ({ ...prev, actionLoading: true, error: '', success: '' }));
+        try {
+            const orderRes = await createBookingPaymentOrder(bookingId, { useWallet });
+            const orderData = orderRes?.data || orderRes;
+
+            if (!orderData?.orderId) {
+                setPaymentModal(prev => ({ ...prev, actionLoading: false, error: orderRes?.message || 'Failed to initialize payment gateway.' }));
+                return;
+            }
+
+            const options = {
+                key: orderData.keyId,
+                amount: orderData.amount,
+                currency: orderData.currency || 'INR',
+                name: 'RentFlow',
+                description: `Rental Payment - ${paymentModal.booking?.itemTitle || 'Item'}`,
+                image: '/assets/profile.png',
+                order_id: orderData.orderId,
+                handler: async function (response) {
+                    try {
+                        const verifyRes = await verifyBookingPayment(bookingId, response);
+                        if (verifyRes?.success) {
+                            setPaymentModal(prev => ({ ...prev, actionLoading: false, success: 'Payment verified and rental confirmed!' }));
+                            setActionMessage('Payment successful via Razorpay! Your rental is confirmed.');
+                            loadData(viewMode);
+                            setTimeout(() => {
+                                setPaymentModal(prev => ({ ...prev, show: false }));
+                            }, 1200);
+                        } else {
+                            setPaymentModal(prev => ({ ...prev, actionLoading: false, error: verifyRes?.message || 'Verification failed.' }));
+                        }
+                    } catch (vErr) {
+                        setPaymentModal(prev => ({ ...prev, actionLoading: false, error: vErr.message || 'Verification failed.' }));
+                    }
+                },
+                prefill: {
+                    name: currentUser?.name || '',
+                    email: currentUser?.email || '',
+                },
+                theme: { color: '#f97316' },
+                modal: {
+                    ondismiss: function () {
+                        setPaymentModal(prev => ({ ...prev, actionLoading: false }));
+                    }
+                }
+            };
+
             const rzp = new window.Razorpay(options);
-            rzp.on('payment.failed', (response) => {
-                alert('Payment Failed: ' + response.error.description);
+            rzp.on('payment.failed', function (resp) {
+                setPaymentModal(prev => ({ ...prev, actionLoading: false, error: resp.error?.description || 'Payment failed.' }));
             });
             rzp.open();
-        } catch {
-            alert('Failed to load payment gateway.');
+        } catch (err) {
+            setPaymentModal(prev => ({ ...prev, actionLoading: false, error: err.message || 'Payment initiation failed.' }));
         }
     };
 
@@ -423,7 +645,10 @@ export default function BookingHistory() {
             row(`Base Rate (${toRs(`₹${booking.rate.toLocaleString('en-IN')}`)}/day) x ${booking.duration} days`,
                 toRs(`₹${booking.subtotal.toLocaleString('en-IN')}`));
             row('Security Deposit (Refundable)', toRs(`₹${booking.deposit.toLocaleString('en-IN')}`));
-            row('Platform Fee', 'Rs. 0  (Free)', false, [16, 185, 129]);
+            const feeVal = (booking.platformFee && booking.platformFee > 0)
+                ? booking.platformFee
+                : Math.round((booking.subtotal || 0) * 0.02);
+            row('Platform Service Fee (2%)', toRs(`₹${feeVal.toLocaleString('en-IN')}`), false, [55, 65, 81]);
 
             doc.setDrawColor(209, 213, 219);
             doc.setLineWidth(0.5);
@@ -435,7 +660,11 @@ export default function BookingHistory() {
             doc.setTextColor(17, 24, 39);
             doc.text('Grand Total', lm, y);
             doc.setTextColor(58, 91, 217);
-            doc.text(toRs(`₹${booking.grandTotal.toLocaleString('en-IN')}`), rm, y, { align: 'right' });
+            const expectedTotal = (booking.subtotal || 0) + feeVal + (booking.deposit || 0);
+            const finalPdfTotal = (booking.grandTotal && booking.grandTotal >= expectedTotal)
+                ? booking.grandTotal
+                : expectedTotal;
+            doc.text(toRs(`₹${finalPdfTotal.toLocaleString('en-IN')}`), rm, y, { align: 'right' });
             y += 16;
 
             doc.setDrawColor(229, 231, 235);
@@ -483,7 +712,7 @@ export default function BookingHistory() {
     const savedImage = currentUser ? (localStorage.getItem('profileImage') || '../assets/profile.png') : '../assets/profile.png';
     const premiumText = (currentUser && currentUser.isPro) ? 'Pro Member' : 'Premium';
 
-    const FILTERS = ['All', 'Pending', 'Active', 'Completed', 'Returned', 'Cancelled'];
+    const FILTERS = ['All', 'Pending', 'Approved', 'Active', 'Returned', 'Completed', 'Other'];
 
     // ── Render ────────────────────────────────────────────────────────────────
 
@@ -504,32 +733,79 @@ export default function BookingHistory() {
                     <div className="page-header">
                         <div>
                             <h1 className="page-title">My Rentals</h1>
-                            <p className="page-subtitle">Track and manage all your past and active rental bookings.</p>
+                            <p className="page-subtitle">Track and manage your rental requests and listed items.</p>
                         </div>
                     </div>
 
+                    {/* Mode Toggle: Borrowing vs Lending */}
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                        <button
+                            type="button"
+                            className={`mode-toggle-btn borrowing-btn ${viewMode === 'borrowing' ? 'active' : ''}`}
+                            onClick={() => handleModeChange('borrowing')}
+                        >
+                            Borrowing (My Bookings)
+                        </button>
+                        <button
+                            type="button"
+                            className={`mode-toggle-btn lending-btn ${viewMode === 'lending' ? 'active' : ''}`}
+                            onClick={() => handleModeChange('lending')}
+                        >
+                            Lending (My Listed Items)
+                        </button>
+                    </div>
+
+                    {actionMessage && (
+                        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#10b981', padding: '12px 16px', borderRadius: 8, marginBottom: 20 }}>
+                            {actionMessage}
+                        </div>
+                    )}
+
                     {/* Stats */}
                     <div className="stats-grid">
-                        <div className="stat-card">
-                            <div className="stat-title">Total Rentals</div>
-                            <div className="stat-value">{stats.total}</div>
-                        </div>
-                        <div className="stat-card">
-                            <div className="stat-title">Active</div>
-                            <div className="stat-value" style={{ color: '#10b981' }}>{stats.active}</div>
-                        </div>
-                        <div className="stat-card">
-                            <div className="stat-title">Completed</div>
-                            <div className="stat-value" style={{ color: '#60a5fa' }}>{stats.completed}</div>
-                        </div>
-                        <div className="stat-card">
-                            <div className="stat-title">Returned</div>
-                            <div className="stat-value" style={{ color: '#a855f7' }}>{stats.returned}</div>
-                        </div>
-                        <div className="stat-card">
-                            <div className="stat-title">Total Spent</div>
-                            <div className="stat-value">₹{stats.spent.toLocaleString('en-IN')}</div>
-                        </div>
+                        {viewMode === 'borrowing' ? (
+                            <>
+                                <div className="stat-card">
+                                    <div className="stat-title">Total Rentals</div>
+                                    <div className="stat-value">{stats.total}</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-title">Active</div>
+                                    <div className="stat-value" style={{ color: '#10b981' }}>{stats.active}</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-title">Completed</div>
+                                    <div className="stat-value" style={{ color: '#60a5fa' }}>{stats.completed}</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-title">Returned</div>
+                                    <div className="stat-value" style={{ color: '#a855f7' }}>{stats.returned}</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-title">Total Spent</div>
+                                    <div className="stat-value">₹{stats.spent.toLocaleString('en-IN')}</div>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="stat-card">
+                                    <div className="stat-title">Pending Requests</div>
+                                    <div className="stat-value" style={{ color: '#f59e0b' }}>{stats.pending}</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-title">Active Rentals</div>
+                                    <div className="stat-value" style={{ color: '#10b981' }}>{stats.active}</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-title">Completed</div>
+                                    <div className="stat-value" style={{ color: '#60a5fa' }}>{stats.completed}</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-title">Total Listed Bookings</div>
+                                    <div className="stat-value">{stats.total}</div>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Filter Tabs */}
@@ -556,8 +832,8 @@ export default function BookingHistory() {
                                         <line x1="12" y1="22.08" x2="12" y2="12" />
                                     </svg>
                                 </div>
-                                <h3 className="empty-title">Loading your bookings...</h3>
-                                <p className="empty-sub">Please wait while we fetch your rental history.</p>
+                                <h3 className="empty-title">Loading bookings...</h3>
+                                <p className="empty-sub">Please wait while we fetch the records.</p>
                             </div>
                         ) : apiError ? (
                             <div className="empty-state">
@@ -581,10 +857,14 @@ export default function BookingHistory() {
                                     </svg>
                                 </div>
                                 <h3 className="empty-title">
-                                    No {currentFilter === 'All' ? 'rentals' : currentFilter.toLowerCase() + ' rentals'} found
+                                    No {currentFilter === 'All' ? (viewMode === 'borrowing' ? 'rentals' : 'items') : currentFilter.toLowerCase()} found
                                 </h3>
-                                <p className="empty-sub">Looks like you haven't booked anything yet.</p>
-                                <Link to="/booking" className="btn-primary">Explore Rentals</Link>
+                                <p className="empty-sub">
+                                    {viewMode === 'borrowing' ? "Looks like you haven't booked anything in this category." : "No rental requests for your listed items in this category."}
+                                </p>
+                                {viewMode === 'borrowing' && (
+                                    <Link to="/booking" className="btn-primary">Explore Rentals</Link>
+                                )}
                             </div>
                         ) : (
                             displayedOrders.map(item => {
@@ -596,40 +876,178 @@ export default function BookingHistory() {
                                 return (
                                     <div className="order-card" key={item.id}>
                                         <div className="order-info-wrapper">
-                                            <img src={item.itemImage} alt={item.itemTitle} className="order-img" onError={(e) => { e.target.src = '../../assets/profile.png'; }} />
+                                            <img
+                                                src={item.itemImage}
+                                                alt={item.itemTitle}
+                                                className="order-img"
+                                                referrerPolicy="no-referrer"
+                                                onError={(e) => {
+                                                    const fb = getCategoryFallback(item.category);
+                                                    if (e.target.src !== fb && !e.target.src.endsWith(fb)) {
+                                                        e.target.src = fb;
+                                                    }
+                                                }}
+                                            />
                                             <div className="order-details">
                                                 <h4 className="order-title">{item.itemTitle}</h4>
-                                                <div className="order-meta">Lender: <span>{item.lenderName}</span></div>
+                                                <div className="order-meta">
+                                                    {viewMode === 'borrowing' ? (
+                                                        <>Lender: <span>{item.lenderName}</span></>
+                                                    ) : (
+                                                        <>Renter: <span>{item.renterName}</span></>
+                                                    )}
+                                                </div>
                                                 <div className="order-meta">Dates: <span>{dateStr} ({item.duration} days)</span></div>
-                                                {item.status === 'Active' && (
-                                                    <div className="order-meta" style={{ color: '#ef4444', fontWeight: 600 }}>
-                                                        {countdowns[item.id] || 'Calculating...'}
+                                                {item.status === 'Approved' && item.paymentStatus === 'AWAITING_PAYMENT' && (
+                                                    <div className="order-meta" style={{ color: '#f59e0b', fontWeight: 600 }}>
+                                                        ⏳ Payment due: {countdowns['due_' + item.id] || 'Calculating...'}
                                                     </div>
                                                 )}
-                                                <div className={`order-status-badge ${statusClass}`}>{item.status}</div>
+                                                {item.status === 'Approved' && item.paymentStatus === 'PAID' && (
+                                                    <div className="order-meta" style={{ color: '#10b981', fontWeight: 600 }}>
+                                                        ✅ Paid · Ready for rental start
+                                                    </div>
+                                                )}
+                                                {item.status === 'Active' && (
+                                                    <div className="order-meta" style={{ color: '#2563eb', fontWeight: 600 }}>
+                                                        ⏱️ {countdowns[item.id] || 'Calculating...'}
+                                                    </div>
+                                                )}
+                                                {item.status === 'Returned' && (
+                                                    <div className="order-meta" style={{ color: '#3b82f6', fontWeight: 600 }}>
+                                                        📦 Item Returned · Awaiting lender inspection & deposit release
+                                                    </div>
+                                                )}
+                                                {item.status === 'Completed' && (
+                                                    <div className="order-meta" style={{ color: '#10b981', fontWeight: 600 }}>
+                                                        {viewMode === 'borrowing'
+                                                            ? `✅ Rental Ended · Security deposit (₹${(item.deposit || 0).toLocaleString('en-IN')}) refunded to wallet`
+                                                            : `✅ Rental Completed · Earnings credited to wallet`}
+                                                    </div>
+                                                )}
+                                                {item.status === 'Overdue' && (
+                                                    <div className="order-meta" style={{ color: '#ef4444', fontWeight: 600 }}>
+                                                        ⚠️ Rental is Overdue
+                                                    </div>
+                                                )}
+                                                {item.status === 'Disputed' && (
+                                                    <div className="order-meta" style={{ color: '#f59e0b', fontWeight: 600 }}>
+                                                        ⚠️ Disputed: {item.disputeReason || 'Damage reported'}
+                                                    </div>
+                                                )}
+                                                <div className={`order-status-badge ${statusClass}`}>
+                                                    {item.status === 'Approved'
+                                                        ? (item.paymentStatus === 'PAID' ? 'Approved (Paid)' : 'Approved (Payment Due)')
+                                                        : item.status}
+                                                </div>
+                                                {actionError[item.id] && (
+                                                    <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: 4 }}>
+                                                        {actionError[item.id]}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
                                         <div className="order-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
                                             <div className="order-price">₹{item.grandTotal.toLocaleString('en-IN')}</div>
-                                            {item.status === 'Approved' && (
-                                                <button
-                                                    className="btn-primary"
-                                                    style={{ padding: '6px 12px', fontSize: 13 }}
-                                                    onClick={() => initiatePayment(item.id)}
-                                                >
-                                                    Pay Now
-                                                </button>
+                                            
+                                            {/* Actions for Borrower */}
+                                            {viewMode === 'borrowing' && (
+                                                <>
+                                                    {item.status === 'Approved' && item.paymentStatus === 'AWAITING_PAYMENT' && (
+                                                        <button
+                                                            className="btn-primary"
+                                                            style={{
+                                                                padding: '8px 16px',
+                                                                fontSize: 13,
+                                                                backgroundColor: '#f97316',
+                                                                borderColor: '#f97316',
+                                                                color: '#fff',
+                                                                borderRadius: 6,
+                                                                cursor: 'pointer',
+                                                                fontWeight: 600,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: 6
+                                                            }}
+                                                            onClick={() => handleOpenPaymentModal(item)}
+                                                        >
+                                                            💳 Pay Now · ₹{item.grandTotal.toLocaleString('en-IN')}
+                                                        </button>
+                                                    )}
+                                                    {['Pending', 'Approved'].includes(item.status) && (
+                                                        <button
+                                                            className="btn-danger"
+                                                            style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                                                            onClick={() => handleCancelBooking(item.id)}
+                                                            disabled={actionLoading[item.id]}
+                                                        >
+                                                            {actionLoading[item.id] ? 'Cancelling...' : 'Cancel Booking'}
+                                                        </button>
+                                                    )}
+                                                    {['Active', 'Overdue'].includes(item.status) && (
+                                                        <button
+                                                            className="btn-primary"
+                                                            style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#a855f7', borderColor: '#a855f7' }}
+                                                            onClick={() => setReturnModal({ show: true, bookingId: item.id, file: null, note: '', loading: false, error: '' })}
+                                                        >
+                                                            Return Item
+                                                        </button>
+                                                    )}
+                                                </>
                                             )}
-                                            {item.status === 'Active' && (
-                                                <button
-                                                    className="btn-primary"
-                                                    style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#a855f7', borderColor: '#a855f7' }}
-                                                    onClick={() => setReturnModal({ show: true, bookingId: item.id, file: null, note: '', loading: false, error: '' })}
-                                                >
-                                                    Return Item
-                                                </button>
+
+                                            {/* Actions for Lender */}
+                                            {viewMode === 'lending' && (
+                                                <>
+                                                    {item.status === 'Pending' && (
+                                                        <div style={{ display: 'flex', gap: 6 }}>
+                                                            <button
+                                                                className="btn-primary"
+                                                                style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', borderRadius: 6, cursor: 'pointer' }}
+                                                                onClick={() => handleApproveBooking(item.id)}
+                                                                disabled={actionLoading[item.id]}
+                                                            >
+                                                                {actionLoading[item.id] ? 'Approving...' : 'Approve'}
+                                                            </button>
+                                                            <button
+                                                                className="btn-danger"
+                                                                style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff', borderRadius: 6, cursor: 'pointer' }}
+                                                                onClick={() => handleRejectBooking(item.id)}
+                                                                disabled={actionLoading[item.id]}
+                                                            >
+                                                                {actionLoading[item.id] ? 'Rejecting...' : 'Reject'}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {item.status === 'Approved' && (
+                                                        <div style={{ fontSize: '0.85rem', color: item.paymentStatus === 'PAID' ? '#10b981' : '#f59e0b', fontWeight: 500, textAlign: 'right' }}>
+                                                            {item.paymentStatus === 'PAID' ? '✅ Paid · Ready for handover' : '⏳ Awaiting renter payment'}
+                                                        </div>
+                                                    )}
+                                                    {item.status === 'Returned' && (
+                                                        <div style={{ display: 'flex', gap: 6 }}>
+                                                            <button
+                                                                className="btn-primary"
+                                                                style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', borderRadius: 6, cursor: 'pointer' }}
+                                                                onClick={() => handleConfirmReturn(item.id)}
+                                                                disabled={actionLoading[item.id]}
+                                                            >
+                                                                {actionLoading[item.id] ? 'Confirming...' : 'Confirm Return'}
+                                                            </button>
+                                                            <button
+                                                                className="btn-danger"
+                                                                style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff', borderRadius: 6, cursor: 'pointer' }}
+                                                                onClick={() => setDisputeModal({ show: true, bookingId: item.id, reason: '', loading: false, error: '' })}
+                                                                disabled={actionLoading[item.id]}
+                                                            >
+                                                                Report Damage
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
+
                                             <button
                                                 className="btn-receipt"
                                                 onClick={() => setReceiptModal({ show: true, booking: item })}
@@ -720,12 +1138,26 @@ export default function BookingHistory() {
                                     <span id="receipt-deposit">₹{receiptModal.booking.deposit.toLocaleString('en-IN')}</span>
                                 </div>
                                 <div className="receipt-row">
-                                    <span>Platform Fee</span>
-                                    <span style={{ color: '#10b981' }}>₹0 (Free)</span>
+                                    <span>Platform Service Fee (2%)</span>
+                                    <span id="receipt-platform-fee">₹{(() => {
+                                        const fee = (receiptModal.booking.platformFee && receiptModal.booking.platformFee > 0)
+                                            ? receiptModal.booking.platformFee
+                                            : Math.round((receiptModal.booking.subtotal || 0) * 0.02);
+                                        return fee.toLocaleString('en-IN');
+                                    })()}</span>
                                 </div>
                                 <div className="receipt-row total-row">
                                     <span>Grand Total</span>
-                                    <span id="receipt-total">₹{receiptModal.booking.grandTotal.toLocaleString('en-IN')}</span>
+                                    <span id="receipt-total">₹{(() => {
+                                        const fee = (receiptModal.booking.platformFee && receiptModal.booking.platformFee > 0)
+                                            ? receiptModal.booking.platformFee
+                                            : Math.round((receiptModal.booking.subtotal || 0) * 0.02);
+                                        const expected = (receiptModal.booking.subtotal || 0) + fee + (receiptModal.booking.deposit || 0);
+                                        const total = (receiptModal.booking.grandTotal && receiptModal.booking.grandTotal >= expected)
+                                            ? receiptModal.booking.grandTotal
+                                            : expected;
+                                        return total.toLocaleString('en-IN');
+                                    })()}</span>
                                 </div>
                             </div>
                         </div>
@@ -788,6 +1220,188 @@ export default function BookingHistory() {
                             {returnModal.loading ? 'Submitting...' : 'Confirm Return'}
                         </button>
                     </form>
+                </div>
+            </div>
+
+            {/* ── Dispute Modal ── */}
+            <div
+                className={`modal-backdrop${disputeModal.show ? ' show' : ''}`}
+                id="dispute-modal"
+                onClick={e => { if (e.target.id === 'dispute-modal') setDisputeModal(m => ({ ...m, show: false })); }}
+            >
+                <div className="modal-card">
+                    <button className="modal-close" onClick={() => setDisputeModal(m => ({ ...m, show: false }))} disabled={disputeModal.loading}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+
+                    <h3 className="modal-title">Report Damage / Dispute</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 16 }}>
+                        State the issue or damage with this returned item. Escrow funds will remain held pending admin resolution.
+                    </p>
+                    {disputeModal.error && (
+                        <div style={{ color: '#ef4444', marginBottom: 15, fontSize: '0.9rem' }}>{disputeModal.error}</div>
+                    )}
+                    <form onSubmit={handleDisputeSubmit}>
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: 'block', marginBottom: 5, color: '#b0b8c6', fontSize: '0.9rem' }}>Dispute Reason (Required)</label>
+                            <textarea
+                                rows="4"
+                                placeholder="Describe item condition or missing accessories..."
+                                required
+                                value={disputeModal.reason}
+                                onChange={e => setDisputeModal(prev => ({ ...prev, reason: e.target.value }))}
+                                style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }}
+                            ></textarea>
+                        </div>
+                        <button
+                            type="submit"
+                            className="btn-primary-full"
+                            style={{ backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+                            disabled={disputeModal.loading}
+                        >
+                            {disputeModal.loading ? 'Recording...' : 'Submit Dispute'}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {/* ── Payment Modal (Pay After Approval) ── */}
+            <div
+                className={`modal-backdrop${paymentModal.show ? ' show' : ''}`}
+                id="payment-modal"
+                onClick={e => { if (e.target.id === 'payment-modal' && !paymentModal.actionLoading) setPaymentModal(m => ({ ...m, show: false })); }}
+            >
+                <div className="modal-card" style={{ maxWidth: 520 }}>
+                    <button
+                        className="modal-close"
+                        onClick={() => setPaymentModal(m => ({ ...m, show: false }))}
+                        disabled={paymentModal.actionLoading}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+
+                    <h3 className="modal-title">Pay for Rental</h3>
+                    {paymentModal.booking && (
+                        <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 16 }}>
+                            Lender approved your request for <strong style={{ color: '#fff' }}>{paymentModal.booking.itemTitle}</strong>. Complete payment to confirm and lock in your rental.
+                        </p>
+                    )}
+
+                    {paymentModal.error && (
+                        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: '0.88rem' }}>
+                            ⚠️ {paymentModal.error}
+                        </div>
+                    )}
+
+                    {paymentModal.success && (
+                        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#6ee7b7', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: '0.88rem' }}>
+                            ✅ {paymentModal.success}
+                        </div>
+                    )}
+
+                    {paymentModal.loading ? (
+                        <div style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>
+                            <div className="spinner" style={{ margin: '0 auto 12px' }}></div>
+                            Calculating payment quote...
+                        </div>
+                    ) : paymentModal.quote ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            {/* Cost Breakdown */}
+                            <div style={{ background: 'rgba(255, 255, 255, 0.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.9rem', color: '#cbd5e1' }}>
+                                    <span>Rental Fee ({paymentModal.quote.rentalDays} days):</span>
+                                    <span style={{ fontWeight: 600 }}>₹{(paymentModal.quote.rentalPaise / 100).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.9rem', color: '#cbd5e1' }}>
+                                    <span>Refundable Security Deposit:</span>
+                                    <span style={{ fontWeight: 600 }}>₹{(paymentModal.quote.depositPaise / 100).toLocaleString('en-IN')}</span>
+                                </div>
+                                {paymentModal.quote.platformFeePaise > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.9rem', color: '#cbd5e1' }}>
+                                        <span>Platform Fee:</span>
+                                        <span style={{ fontWeight: 600 }}>₹{(paymentModal.quote.platformFeePaise / 100).toLocaleString('en-IN')}</span>
+                                    </div>
+                                )}
+                                <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: 10, marginTop: 4, display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: 700, color: '#f97316' }}>
+                                    <span>Total Due:</span>
+                                    <span>₹{(paymentModal.quote.totalAmountPaise / 100).toLocaleString('en-IN')}</span>
+                                </div>
+                            </div>
+
+                            {/* Wallet Balance Card */}
+                            <div style={{ background: 'rgba(59, 130, 246, 0.08)', borderRadius: 10, padding: '12px 16px', border: '1px solid rgba(59, 130, 246, 0.25)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#93c5fd' }}>Available Wallet Balance</div>
+                                    <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#fff', marginTop: 2 }}>
+                                        ₹{(paymentModal.quote.walletBalancePaise / 100).toLocaleString('en-IN')}
+                                    </div>
+                                </div>
+                                {paymentModal.quote.canPayWithWallet ? (
+                                    <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 600, background: 'rgba(16, 185, 129, 0.15)', padding: '4px 8px', borderRadius: 6 }}>
+                                        Sufficient Balance
+                                    </span>
+                                ) : (
+                                    <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 600, background: 'rgba(245, 158, 11, 0.15)', padding: '4px 8px', borderRadius: 6 }}>
+                                        Shortfall: ₹{(paymentModal.quote.shortfallPaise / 100).toLocaleString('en-IN')}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Payment Deadline Countdown */}
+                            {paymentModal.booking?.id && countdowns['due_' + paymentModal.booking.id] && (
+                                <div style={{ fontSize: '0.85rem', color: '#f59e0b', textAlign: 'center', fontWeight: 500 }}>
+                                    ⏳ Payment deadline: {countdowns['due_' + paymentModal.booking.id]}
+                                </div>
+                            )}
+
+                            {/* Payment Action Buttons */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+                                {/* Option 1: Pay 100% from Wallet */}
+                                <button
+                                    type="button"
+                                    className="btn-primary-full"
+                                    style={{
+                                        backgroundColor: paymentModal.quote.canPayWithWallet ? '#10b981' : '#334155',
+                                        borderColor: paymentModal.quote.canPayWithWallet ? '#10b981' : '#334155',
+                                        cursor: paymentModal.quote.canPayWithWallet ? 'pointer' : 'not-allowed',
+                                        opacity: paymentModal.quote.canPayWithWallet ? 1 : 0.65
+                                    }}
+                                    disabled={!paymentModal.quote.canPayWithWallet || paymentModal.actionLoading}
+                                    onClick={() => handlePayFromWallet(paymentModal.booking.id)}
+                                >
+                                    {paymentModal.actionLoading ? 'Processing...' : `Pay Full from Wallet (₹${(paymentModal.quote.totalAmountPaise / 100).toLocaleString('en-IN')})`}
+                                </button>
+
+                                {/* Option 2: Split Payment (Use wallet + pay remainder via Razorpay) */}
+                                {paymentModal.quote.walletBalancePaise > 0 && !paymentModal.quote.canPayWithWallet && (
+                                    <button
+                                        type="button"
+                                        className="btn-primary-full"
+                                        style={{ backgroundColor: '#6366f1', borderColor: '#6366f1' }}
+                                        disabled={paymentModal.actionLoading}
+                                        onClick={() => handlePayWithRazorpay(paymentModal.booking.id, true)}
+                                    >
+                                        {paymentModal.actionLoading ? 'Connecting...' : `Split: Use Wallet (₹${(paymentModal.quote.walletBalancePaise / 100).toLocaleString('en-IN')}) + Pay Remainder (₹${(paymentModal.quote.shortfallPaise / 100).toLocaleString('en-IN')})`}
+                                    </button>
+                                )}
+
+                                {/* Option 3: Pay Full via Razorpay */}
+                                <button
+                                    type="button"
+                                    className="btn-primary-full"
+                                    style={{ backgroundColor: '#f97316', borderColor: '#f97316' }}
+                                    disabled={paymentModal.actionLoading}
+                                    onClick={() => handlePayWithRazorpay(paymentModal.booking.id, false)}
+                                >
+                                    {paymentModal.actionLoading ? 'Connecting Gateway...' : `Pay Full via Razorpay (₹${(paymentModal.quote.totalAmountPaise / 100).toLocaleString('en-IN')})`}
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </>

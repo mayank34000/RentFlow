@@ -2,6 +2,79 @@
 
 const Listing = require('../models/Listing');
 const mongoose = require('mongoose');
+const path = require('path');
+const fs = require('fs');
+
+let cachedCatalog = null;
+
+function getCatalogProducts() {
+    if (cachedCatalog) return cachedCatalog;
+    try {
+        const primaryPath = path.resolve(__dirname, '../data/products.json');
+        const fallbackPath = path.resolve(__dirname, '../../frontend/react/public/js/products.json');
+        const targetPath = fs.existsSync(primaryPath) ? primaryPath : (fs.existsSync(fallbackPath) ? fallbackPath : null);
+
+        if (targetPath) {
+            const raw = fs.readFileSync(targetPath, 'utf8');
+            const data = JSON.parse(raw);
+            const CONDITIONS = [
+                { condition: 'like-new', conditionLabel: 'Like New' },
+                { condition: 'brand-new', conditionLabel: 'Brand New' },
+                { condition: 'good', conditionLabel: 'Good Condition' }
+            ];
+
+            cachedCatalog = data.map((item, index) => {
+                let category = item.category;
+                if (category === 'Real Estate' || category === 'Furniture') category = 'Property';
+                if (category === 'Equipment') category = 'Tools';
+                if (category === 'Party') category = 'Sports';
+
+                const condTier = CONDITIONS[index % CONDITIONS.length];
+                const num = parseInt(String(item.id).replace(/\D/g, ''), 10) || (index + 1);
+                // 24-character hex ID compatible with ObjectId format
+                const mongoHexId = '00000000000000000000' + num.toString(16).padStart(4, '0');
+
+                return {
+                    _id: mongoHexId,
+                    id: item.id || mongoHexId,
+                    title: item.title,
+                    category,
+                    price: Number(item.price),
+                    period: item.period || 'day',
+                    description: item.description || '',
+                    condition: item.condition || condTier.condition,
+                    conditionLabel: item.conditionLabel || condTier.conditionLabel,
+                    categorySpecs: item.categorySpecs || {},
+                    city: (item.seller && (item.seller.city || item.seller.address)) || 'Delhi NCR',
+                    image: (Array.isArray(item.images) && item.images[0]) || item.image || '',
+                    images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
+                    seller: item.seller || {
+                        name: 'Verified Owner',
+                        phone: '+91 98765 43210',
+                        city: 'Delhi NCR',
+                        address: 'Delhi NCR'
+                    },
+                    owner: {
+                        _id: '000000000000000000000000',
+                        name: item.seller?.name || 'Verified Owner',
+                        phone: item.seller?.phone || '',
+                        city: item.seller?.city || 'Delhi NCR',
+                        avatar: ''
+                    },
+                    status: 'Active',
+                    isBooked: !!item.isBooked,
+                    viewsCount: item.viewsCount || 0,
+                    inquiriesCount: item.inquiriesCount || 0,
+                    createdAt: item.createdAt || new Date(Date.now() - (index * 3600000)).toISOString()
+                };
+            });
+            return cachedCatalog;
+        }
+    } catch (e) {
+        console.error('Failed to load catalog products:', e);
+    }
+    return [];
+}
 
 // @route   GET /api/listings
 // @desc    Get all active listings
@@ -15,10 +88,22 @@ exports.getListings = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Invalid query parameters' });
         }
 
+        const categoryFilter = req.query.category && req.query.category !== 'All' ? req.query.category.trim() : null;
 
-        // Basic filtering
-        if (req.query.category && req.query.category !== 'All') {
-            query.category = req.query.category;
+        // Basic filtering for MongoDB
+        if (categoryFilter) {
+            const catLower = categoryFilter.toLowerCase();
+            let matchedCats = [categoryFilter];
+            if (catLower === 'property') matchedCats.push('Furniture', 'Real Estate');
+            if (catLower === 'tools') matchedCats.push('Equipment');
+            if (catLower === 'sports') matchedCats.push('Party');
+
+            const regexList = matchedCats.map(c => new RegExp(`^${c}$`, 'i'));
+            query.category = { $in: regexList };
+        }
+
+        if (req.query.condition && req.query.condition !== 'All') {
+            query.condition = req.query.condition;
         }
 
         if (req.query.city) {
@@ -42,24 +127,131 @@ exports.getListings = async (req, res, next) => {
             if (req.query.maxPrice !== undefined) query.price.$lte = Number(req.query.maxPrice);
         }
 
-        let listings = await Listing.find(query)
-            .populate('owner', 'name phone city avatar profileImage')
-            .sort({ createdAt: -1 });
+        // Sorting: User-created listings (isCatalog: false) come first directly in the DB query
+        let sortOption = { isCatalog: 1, createdAt: -1 };
+        if (req.query.sortBy === 'price_asc' || req.query.sortBy === 'price-low') {
+            sortOption = { isCatalog: 1, price: 1 };
+        } else if (req.query.sortBy === 'price_desc' || req.query.sortBy === 'price-high') {
+            sortOption = { isCatalog: 1, price: -1 };
+        } else if (req.query.sortBy === 'oldest') {
+            sortOption = { isCatalog: 1, createdAt: 1 };
+        }
 
-        listings = listings.map(doc => {
-            const listing = doc.toJSON();
-            const isOwner = req.user && req.user.id === listing.owner._id.toString();
-            const isPro = req.user && req.user.isPro;
-            if (!isPro && !isOwner && listing.owner) {
-                delete listing.owner.phone;
+        let dbListings = [];
+        try {
+            if (mongoose.connection.readyState === 1) {
+                const docs = await Listing.find(query)
+                    .populate('owner', 'name phone city avatar profileImage')
+                    .sort(sortOption);
+
+                dbListings = docs.map(doc => {
+                const listing = doc.toJSON();
+                // Lazy normalization of category for display
+                if (listing.category === 'Furniture') listing.category = 'Property';
+                if (listing.category === 'Equipment') listing.category = 'Tools';
+                if (listing.category === 'Party') listing.category = 'Sports';
+
+                const isOwner = req.user && req.user.id === (listing.owner?._id || '').toString();
+                const isPro = req.user && req.user.isPro;
+                if (!isPro && !isOwner && listing.owner) {
+                    delete listing.owner.phone;
+                }
+                return listing;
+                });
             }
-            return listing;
+        } catch (dbErr) {
+            console.error('Error fetching MongoDB listings:', dbErr);
+        }
+
+        // Load catalog products
+        const catalog = getCatalogProducts();
+
+        // Filter catalog items
+        const filteredCatalog = catalog.filter(item => {
+            if (categoryFilter) {
+                const catLower = categoryFilter.toLowerCase();
+                const itemCatLower = (item.category || '').toLowerCase();
+                const matchesCat = itemCatLower === catLower ||
+                    (catLower === 'property' && (itemCatLower === 'real estate' || itemCatLower === 'furniture')) ||
+                    (catLower === 'tools' && itemCatLower === 'equipment') ||
+                    (catLower === 'sports' && itemCatLower === 'party');
+                if (!matchesCat) return false;
+            }
+
+            if (req.query.condition && req.query.condition !== 'All') {
+                if (item.condition !== req.query.condition) return false;
+            }
+
+            if (req.query.city) {
+                const cityQuery = req.query.city.trim().toLowerCase();
+                const itemCity = (item.city || (item.seller && item.seller.city) || '').toLowerCase();
+                if (!itemCity.includes(cityQuery)) return false;
+            }
+
+            if (req.query.search) {
+                const s = req.query.search.trim().toLowerCase();
+                const title = (item.title || '').toLowerCase();
+                const desc = (item.description || '').toLowerCase();
+                const city = (item.city || (item.seller && item.seller.city) || '').toLowerCase();
+                const cat = (item.category || '').toLowerCase();
+                if (!title.includes(s) && !desc.includes(s) && !city.includes(s) && !cat.includes(s)) {
+                    return false;
+                }
+            }
+
+            if (req.query.minPrice !== undefined && item.price < Number(req.query.minPrice)) {
+                return false;
+            }
+            if (req.query.maxPrice !== undefined && item.price > Number(req.query.maxPrice)) {
+                return false;
+            }
+
+            return true;
         });
+
+        // Phone privacy for catalog items
+        const isPro = req.user && req.user.isPro;
+        const processedCatalog = filteredCatalog.map(item => {
+            const clone = { ...item };
+            if (!isPro && clone.seller) {
+                clone.seller = { ...clone.seller, phone: '' };
+            }
+            return clone;
+        });
+
+        // Combine and deduplicate: user listings (MongoDB) first, then catalog listings
+        const seenSignatures = new Set();
+        const combined = [];
+
+        for (const item of dbListings) {
+            const sig = `${(item.title || '').trim().toLowerCase()}|${(item.category || '').toLowerCase()}`;
+            if (!seenSignatures.has(sig)) {
+                seenSignatures.add(sig);
+                combined.push(item);
+            }
+        }
+
+        for (const item of processedCatalog) {
+            const sig = `${(item.title || '').trim().toLowerCase()}|${(item.category || '').toLowerCase()}`;
+            if (!seenSignatures.has(sig)) {
+                seenSignatures.add(sig);
+                combined.push(item);
+            }
+        }
+
+        // Apply sorting to combined results
+        if (req.query.sortBy === 'price_asc' || req.query.sortBy === 'price-low') {
+            combined.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+        } else if (req.query.sortBy === 'price_desc' || req.query.sortBy === 'price-high') {
+            combined.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+        } else if (req.query.sortBy === 'oldest') {
+            combined.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        }
 
         res.status(200).json({
             success: true,
-            count: listings.length,
-            data: listings
+            count: combined.length,
+            data: combined
         });
     } catch (err) {
         next(err);
@@ -90,22 +282,40 @@ exports.getMyListings = async (req, res, next) => {
 // @access  Public
 exports.getListing = async (req, res, next) => {
     try {
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ success: false, message: 'Invalid listing ID' });
+        let listing = null;
+
+        if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(req.params.id)) {
+            const listingDoc = await Listing.findById(req.params.id)
+                .populate('owner', 'name phone city avatar profileImage');
+
+            if (listingDoc) {
+                listing = listingDoc.toJSON();
+            }
         }
 
-        let listingDoc = await Listing.findById(req.params.id)
-            .populate('owner', 'name phone city avatar profileImage');
+        if (!listing) {
+            const catalog = getCatalogProducts();
+            const foundCatalog = catalog.find(item => item.id === req.params.id || item._id === req.params.id);
+            if (foundCatalog) {
+                listing = { ...foundCatalog };
+            }
+        }
 
-        if (!listingDoc) {
+        if (!listing) {
             return res.status(404).json({ success: false, message: 'Listing not found' });
         }
 
-        const listing = listingDoc.toJSON();
-        const isOwner = req.user && req.user.id === listing.owner._id.toString();
+        if (listing.category === 'Furniture') listing.category = 'Property';
+        if (listing.category === 'Equipment') listing.category = 'Tools';
+        if (listing.category === 'Party') listing.category = 'Sports';
+
+        const isOwner = req.user && listing.owner && req.user.id === (listing.owner._id || '').toString();
         const isPro = req.user && req.user.isPro;
-        if (!isPro && !isOwner && listing.owner) {
-            delete listing.owner.phone;
+        if (!isPro && !isOwner) {
+            if (listing.owner) delete listing.owner.phone;
+            if (listing.seller && listing.seller.phone) {
+                listing.seller = { ...listing.seller, phone: '' };
+            }
         }
 
         res.status(200).json({
@@ -127,7 +337,7 @@ exports.createListing = async (req, res, next) => {
         }
 
         const {
-            title, category, condition, price, period, description, amenities, city
+            title, category, condition, conditionLabel, categorySpecs, price, period, description, amenities, city
         } = req.body;
 
         // Parse amenities if it's sent as a stringified array
@@ -140,10 +350,41 @@ exports.createListing = async (req, res, next) => {
             }
         }
 
+        // Parse categorySpecs if provided
+        let parsedSpecs = {};
+        if (categorySpecs) {
+            try {
+                parsedSpecs = typeof categorySpecs === 'string' ? JSON.parse(categorySpecs) : categorySpecs;
+            } catch (e) {
+                parsedSpecs = {};
+            }
+        }
+        // Duplicate prevention: check for existing active listing with identical specifications
+        const trimmedTitle = (title || '').trim();
+        const safeTitle = trimmedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const existingDuplicate = await Listing.findOne({
+            status: 'Active',
+            category: { $regex: new RegExp(`^${(category || '').trim()}$`, 'i') },
+            price: Number(price),
+            title: { $regex: new RegExp(`^${safeTitle}$`, 'i') }
+        });
+
+        if (existingDuplicate) {
+            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+                try { fs.unlinkSync(req.file.path); } catch (_e) {}
+            }
+            return res.status(409).json({
+                success: false,
+                message: 'A listing with the same specifications (title, category, and price) already exists.'
+            });
+        }
+
         const listing = await Listing.create({
             title,
             category,
             condition,
+            conditionLabel: conditionLabel || '',
+            categorySpecs: parsedSpecs,
             price: Number(price),
             period,
             description,
@@ -183,16 +424,25 @@ exports.updateListing = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Not authorized to update this listing' });
         }
 
-        const { title, category, condition, price, period, description, amenities, city } = req.body;
+        const { title, category, condition, conditionLabel, categorySpecs, price, period, description, amenities, city } = req.body;
 
         // Editable fields explicitly mapped (prevents mass assignment of owner/status)
         if (title) listing.title = title;
         if (category) listing.category = category;
         if (condition) listing.condition = condition;
+        if (conditionLabel !== undefined) listing.conditionLabel = conditionLabel;
         if (price) listing.price = Number(price);
         if (period) listing.period = period;
         if (description !== undefined) listing.description = description;
         if (city) listing.city = city;
+
+        if (categorySpecs !== undefined) {
+            try {
+                listing.categorySpecs = typeof categorySpecs === 'string' ? JSON.parse(categorySpecs) : categorySpecs;
+            } catch (e) {
+                // Keep existing specs if unparseable
+            }
+        }
 
         if (amenities) {
             try {
