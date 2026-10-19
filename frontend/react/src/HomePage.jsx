@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import './styles/tokens.css';
 import './styles/home.css';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 
 // ============================================================================
 // 1. STATIC DATA CONSTANTS
@@ -195,25 +196,6 @@ const TESTIMONIALS_DATA = [
   },
 ];
 
-const FOOTER_LINKS_DATA = {
-  platform: [
-    { label: 'Home', href: '/' },
-    { label: 'Explore Rentals', href: '/booking' },
-    { label: 'Post Listing', href: '/create-listing' },
-    { label: 'Pricing', href: '/premium' },
-  ],
-  user: [
-    { label: 'Profile', href: '/profile' },
-    { label: 'My Rentals', href: '/booking-history' },
-  ],
-  company: [
-    { label: 'About Us', href: '/about' },
-    { label: 'Upcoming Features', href: '/upcoming-features' },
-    { label: 'Contact & FAQ', href: '/contact' },
-    { label: 'Feedback', href: '/feedback' },
-    { label: 'Privacy Policy', href: '/policy' },
-  ],
-};
 
 // ============================================================================
 // 2. HELPER FUNCTIONS & HOOKS
@@ -298,10 +280,16 @@ function useScrollDirection() {
 // ============================================================================
 
 function RentFlowIntroVideo() {
-  const [stage, setStage] = useState('playing'); // 'playing' | 'fading' | 'hidden'
+  const hasPlayed = typeof window !== 'undefined' && sessionStorage.getItem('rf_intro_played');
+  const [stage, setStage] = useState(() => (hasPlayed ? 'hidden' : 'playing')); // 'playing' | 'fading' | 'hidden'
   const videoRef = useRef(null);
 
   const finishIntro = () => {
+    try {
+      sessionStorage.setItem('rf_intro_played', 'true');
+    } catch {
+      // Ignore private browsing restrictions
+    }
     setStage(prev => {
       if (prev === 'hidden') return prev;
       setTimeout(() => {
@@ -322,6 +310,12 @@ function RentFlowIntroVideo() {
   };
 
   useEffect(() => {
+    if (stage === 'hidden') return;
+    try {
+      sessionStorage.setItem('rf_intro_played', 'true');
+    } catch {
+      // Ignore
+    }
     if (videoRef.current) {
       videoRef.current.play().catch(() => {});
     }
@@ -331,7 +325,7 @@ function RentFlowIntroVideo() {
     }, 7500);
 
     return () => clearTimeout(safetyTimer);
-  }, []);
+  }, [stage]);
 
   if (stage === 'hidden') return null;
 
@@ -433,9 +427,9 @@ function MobileMenu({ open, isLoggedIn, isPremium, logout, onClose }) {
     <div className={`home-mobile-menu ${open ? 'open' : ''}`}>
       <a href="#features" onClick={(e) => { onClose(); handleNavClick(e, '#features'); }}>Features</a>
       <Link to="/booking" onClick={onClose}>Browse Rentals</Link>
-      {!isPremium && (
-        <Link to="/premium" style={{ color: '#f59e0b' }} onClick={onClose}>👑 Go Premium</Link>
-      )}
+      <Link to="/premium" style={{ color: '#f59e0b' }} onClick={onClose}>
+        {isPremium ? '👑 Extend Premium' : '👑 Go Premium'}
+      </Link>
       <Link to="/create-listing" style={{ color: 'var(--accent-bright)' }} onClick={onClose}>+ Post Listing</Link>
       <Link to="/about" onClick={onClose}>About</Link>
       <Link to="/contact" onClick={onClose}>Contact</Link>
@@ -476,10 +470,9 @@ function OldNavbar({ auth }) {
 
         <nav className="home-nav-links">
           <a href="#features" onClick={(e) => handleNavClick(e, '#features')}>Features</a>
-          <Link to="/booking">Browse Rentals</Link>
-          {!isPremium && (
-            <Link to="/premium" style={{ color: '#f59e0b', fontWeight: 600 }}>👑 Go Premium</Link>
-          )}
+          <Link to="/premium" style={{ color: '#f59e0b', fontWeight: 600 }}>
+            {isPremium ? '👑 Extend Premium' : '👑 Go Premium'}
+          </Link>
           <Link to="/create-listing" style={{ color: 'var(--accent-bright)', fontWeight: 600 }}>+ Post Listing</Link>
           <Link to="/about">About</Link>
           <Link to="/contact">Contact</Link>
@@ -1023,48 +1016,6 @@ function UpcomingTeaser() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="home-footer">
-      <div className="home-footer-inner">
-        <div className="home-footer-brand">
-          <Link to="/" className="home-logo">
-            Rent<span>Flow</span>
-          </Link>
-          <p>Smart dynamic rental platform.</p>
-        </div>
-
-        <div className="home-footer-links">
-          <div className="home-footer-col">
-            <p className="home-footer-col-title">Platform</p>
-            {FOOTER_LINKS_DATA.platform.map(link => (
-              <Link key={link.label} to={link.href}>{link.label}</Link>
-            ))}
-          </div>
-
-          <div className="home-footer-col">
-            <p className="home-footer-col-title">User</p>
-            {FOOTER_LINKS_DATA.user.map(link => (
-              <Link key={link.label} to={link.href}>{link.label}</Link>
-            ))}
-          </div>
-
-          <div className="home-footer-col">
-            <p className="home-footer-col-title">Company</p>
-            {FOOTER_LINKS_DATA.company.map(link => (
-              <Link key={link.label} to={link.href}>{link.label}</Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="home-footer-bottom">
-        <p>©2026 RentFlow. All rights reserved.</p>
-        <p>Built by Team RentFlow · Secured by Razorpay</p>
-      </div>
-    </footer>
-  );
-}
 
 // ============================================================================
 // 4. MAIN HOMEPAGE COMPONENT (DEFAULT EXPORT)

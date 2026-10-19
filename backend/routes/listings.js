@@ -10,13 +10,18 @@ const {
 
 const authenticateToken = require('../middleware/authMiddleware');
 const optionalAuth = require('../middleware/optionalAuth');
-const { listingUpload } = require('../middleware/upload');
+const { listingUpload, createListingUpload } = require('../middleware/upload');
 
 const router = express.Router();
 
+const createListingFields = createListingUpload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'video', maxCount: 1 }
+]);
+
 router.route('/')
     .get(optionalAuth, getListings)
-    .post(authenticateToken, listingUpload.single('image'), createListing);
+    .post(authenticateToken, createListingFields, createListing);
 
 router.route('/my')
     .get(authenticateToken, getMyListings);

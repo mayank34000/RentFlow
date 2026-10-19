@@ -122,6 +122,218 @@ export function resolveImageUrl(img, category) {
     return img;
 }
 
+function ListingCardMedia({ item, imageSrc }) {
+    const hasVideo = Boolean(item.video);
+    // When listing has video: 0 is Video, 1 is Photo. When no video: Photo only.
+    const [activeTab, setActiveTab] = useState(0);
+    const touchStartX = useRef(null);
+
+    const handleTouchStart = (e) => {
+        if (!hasVideo) return;
+        touchStartX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = (e) => {
+        if (!hasVideo || touchStartX.current === null) return;
+        const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+        if (deltaX < -35) {
+            // Swiped to the left -> navigate to uploaded photo
+            setActiveTab(1);
+        } else if (deltaX > 35) {
+            // Swiped to the right -> navigate to video
+            setActiveTab(0);
+        }
+        touchStartX.current = null;
+    };
+
+    const renderPhoto = () => (
+        <>
+            <img
+                src={imageSrc}
+                alt={item.title}
+                className="listing-image"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }}
+                onLoad={(e) => {
+                    if (e.target.naturalWidth <= 2 && e.target.naturalHeight <= 2) {
+                        const fb = getCategoryFallback(item.category);
+                        if (e.target.src !== fb) e.target.src = fb;
+                    }
+                }}
+                onError={(e) => {
+                    const fb = getCategoryFallback(item.category);
+                    if (e.target.src !== fb && !e.target.src.endsWith(fb)) {
+                        e.target.src = fb;
+                    }
+                }}
+            />
+            {item.conditionLabel && (
+                <span style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    background: 'rgba(0,0,0,0.65)',
+                    backdropFilter: 'blur(4px)',
+                    color: '#fff',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '3px 8px',
+                    borderRadius: '100px',
+                    zIndex: 2,
+                    pointerEvents: 'none'
+                }}>
+                    {item.conditionLabel}
+                </span>
+            )}
+        </>
+    );
+
+    const renderVideo = () => (
+        <div style={{ position: 'relative', width: '100%', height: '200px', background: '#000' }}>
+            <video
+                src={item.video}
+                controls
+                preload="metadata"
+                playsInline
+                style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }}
+            />
+        </div>
+    );
+
+    return (
+        <div
+            className="listing-media-slider"
+            style={{ position: 'relative', width: '100%', height: '200px', background: '#050b14', overflow: 'hidden' }}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+        >
+            {!hasVideo ? (
+                renderPhoto()
+            ) : activeTab === 0 ? (
+                renderVideo()
+            ) : (
+                renderPhoto()
+            )}
+
+            {/* Slider Navigation Arrows (shown when listing has video) */}
+            {hasVideo && (
+                <>
+                    {activeTab === 0 ? (
+                        <button
+                            type="button"
+                            aria-label="View Uploaded Image"
+                            onClick={(e) => { e.stopPropagation(); setActiveTab(1); }}
+                            style={{
+                                position: 'absolute',
+                                right: '8px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'rgba(0, 0, 0, 0.65)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.25)',
+                                borderRadius: '50%',
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                zIndex: 3,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                                transition: 'all 0.2s ease',
+                            }}
+                            title="Swipe / Click arrow to view uploaded image"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            aria-label="View Video"
+                            onClick={(e) => { e.stopPropagation(); setActiveTab(0); }}
+                            style={{
+                                position: 'absolute',
+                                left: '8px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'rgba(0, 0, 0, 0.65)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.25)',
+                                borderRadius: '50%',
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                zIndex: 3,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                                transition: 'all 0.2s ease',
+                            }}
+                            title="Swipe / Click arrow to view video"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="15 18 9 12 15 6" />
+                            </svg>
+                        </button>
+                    )}
+
+                    {/* Dot indicators */}
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '8px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        display: 'flex',
+                        gap: '6px',
+                        zIndex: 3,
+                        background: 'rgba(0, 0, 0, 0.55)',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        backdropFilter: 'blur(4px)',
+                        alignItems: 'center'
+                    }}>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setActiveTab(0); }}
+                            aria-label="Video slide"
+                            style={{
+                                width: activeTab === 0 ? '16px' : '6px',
+                                height: '6px',
+                                borderRadius: '3px',
+                                background: activeTab === 0 ? 'var(--primary-orange, #f97316)' : 'rgba(255,255,255,0.5)',
+                                border: 'none',
+                                padding: 0,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}
+                        />
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setActiveTab(1); }}
+                            aria-label="Photo slide"
+                            style={{
+                                width: activeTab === 1 ? '16px' : '6px',
+                                height: '6px',
+                                borderRadius: '3px',
+                                background: activeTab === 1 ? 'var(--primary-orange, #f97316)' : 'rgba(255,255,255,0.5)',
+                                border: 'none',
+                                padding: 0,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}
+                        />
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 // ============================================================================
 // BOOKING PAGE COMPONENT
 // ============================================================================
@@ -544,33 +756,8 @@ export default function BookingPage() {
 
                                 return (
                                     <div className="listing-card" key={`${item._id || item.id || 'item'}-${index}`}>
-                                        <div style={{ position: 'relative' }}>
-                                            <img
-                                                src={imageSrc}
-                                                alt={item.title}
-                                                className="listing-image"
-                                                loading="lazy"
-                                                decoding="async"
-                                                referrerPolicy="no-referrer"
-                                                onLoad={(e) => {
-                                                    if (e.target.naturalWidth <= 2 && e.target.naturalHeight <= 2) {
-                                                        const fb = getCategoryFallback(item.category);
-                                                        if (e.target.src !== fb) e.target.src = fb;
-                                                    }
-                                                }}
-                                                onError={(e) => {
-                                                    const fb = getCategoryFallback(item.category);
-                                                    if (e.target.src !== fb && !e.target.src.endsWith(fb)) {
-                                                        e.target.src = fb;
-                                                    }
-                                                }}
-                                            />
-                                            {item.conditionLabel && (
-                                                <span style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '100px' }}>
-                                                    {item.conditionLabel}
-                                                </span>
-                                            )}
-                                        </div>
+                                        <ListingCardMedia item={item} imageSrc={imageSrc} />
+
                                         <div className="listing-content">
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div className="listing-category">{item.category}</div>
@@ -720,6 +907,21 @@ export default function BookingPage() {
                                 </div>
                             ) : (
                                 <>
+                                    {selectedListing.video && (
+                                        <div style={{ marginBottom: '14px' }}>
+                                            <video
+                                                controls
+                                                preload="metadata"
+                                                playsInline
+                                                src={selectedListing.video}
+                                                style={{ width: '100%', borderRadius: '8px', maxHeight: '220px', background: '#000', display: 'block' }}
+                                            >
+                                                <source src={selectedListing.video} type="video/mp4" />
+                                                Your browser does not support video playback.
+                                            </video>
+                                        </div>
+                                    )}
+
                                     <div className="selected-listing-preview">
                                         <img
                                             src={resolveImageUrl((Array.isArray(selectedListing.images) && selectedListing.images[0]) || selectedListing.image, selectedListing.category)}

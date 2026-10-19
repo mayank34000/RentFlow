@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { getAuthUser, clearAuthSession } from './services/api';
 import './styles/upcoming-features.css';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 
 export default function UpcomingFeatures() {
     const navigate = useNavigate();
@@ -93,39 +94,7 @@ export default function UpcomingFeatures() {
                 </div>
             </div>
 
-            <footer className="site-footer">
-                <div className="footer-inner">
-                    <div className="footer-brand">
-                        <div className="logo">Rent<span>Flow</span></div>
-                        <p>Smart dynamic rental platform.</p>
-                    </div>
-                    <div className="footer-links">
-                        <div className="footer-col">
-                            <p className="footer-col-title">Platform</p>
-                            <Link to="/">Home</Link>
-                            <Link to="/booking">Explore Rentals</Link>
-                            <Link to="/create-listing">Post Listing</Link>
-                            <Link to="/premium">Pricing</Link>
-                        </div>
-                        <div className="footer-col">
-                            <p className="footer-col-title">User</p>
-                            <Link to="/profile">Profile</Link>
-                            <Link to="/booking-history">My Rentals</Link>
-                        </div>
-                        <div className="footer-col">
-                            <p className="footer-col-title">Company</p>
-                            <Link to="/about">About Us</Link>
-                            <Link to="/contact">Contact & FAQ</Link>
-                            <Link to="/feedback">Feedback</Link>
-                            <Link to="/policy">Privacy Policy</Link>
-                        </div>
-                    </div>
-                </div>
-                <div className="footer-bottom">
-                    <p>©2026 RentFlow. All rights reserved.</p>
-                    <p className="footer-tech">Built by Team RentFlow • Secured by Razorpay</p>
-                </div>
-            </footer>
+            <Footer />
         </div>
     );
 }
