@@ -14,12 +14,21 @@ const listingSchema = new mongoose.Schema(
         category: {
             type: String,
             required: [true, 'Category is required'],
-            enum: ['Electronics', 'Vehicles', 'Furniture', 'Equipment', 'Party'],
+            enum: ['Electronics', 'Vehicles', 'Fashion', 'Property', 'Sports', 'Tools', 'Furniture', 'Equipment', 'Party'],
         },
         condition: {
             type: String,
             required: [true, 'Condition is required'],
             enum: ['brand-new', 'like-new', 'good', 'fair'],
+        },
+        conditionLabel: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        categorySpecs: {
+            type: mongoose.Schema.Types.Mixed,
+            default: {},
         },
         price: {
             type: Number,
@@ -38,9 +47,40 @@ const listingSchema = new mongoose.Schema(
             maxlength: [1000, 'Description cannot exceed 1000 characters'],
             default: '',
         },
+        // ── Media Storage Architecture Confirmation ─────────────────────────────
+        // Both listing photos ('image') and condition videos ('video') are stored
+        // on Cloudinary's secure CDN. In MongoDB, 'image' and 'video' store their
+        // full, authoritative HTTPS URLs (e.g., https://res.cloudinary.com/...).
+        //
+        // Safe Direct Browser Access:
+        // When inspecting MongoDB, copying the 'image' or 'video' URL and pasting
+        // it directly into any web browser address bar will immediately and safely
+        // open the image or play the video over HTTPS without needing authentication
+        // tokens, cookies, or backend proxying, completely in line with backend logic.
+        // Legacy image paths starting with '/uploads/...' are also supported.
         image: {
             type: String,
             required: [true, 'Item image is required'],
+        },
+        imagePublicId: {
+            type: String,
+            default: null,
+        },
+        video: {
+            type: String,
+            default: null,
+        },
+        videoPublicId: {
+            type: String,
+            default: null,
+        },
+        videoFormat: {
+            type: String,
+            default: null,
+        },
+        videoDuration: {
+            type: Number,
+            default: null,
         },
         amenities: {
             type: [String],
@@ -65,12 +105,25 @@ const listingSchema = new mongoose.Schema(
         viewsCount: {
             type: Number,
             default: 0,
+        },
+        isCatalog: {
+            type: Boolean,
+            default: false,
+            index: true,
         }
     },
     {
         timestamps: true,
     }
 );
+
+// Compound index: user-created listings first, then newest first
+listingSchema.index({ isCatalog: 1, createdAt: -1 });
+
+// Virtual for backward-compatible array representation of image
+listingSchema.virtual('images').get(function () {
+    return this.image ? [this.image] : [];
+});
 
 // Virtuals for computed payouts
 listingSchema.virtual('commission').get(function () {

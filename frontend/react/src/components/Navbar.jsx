@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { isLoggedIn, getAuthUser, clearAuthSession } from '../services/api';
 
 // Custom hook for scroll direction to hide/show navbar
@@ -63,8 +63,16 @@ function ProfileDropdown({ user, profileImage, isPremium, logout }) {
 
   return (
     <div className="home-profile-menu-container" ref={ref}>
-      <button className="home-profile-menu-btn" onClick={() => setOpen(!open)}>
-        <img src={profileImage} alt="Profile" className="home-profile-avatar" />
+      <button
+        className="home-profile-menu-btn"
+        onClick={() => setOpen(!open)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-label="User profile menu"
+      >
+        <span className="home-profile-avatar">
+          <img src={profileImage} alt="" />
+        </span>
         <span className="home-profile-name">{user.name.split(' ')[0]}</span>
       </button>
 
@@ -82,6 +90,7 @@ function ProfileDropdown({ user, profileImage, isPremium, logout }) {
 
           <div className="home-dropdown-links">
             <Link to="/profile" onClick={() => setOpen(false)}>My Profile</Link>
+            <Link to="/wallet" onClick={() => setOpen(false)}>My Wallet</Link>
             <Link to="/booking-history" onClick={() => setOpen(false)}>My Rentals</Link>
             <Link to="/chat" onClick={() => setOpen(false)}>Messages</Link>
           </div>
@@ -113,7 +122,9 @@ function MobileMenu({ open, loggedIn, isPremium, logout, onClose }) {
     <div className="home-mobile-menu">
       <Link to="/" onClick={onClose}>Home</Link>
       <Link to="/booking" onClick={onClose}>Explore Rentals</Link>
-      {!isPremium && <Link to="/premium" onClick={onClose} style={{ color: '#f59e0b' }}>👑 Go Premium</Link>}
+      <Link to="/premium" onClick={onClose} style={{ color: '#f59e0b', fontWeight: 600 }}>
+        {isPremium ? '👑 Extend Premium' : '👑 Get Premium'}
+      </Link>
       <Link to="/create-listing" onClick={onClose} style={{ color: 'var(--accent-bright)' }}>+ Post Listing</Link>
       <Link to="/about" onClick={onClose}>About</Link>
       <Link to="/contact" onClick={onClose}>Contact</Link>
@@ -127,6 +138,7 @@ function MobileMenu({ open, loggedIn, isPremium, logout, onClose }) {
         ) : (
           <>
             <Link to="/profile" onClick={onClose}>My Profile</Link>
+            <Link to="/wallet" onClick={onClose}>My Wallet</Link>
             <Link to="/booking-history" onClick={onClose}>My Rentals</Link>
             <button
               onClick={() => { onClose(); logout(); }}
@@ -164,11 +176,14 @@ export default function Navbar() {
         </Link>
 
         <nav className="home-nav-links">
-          <Link to="/">Home</Link>
-          <Link to="/booking" activeclassname="active">Explore Rentals</Link>
-          {loggedIn && <Link to="/booking-history">My Rentals</Link>}
-          <Link to="/create-listing" style={{ color: 'var(--accent-bright)', fontWeight: 600 }}>+ Post Listing</Link>
-          <Link to="/contact">Contact & FAQ</Link>
+          <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>Home</NavLink>
+          <NavLink to="/booking" className={({ isActive }) => (isActive ? 'active' : '')}>Explore Rentals</NavLink>
+          {loggedIn && <NavLink to="/booking-history" className={({ isActive }) => (isActive ? 'active' : '')}>My Rentals</NavLink>}
+          <NavLink to="/premium" className={({ isActive }) => (isActive ? 'active' : '')}>
+            {isPremium ? 'Extend Premium' : 'Get Premium'}
+          </NavLink>
+          <NavLink to="/create-listing" style={{ color: 'var(--primary-orange)', fontWeight: 600 }} className={({ isActive }) => (isActive ? 'active' : '')}>+ Post Listing</NavLink>
+          <NavLink to="/contact" className={({ isActive }) => (isActive ? 'active' : '')}>Contact &amp; FAQ</NavLink>
         </nav>
 
         <div className="home-nav-cta">

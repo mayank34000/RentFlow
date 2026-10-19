@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getAuthUser, getListings, updateListing } from './services/api';
 import Navbar from './components/Navbar';
+import { CANONICAL_CATEGORIES, CATEGORY_CONDITIONS, CATEGORY_FIELDS_CONFIG } from './CreateListing';
 
 export default function EditListing() {
     const { id } = useParams();
@@ -10,9 +11,12 @@ export default function EditListing() {
 
     const [listing, setListing] = useState(null);
     const [title, setTitle] = useState('');
-    const [category, setCategory] = useState('');
+    const [category, setCategory] = useState('Electronics');
+    const [condition, setCondition] = useState('like-new');
+    const [conditionLabel, setConditionLabel] = useState('');
+    const [categorySpecs, setCategorySpecs] = useState({});
     const [price, setPrice] = useState('');
-    const [period, setPeriod] = useState('');
+    const [period, setPeriod] = useState('day');
     const [description, setDescription] = useState('');
     const [city, setCity] = useState('');
     const [statusMsg, setStatusMsg] = useState({ text: '', type: '' });
@@ -33,11 +37,14 @@ export default function EditListing() {
                 if (found) {
                     setListing(found);
                     setTitle(found.title || '');
-                    setCategory(found.category || '');
+                    setCategory(found.category || 'Electronics');
+                    setCondition(found.condition || 'like-new');
+                    setConditionLabel(found.conditionLabel || '');
+                    setCategorySpecs(found.categorySpecs || {});
                     setPrice(found.price || '');
                     setPeriod(found.period || 'day');
                     setDescription(found.description || '');
-                    setCity(found.seller?.city || '');
+                    setCity(found.city || found.seller?.city || '');
                 } else {
                     setStatusMsg({ text: 'Listing not found.', type: 'error' });
                 }
@@ -48,6 +55,28 @@ export default function EditListing() {
         
         fetchListing();
     }, [id, navigate]);
+
+    const handleCategoryChange = (newCat) => {
+        setCategory(newCat);
+        const condOptions = CATEGORY_CONDITIONS[newCat] || CATEGORY_CONDITIONS['Electronics'];
+        setCondition(condOptions[1]?.tier || 'like-new');
+        setConditionLabel(condOptions[1]?.label || 'Like New');
+        setCategorySpecs({});
+    };
+
+    const handleConditionChange = (tier) => {
+        setCondition(tier);
+        const condOptions = CATEGORY_CONDITIONS[category] || CATEGORY_CONDITIONS['Electronics'];
+        const match = condOptions.find(c => c.tier === tier);
+        setConditionLabel(match ? match.label : tier);
+    };
+
+    const handleSpecChange = (key, value) => {
+        setCategorySpecs(prev => ({
+            ...prev,
+            [key]: value
+        }));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -65,6 +94,9 @@ export default function EditListing() {
             const formData = new FormData();
             formData.append('title', title);
             formData.append('category', category || 'Electronics');
+            formData.append('condition', condition || 'like-new');
+            formData.append('conditionLabel', conditionLabel || '');
+            formData.append('categorySpecs', JSON.stringify(categorySpecs));
             formData.append('price', parseFloat(price));
             formData.append('period', period || 'day');
             formData.append('description', description || '');
@@ -125,18 +157,67 @@ export default function EditListing() {
                         <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px'}}>
                             <div>
                                 <label style={{display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)'}}>Category</label>
-                                <select value={category} onChange={e => setCategory(e.target.value)} style={{width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-strongest)'}}>
-                                    <option value="Electronics">Electronics & Tech</option>
-                                    <option value="Vehicles">Vehicles & Transport</option>
-                                    <option value="Furniture">Furniture & Home</option>
-                                    <option value="Equipment">Tools & Equipment</option>
-                                    <option value="Party">Party & Events</option>
+                                <select value={category} onChange={e => handleCategoryChange(e.target.value)} style={{width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-strongest)'}}>
+                                    {CANONICAL_CATEGORIES.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.label}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div>
-                                <label style={{display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)'}}>City</label>
-                                <input type="text" value={city} onChange={e => setCity(e.target.value)} style={{width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-strongest)'}} />
+                                <label style={{display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)'}}>Condition</label>
+                                <select value={condition} onChange={e => handleConditionChange(e.target.value)} style={{width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-strongest)'}}>
+                                    {(CATEGORY_CONDITIONS[category] || CATEGORY_CONDITIONS.Electronics).map(cond => (
+                                        <option key={cond.tier} value={cond.tier}>{cond.label}</option>
+                                    ))}
+                                </select>
                             </div>
+                        </div>
+
+                        {/* Category Specifications */}
+                        {CATEGORY_FIELDS_CONFIG[category] && (
+                            <div style={{
+                                marginBottom: '20px',
+                                padding: '16px',
+                                background: 'var(--bg-subtle, rgba(0,0,0,0.03))',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)'
+                            }}>
+                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-orange)', marginBottom: '12px', textTransform: 'uppercase' }}>
+                                    {category} Specifications
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                                    {CATEGORY_FIELDS_CONFIG[category].map(field => (
+                                        <div key={field.key}>
+                                            <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{field.label}</label>
+                                            {field.type === 'select' ? (
+                                                <select
+                                                    value={categorySpecs[field.key] || ''}
+                                                    onChange={e => handleSpecChange(field.key, e.target.value)}
+                                                    style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-strongest)' }}
+                                                >
+                                                    <option value="">Select {field.label}</option>
+                                                    {field.options.map(opt => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    value={categorySpecs[field.key] || ''}
+                                                    placeholder={field.placeholder}
+                                                    onChange={e => handleSpecChange(field.key, e.target.value)}
+                                                    style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-strongest)' }}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div style={{marginBottom: '20px'}}>
+                            <label style={{display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)'}}>City</label>
+                            <input type="text" value={city} onChange={e => setCity(e.target.value)} style={{width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-strongest)'}} />
                         </div>
 
                         <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '20px'}}>

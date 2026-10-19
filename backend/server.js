@@ -109,10 +109,11 @@ const otpLimiter = rateLimit({
     validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
-// 3. Payment limiter
+// 3. Payment limiter (applies to mutations only; GET quote requests are excluded)
 const paymentLimiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_PAYMENT_MAX) || 10,
+    max: parseInt(process.env.RATE_LIMIT_PAYMENT_MAX) || 30,
+    skip: (req) => req.method === 'GET',
     keyGenerator: (req, res) => {
         return req.user ? req.user._id.toString() : rateLimit.ipKeyGenerator(req, res);
     },
@@ -136,6 +137,7 @@ app.use('/api/listings', require('./routes/listings'));
 app.use("/api/payment", authenticateToken, paymentLimiter, require("./routes/payment"));
 
 app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/notifications', require('./routes/notifications'));
@@ -185,9 +187,20 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+const { syncListings } = require('./utils/syncListings');
+
 const startServer = async () => {
     // Attempt DB connection first
     await connectDB();
+
+    // Sync & deduplicate catalog listings into MongoDB
+    if (mongoose.connection.readyState === 1) {
+        try {
+            await syncListings();
+        } catch (syncErr) {
+            console.error('[Server] Listing sync error:', syncErr.message);
+        }
+    }
 
     httpServer.listen(PORT, () => {
         console.log(`[Server] RentFlow API running on http://localhost:${PORT}`);
