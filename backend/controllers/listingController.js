@@ -4,6 +4,24 @@ const Listing = require('../models/Listing');
 const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
+const cloudinary = require('../config/cloudinary');
+const { MAX_VIDEO_SIZE_BYTES, MAX_VIDEO_SIZE_MB, MAX_IMAGE_SIZE_BYTES } = require('../middleware/upload');
+
+function safeUnlink(filePath) {
+    if (filePath && fs.existsSync(filePath)) {
+        try {
+            fs.unlinkSync(filePath);
+        } catch (_e) {}
+    }
+}
+
+function checkCloudinaryConfig() {
+    return Boolean(
+        process.env.CLOUDINARY_CLOUD_NAME &&
+        process.env.CLOUDINARY_API_KEY &&
+        process.env.CLOUDINARY_API_SECRET
+    );
+}
 
 let cachedCatalog = null;
 
@@ -330,15 +348,88 @@ exports.getListing = async (req, res, next) => {
 // @route   POST /api/listings
 // @desc    Create new listing
 // @access  Private
+// Media Storage Architecture Confirmation:
+// Uploaded photos and condition videos are hosted on Cloudinary's secure CDN.
+// MongoDB stores the direct, public HTTPS URLs ('image' and 'video').
+// Anyone copying these URLs from MongoDB into a web browser address bar
+// can open and view them immediately and safely over HTTPS without extra auth.
 exports.createListing = async (req, res, next) => {
+    const imageFile = (req.files && req.files.image && req.files.image[0]) || req.file;
+    const videoFile = (req.files && req.files.video && req.files.video[0]) || null;
+
+    let uploadedImagePublicId = null;
+    let uploadedVideoPublicId = null;
+
     try {
-        if (!req.file) {
+        if (!imageFile) {
+            if (videoFile) safeUnlink(videoFile.path);
             return res.status(400).json({ success: false, message: 'Please upload an image' });
+        }
+
+        // Validate image size (5 MB)
+        if (imageFile.size > MAX_IMAGE_SIZE_BYTES) {
+            safeUnlink(imageFile.path);
+            if (videoFile) safeUnlink(videoFile.path);
+            return res.status(400).json({ success: false, message: 'Image file size cannot exceed 5 MB' });
+        }
+
+        // Validate video if provided
+        if (videoFile) {
+            if (videoFile.size > MAX_VIDEO_SIZE_BYTES) {
+                safeUnlink(imageFile.path);
+                safeUnlink(videoFile.path);
+                return res.status(400).json({ success: false, message: `Video size cannot exceed ${MAX_VIDEO_SIZE_MB} MB` });
+            }
+
+            const allowedVideoMimes = ['video/mp4', 'video/quicktime'];
+            const allowedVideoExts = ['.mp4', '.mov'];
+            const videoExt = path.extname(videoFile.originalname || videoFile.filename).toLowerCase();
+            if (!allowedVideoMimes.includes(videoFile.mimetype) || !allowedVideoExts.includes(videoExt)) {
+                safeUnlink(imageFile.path);
+                safeUnlink(videoFile.path);
+                return res.status(400).json({ success: false, message: 'Only MP4 and MOV videos are allowed' });
+            }
         }
 
         const {
             title, category, condition, conditionLabel, categorySpecs, price, period, description, amenities, city
         } = req.body;
+
+        if (!title || !title.trim()) {
+            safeUnlink(imageFile.path);
+            if (videoFile) safeUnlink(videoFile.path);
+            return res.status(400).json({ success: false, message: 'Listing title is required' });
+        }
+
+        if (!category || !category.trim()) {
+            safeUnlink(imageFile.path);
+            if (videoFile) safeUnlink(videoFile.path);
+            return res.status(400).json({ success: false, message: 'Category is required' });
+        }
+
+        if (!condition || !condition.trim()) {
+            safeUnlink(imageFile.path);
+            if (videoFile) safeUnlink(videoFile.path);
+            return res.status(400).json({ success: false, message: 'Condition is required' });
+        }
+
+        if (price === undefined || isNaN(Number(price)) || Number(price) < 10) {
+            safeUnlink(imageFile.path);
+            if (videoFile) safeUnlink(videoFile.path);
+            return res.status(400).json({ success: false, message: 'Price must be a valid number of at least 10' });
+        }
+
+        if (req.body.phone) {
+            const cleanPhone = String(req.body.phone).replace(/\D/g, '');
+            if (cleanPhone.length !== 10) {
+                safeUnlink(imageFile.path);
+                if (videoFile) safeUnlink(videoFile.path);
+                return res.status(400).json({ success: false, message: 'Contact phone number must be of exactly 10 digits, not more or less than that' });
+            }
+            if (req.user && req.user._id) {
+                await User.findByIdAndUpdate(req.user._id, { phone: cleanPhone });
+            }
+        }
 
         // Parse amenities if it's sent as a stringified array
         let parsedAmenities = [];
@@ -359,6 +450,7 @@ exports.createListing = async (req, res, next) => {
                 parsedSpecs = {};
             }
         }
+
         // Duplicate prevention: check for existing active listing with identical specifications
         const trimmedTitle = (title || '').trim();
         const safeTitle = trimmedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -370,30 +462,112 @@ exports.createListing = async (req, res, next) => {
         });
 
         if (existingDuplicate) {
-            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-                try { fs.unlinkSync(req.file.path); } catch (_e) {}
-            }
+            safeUnlink(imageFile.path);
+            if (videoFile) safeUnlink(videoFile.path);
             return res.status(409).json({
                 success: false,
                 message: 'A listing with the same specifications (title, category, and price) already exists.'
             });
         }
 
-        const listing = await Listing.create({
-            title,
-            category,
-            condition,
-            conditionLabel: conditionLabel || '',
-            categorySpecs: parsedSpecs,
-            price: Number(price),
-            period,
-            description,
-            amenities: parsedAmenities,
-            city,
-            owner: req.user._id,
-            image: `/uploads/listings/${req.file.filename}`,
-            status: 'Active'
-        });
+        // Verify Cloudinary configuration exists
+        if (!checkCloudinaryConfig()) {
+            safeUnlink(imageFile.path);
+            if (videoFile) safeUnlink(videoFile.path);
+            return res.status(500).json({
+                success: false,
+                message: 'Cloudinary configuration is missing on server. Unable to upload listing media.'
+            });
+        }
+
+        // Upload image to Cloudinary
+        let imageUploadResult;
+        try {
+            imageUploadResult = await cloudinary.uploader.upload(imageFile.path, {
+                folder: 'rentflow/listings/images',
+                resource_type: 'image'
+            });
+            uploadedImagePublicId = imageUploadResult.public_id;
+        } catch (imgErr) {
+            console.error('[Listing] Image upload error:', imgErr);
+            safeUnlink(imageFile.path);
+            if (videoFile) safeUnlink(videoFile.path);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to upload image to cloud storage. Please try again.'
+            });
+        }
+
+        // Upload video to Cloudinary if provided
+        let videoUploadResult = null;
+        if (videoFile) {
+            try {
+                videoUploadResult = await cloudinary.uploader.upload(videoFile.path, {
+                    resource_type: 'video',
+                    folder: 'rentflow/listings/videos',
+                });
+                uploadedVideoPublicId = videoUploadResult.public_id;
+            } catch (uploadErr) {
+                console.error('[Listing] Video upload error:', uploadErr);
+                safeUnlink(imageFile.path);
+                safeUnlink(videoFile.path);
+                // Rollback uploaded image immediately
+                if (uploadedImagePublicId) {
+                    try {
+                        await cloudinary.uploader.destroy(uploadedImagePublicId, { resource_type: 'image' });
+                    } catch (destroyErr) {
+                        console.error('[Listing] Failed to rollback image asset:', destroyErr);
+                    }
+                }
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to upload video to cloud storage. Please try again.'
+                });
+            }
+        }
+
+        // Create listing in database
+        let listing;
+        try {
+            listing = await Listing.create({
+                title,
+                category,
+                condition,
+                conditionLabel: conditionLabel || '',
+                categorySpecs: parsedSpecs,
+                price: Number(price),
+                period: period || 'day',
+                description: description || '',
+                amenities: parsedAmenities,
+                city,
+                owner: req.user._id,
+                image: imageUploadResult.secure_url,
+                imagePublicId: imageUploadResult.public_id,
+                video: videoUploadResult ? videoUploadResult.secure_url : null,
+                videoPublicId: videoUploadResult ? videoUploadResult.public_id : null,
+                videoFormat: videoUploadResult ? videoUploadResult.format : null,
+                videoDuration: videoUploadResult ? (videoUploadResult.duration || null) : null,
+                status: 'Active'
+            });
+        } catch (dbErr) {
+            console.error('[Listing] Database create error:', dbErr);
+            // Rollback: delete uploaded assets from Cloudinary
+            if (uploadedImagePublicId) {
+                try {
+                    await cloudinary.uploader.destroy(uploadedImagePublicId, { resource_type: 'image' });
+                } catch (destroyErr) {
+                    console.error('[Listing] Failed to delete rolled-back image asset:', destroyErr);
+                }
+            }
+            if (uploadedVideoPublicId) {
+                try {
+                    await cloudinary.uploader.destroy(uploadedVideoPublicId, { resource_type: 'video' });
+                } catch (destroyErr) {
+                    console.error('[Listing] Failed to delete rolled-back video asset:', destroyErr);
+                }
+            }
+            return next(dbErr);
+        }
 
         res.status(201).json({
             success: true,
@@ -401,6 +575,9 @@ exports.createListing = async (req, res, next) => {
         });
     } catch (err) {
         next(err);
+    } finally {
+        if (imageFile) safeUnlink(imageFile.path);
+        if (videoFile) safeUnlink(videoFile.path);
     }
 };
 
@@ -452,8 +629,32 @@ exports.updateListing = async (req, res, next) => {
             }
         }
 
-        if (req.file) {
-            listing.image = `/uploads/listings/${req.file.filename}`;
+        const imageFile = (req.files && req.files.image && req.files.image[0]) || req.file;
+        if (imageFile) {
+            if (!checkCloudinaryConfig()) {
+                safeUnlink(imageFile.path);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Cloudinary configuration is missing on server. Unable to upload listing image.'
+                });
+            }
+            try {
+                const imageUploadResult = await cloudinary.uploader.upload(imageFile.path, {
+                    folder: 'rentflow/listings/images',
+                    resource_type: 'image'
+                });
+                listing.image = imageUploadResult.secure_url;
+                listing.imagePublicId = imageUploadResult.public_id;
+            } catch (imgErr) {
+                console.error('[Listing] Update image upload error:', imgErr);
+                safeUnlink(imageFile.path);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to upload image to cloud storage. Please try again.'
+                });
+            } finally {
+                safeUnlink(imageFile.path);
+            }
         }
 
         await listing.save();

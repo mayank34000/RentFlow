@@ -133,8 +133,6 @@ export default function BookingHistory() {
     const [actionError, setActionError] = useState({});
     const [actionMessage, setActionMessage] = useState('');
 
-    // ── Dispute modal state ───────────────────────────────────────────────────
-    const [disputeModal, setDisputeModal] = useState({ show: false, bookingId: null, reason: '', loading: false, error: '' });
 
     // ── API state ─────────────────────────────────────────────────────────────
     const [isLoading, setIsLoading] = useState(true);
@@ -392,28 +390,6 @@ export default function BookingHistory() {
         }
     };
 
-    const handleDisputeSubmit = async (e) => {
-        e.preventDefault();
-        if (!disputeModal.bookingId || !disputeModal.reason.trim()) return;
-        setDisputeModal(prev => ({ ...prev, loading: true, error: '' }));
-        try {
-            const { data } = await apiRequest(`/api/bookings/${disputeModal.bookingId}/dispute`, {
-                method: 'POST',
-                body: JSON.stringify({ reason: disputeModal.reason.trim() })
-            });
-            if (data?.success) {
-                setDisputeModal({ show: false, bookingId: null, reason: '', loading: false, error: '' });
-                setActionMessage('Dispute recorded. Escrow funds will remain held pending admin resolution.');
-                loadData(viewMode);
-            } else {
-                setDisputeModal(prev => ({ ...prev, error: data?.message || 'Failed to record dispute.' }));
-            }
-        } catch (err) {
-            setDisputeModal(prev => ({ ...prev, error: err.message || 'Error recording dispute.' }));
-        } finally {
-            setDisputeModal(prev => ({ ...prev, loading: false }));
-        }
-    };
 
     // ── Payment Handlers (Pay After Seller Approval) ───────────────────────
 
@@ -1035,14 +1011,6 @@ export default function BookingHistory() {
                                                             >
                                                                 {actionLoading[item.id] ? 'Confirming...' : 'Confirm Return'}
                                                             </button>
-                                                            <button
-                                                                className="btn-danger"
-                                                                style={{ padding: '6px 12px', fontSize: 13, backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff', borderRadius: 6, cursor: 'pointer' }}
-                                                                onClick={() => setDisputeModal({ show: true, bookingId: item.id, reason: '', loading: false, error: '' })}
-                                                                disabled={actionLoading[item.id]}
-                                                            >
-                                                                Report Damage
-                                                            </button>
                                                         </div>
                                                     )}
                                                 </>
@@ -1223,49 +1191,6 @@ export default function BookingHistory() {
                 </div>
             </div>
 
-            {/* ── Dispute Modal ── */}
-            <div
-                className={`modal-backdrop${disputeModal.show ? ' show' : ''}`}
-                id="dispute-modal"
-                onClick={e => { if (e.target.id === 'dispute-modal') setDisputeModal(m => ({ ...m, show: false })); }}
-            >
-                <div className="modal-card">
-                    <button className="modal-close" onClick={() => setDisputeModal(m => ({ ...m, show: false }))} disabled={disputeModal.loading}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                    </button>
-
-                    <h3 className="modal-title">Report Damage / Dispute</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 16 }}>
-                        State the issue or damage with this returned item. Escrow funds will remain held pending admin resolution.
-                    </p>
-                    {disputeModal.error && (
-                        <div style={{ color: '#ef4444', marginBottom: 15, fontSize: '0.9rem' }}>{disputeModal.error}</div>
-                    )}
-                    <form onSubmit={handleDisputeSubmit}>
-                        <div style={{ marginBottom: 20 }}>
-                            <label style={{ display: 'block', marginBottom: 5, color: '#b0b8c6', fontSize: '0.9rem' }}>Dispute Reason (Required)</label>
-                            <textarea
-                                rows="4"
-                                placeholder="Describe item condition or missing accessories..."
-                                required
-                                value={disputeModal.reason}
-                                onChange={e => setDisputeModal(prev => ({ ...prev, reason: e.target.value }))}
-                                style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }}
-                            ></textarea>
-                        </div>
-                        <button
-                            type="submit"
-                            className="btn-primary-full"
-                            style={{ backgroundColor: '#ef4444', borderColor: '#ef4444' }}
-                            disabled={disputeModal.loading}
-                        >
-                            {disputeModal.loading ? 'Recording...' : 'Submit Dispute'}
-                        </button>
-                    </form>
-                </div>
-            </div>
 
             {/* ── Payment Modal (Pay After Approval) ── */}
             <div

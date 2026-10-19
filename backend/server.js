@@ -109,10 +109,11 @@ const otpLimiter = rateLimit({
     validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
-// 3. Payment limiter
+// 3. Payment limiter (applies to mutations only; GET quote requests are excluded)
 const paymentLimiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_PAYMENT_MAX) || 10,
+    max: parseInt(process.env.RATE_LIMIT_PAYMENT_MAX) || 30,
+    skip: (req) => req.method === 'GET',
     keyGenerator: (req, res) => {
         return req.user ? req.user._id.toString() : rateLimit.ipKeyGenerator(req, res);
     },

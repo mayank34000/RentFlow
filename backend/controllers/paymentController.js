@@ -39,7 +39,7 @@ function getRazorpayClient() {
 function calculateNewPremiumDate(user) {
     const now = new Date();
     let baseDate = now;
-    if (user.isPro && user.premiumUntil && new Date(user.premiumUntil) > now) {
+    if (user.premiumUntil && new Date(user.premiumUntil) > now) {
         baseDate = new Date(user.premiumUntil);
     }
     const newUntil = new Date(baseDate);
@@ -60,7 +60,7 @@ exports.getPremiumQuote = async (req, res) => {
 
         const wallet = await getOrCreateWallet(req.user._id);
         const now = new Date();
-        const isCurrentlyActive = !!(user.isPro && user.premiumUntil && new Date(user.premiumUntil) > now);
+        const isCurrentlyActive = !!(user.premiumUntil && new Date(user.premiumUntil) > now);
 
         const availablePaise = wallet.balancePaise;
         const shortfallPaise = Math.max(0, PREMIUM_AMOUNT_PAISE - availablePaise);
@@ -95,14 +95,7 @@ exports.payWithWallet = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
-        // Double-charging guard: refuse if user is already active Premium
-        const now = new Date();
-        if (user.isPro && user.premiumUntil && new Date(user.premiumUntil) > now) {
-            return res.status(400).json({
-                success: false,
-                message: `You are already an active Premium member until ${new Date(user.premiumUntil).toLocaleDateString('en-IN')}.`,
-            });
-        }
+        // Active premium members are permitted to extend their subscription (+30 days)
 
         const wallet = await getOrCreateWallet(req.user._id);
         if (wallet.balancePaise < PREMIUM_AMOUNT_PAISE) {
@@ -188,14 +181,7 @@ exports.createOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
-        // Double-charging guard: refuse if user is already active Premium
-        const now = new Date();
-        if (user.isPro && user.premiumUntil && new Date(user.premiumUntil) > now) {
-            return res.status(400).json({
-                success: false,
-                message: `You are already an active Premium member until ${new Date(user.premiumUntil).toLocaleDateString('en-IN')}.`,
-            });
-        }
+        // Active premium members are permitted to extend their subscription (+30 days)
 
         const useWallet = !!req.body.useWallet;
         const wallet = await getOrCreateWallet(req.user._id);

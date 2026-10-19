@@ -47,9 +47,40 @@ const listingSchema = new mongoose.Schema(
             maxlength: [1000, 'Description cannot exceed 1000 characters'],
             default: '',
         },
+        // ── Media Storage Architecture Confirmation ─────────────────────────────
+        // Both listing photos ('image') and condition videos ('video') are stored
+        // on Cloudinary's secure CDN. In MongoDB, 'image' and 'video' store their
+        // full, authoritative HTTPS URLs (e.g., https://res.cloudinary.com/...).
+        //
+        // Safe Direct Browser Access:
+        // When inspecting MongoDB, copying the 'image' or 'video' URL and pasting
+        // it directly into any web browser address bar will immediately and safely
+        // open the image or play the video over HTTPS without needing authentication
+        // tokens, cookies, or backend proxying, completely in line with backend logic.
+        // Legacy image paths starting with '/uploads/...' are also supported.
         image: {
             type: String,
             required: [true, 'Item image is required'],
+        },
+        imagePublicId: {
+            type: String,
+            default: null,
+        },
+        video: {
+            type: String,
+            default: null,
+        },
+        videoPublicId: {
+            type: String,
+            default: null,
+        },
+        videoFormat: {
+            type: String,
+            default: null,
+        },
+        videoDuration: {
+            type: Number,
+            default: null,
         },
         amenities: {
             type: [String],

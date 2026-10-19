@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 
 // Ensure destination directories exist
 const uploadDir = path.join(__dirname, '..', 'uploads', 'returns');
@@ -81,11 +82,16 @@ const profileUpload = multer({
     }
 });
 
-// ── Listing Image Upload ──────────────────────────────────────────────────────
+// ── Listing Image & Video Upload ──────────────────────────────────────────────
+
+const DEFAULT_MAX_VIDEO_SIZE_MB = 100;
+const MAX_VIDEO_SIZE_MB = parseInt(process.env.MAX_VIDEO_SIZE_MB, 10) || DEFAULT_MAX_VIDEO_SIZE_MB;
+const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const listingStorage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, listingUploadDir);
+        cb(null, os.tmpdir());
     },
     filename: function (req, file, cb) {
         const randomHex = crypto.randomBytes(8).toString('hex');
@@ -94,11 +100,14 @@ const listingStorage = multer.diskStorage({
         if (file.mimetype === 'image/jpeg') ext = '.jpg';
         else if (file.mimetype === 'image/png') ext = '.png';
         else if (file.mimetype === 'image/webp') ext = '.webp';
+        else if (file.mimetype === 'video/mp4') ext = '.mp4';
+        else if (file.mimetype === 'video/quicktime') ext = '.mov';
         else {
             const originalExt = path.extname(file.originalname).toLowerCase();
             ext = originalExt;
         }
-        cb(null, `listing-${timestamp}-${randomHex}${ext}`);
+        const prefix = file.fieldname === 'video' ? 'listing-video' : 'listing';
+        cb(null, `${prefix}-${timestamp}-${randomHex}${ext}`);
     }
 });
 
@@ -111,8 +120,45 @@ const listingUpload = multer({
     }
 });
 
+const createListingFileFilter = (req, file, cb) => {
+    if (file.fieldname === 'image') {
+        const allowedImageMimes = ['image/jpeg', 'image/png', 'image/webp'];
+        const allowedImageExts = ['.jpeg', '.jpg', '.png', '.webp'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (allowedImageMimes.includes(file.mimetype) && allowedImageExts.includes(ext)) {
+            return cb(null, true);
+        }
+        return cb(new Error('INVALID_IMAGE_FILE_TYPE'), false);
+    }
+
+    if (file.fieldname === 'video') {
+        const allowedVideoMimes = ['video/mp4', 'video/quicktime'];
+        const allowedVideoExts = ['.mp4', '.mov'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (allowedVideoMimes.includes(file.mimetype) && allowedVideoExts.includes(ext)) {
+            return cb(null, true);
+        }
+        return cb(new Error('INVALID_VIDEO_FILE_TYPE'), false);
+    }
+
+    return cb(new Error('UNEXPECTED_FIELD'), false);
+};
+
+const createListingUpload = multer({
+    storage: listingStorage,
+    fileFilter: createListingFileFilter,
+    limits: {
+        fileSize: MAX_VIDEO_SIZE_BYTES,
+        files: 2
+    }
+});
+
 module.exports = {
     upload,
     profileUpload,
-    listingUpload
+    listingUpload,
+    createListingUpload,
+    MAX_VIDEO_SIZE_MB,
+    MAX_VIDEO_SIZE_BYTES,
+    MAX_IMAGE_SIZE_BYTES
 };

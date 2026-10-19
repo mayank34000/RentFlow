@@ -144,6 +144,11 @@ export function adaptListing(listing) {
         image = `${API_URL}${image}`;
     }
 
+    let video = listing.video || null;
+    if (video && video.startsWith('/uploads')) {
+        video = `${API_URL}${video}`;
+    }
+
     const seller = listing.seller ? listing.seller : (listing.owner ? {
         name: listing.owner.name || 'Owner',
         phone: listing.owner.phone || '',
@@ -161,6 +166,7 @@ export function adaptListing(listing) {
         id: id,
         _id: mongoId,
         image: image || '',
+        video: video,
         seller: seller
     };
 }
@@ -183,12 +189,76 @@ export async function getListings(params = {}) {
     }
 }
 
-export async function saveListing(formData) {
-    const { data } = await apiRequest('/api/listings', {
-        method: 'POST',
-        body: formData
+export function saveListing(formData, onProgress) {
+    if (!onProgress) {
+        return apiRequest('/api/listings', {
+            method: 'POST',
+            body: formData
+        }).then(({ data }) => adaptListing(data.data));
+    }
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_URL}/api/listings`);
+
+        const headers = getAuthHeaders();
+        Object.entries(headers).forEach(([k, v]) => {
+            xhr.setRequestHeader(k, v);
+        });
+
+        if (xhr.upload && typeof onProgress === 'function') {
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    onProgress(percent);
+                }
+            };
+        }
+
+        xhr.onload = () => {
+            let data = null;
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch (_e) {
+                // Non-JSON response matches apiRequest behavior
+            }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(adaptListing(data?.data));
+            } else {
+                const err = new Error(
+                    (data && data.message) ||
+                    `Request failed with status ${xhr.status}`
+                );
+                err.status = xhr.status;
+                err.data = data;
+                reject(err);
+            }
+        };
+
+        xhr.onerror = () => {
+            const err = new Error('Network error during upload');
+            err.status = 0;
+            err.data = null;
+            reject(err);
+        };
+
+        xhr.ontimeout = () => {
+            const err = new Error('Upload request timed out');
+            err.status = 408;
+            err.data = null;
+            reject(err);
+        };
+
+        xhr.onabort = () => {
+            const err = new Error('Upload aborted');
+            err.status = 0;
+            err.data = null;
+            reject(err);
+        };
+
+        xhr.send(formData);
     });
-    return adaptListing(data.data);
 }
 
 export async function updateListing(id, formData) {

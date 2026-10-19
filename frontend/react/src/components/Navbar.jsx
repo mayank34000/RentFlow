@@ -122,7 +122,9 @@ function MobileMenu({ open, loggedIn, isPremium, logout, onClose }) {
     <div className="home-mobile-menu">
       <Link to="/" onClick={onClose}>Home</Link>
       <Link to="/booking" onClick={onClose}>Explore Rentals</Link>
-      <Link to="/premium" onClick={onClose} style={{ color: '#f59e0b', fontWeight: 600 }}>👑 Get Premium</Link>
+      <Link to="/premium" onClick={onClose} style={{ color: '#f59e0b', fontWeight: 600 }}>
+        {isPremium ? '👑 Extend Premium' : '👑 Get Premium'}
+      </Link>
       <Link to="/create-listing" onClick={onClose} style={{ color: 'var(--accent-bright)' }}>+ Post Listing</Link>
       <Link to="/about" onClick={onClose}>About</Link>
       <Link to="/contact" onClick={onClose}>Contact</Link>
@@ -177,7 +179,9 @@ export default function Navbar() {
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>Home</NavLink>
           <NavLink to="/booking" className={({ isActive }) => (isActive ? 'active' : '')}>Explore Rentals</NavLink>
           {loggedIn && <NavLink to="/booking-history" className={({ isActive }) => (isActive ? 'active' : '')}>My Rentals</NavLink>}
-          <NavLink to="/premium" className={({ isActive }) => (isActive ? 'active' : '')}>Get Premium</NavLink>
+          <NavLink to="/premium" className={({ isActive }) => (isActive ? 'active' : '')}>
+            {isPremium ? 'Extend Premium' : 'Get Premium'}
+          </NavLink>
           <NavLink to="/create-listing" style={{ color: 'var(--primary-orange)', fontWeight: 600 }} className={({ isActive }) => (isActive ? 'active' : '')}>+ Post Listing</NavLink>
           <NavLink to="/contact" className={({ isActive }) => (isActive ? 'active' : '')}>Contact &amp; FAQ</NavLink>
         </nav>

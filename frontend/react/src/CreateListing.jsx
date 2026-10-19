@@ -104,6 +104,29 @@ export default function CreateListing() {
     const [sellerCity, setSellerCity] = useState('');
     const [imagePreview, setImagePreview] = useState('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=600&q=80');
     const [imageFile, setImageFile] = useState(null);
+    const [videoFile, setVideoFile] = useState(null);
+    const [videoPreviewUrl, setVideoPreviewUrl] = useState(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
+
+    const imageInputRef = useRef(null);
+    const videoInputRef = useRef(null);
+    const imagePreviewRef = useRef(null);
+    const videoPreviewRef = useRef(null);
+
+    // Keep refs in sync for unmount cleanup
+    imagePreviewRef.current = imagePreview;
+    videoPreviewRef.current = videoPreviewUrl;
+
+    useEffect(() => {
+        return () => {
+            if (imagePreviewRef.current && imagePreviewRef.current.startsWith('blob:')) {
+                URL.revokeObjectURL(imagePreviewRef.current);
+            }
+            if (videoPreviewRef.current) {
+                URL.revokeObjectURL(videoPreviewRef.current);
+            }
+        };
+    }, []);
     
     // Amenities
     const [amenities, setAmenities] = useState({
@@ -126,7 +149,8 @@ export default function CreateListing() {
         }
         setUser(currentUser);
         setSellerName(currentUser.name || currentUser.username || '');
-        setSellerPhone(currentUser.userphone || currentUser.phone || '');
+        const initialPhone = (currentUser.userphone || currentUser.phone || '').replace(/\D/g, '').slice(-10);
+        setSellerPhone(initialPhone);
         setSellerCity(currentUser.address || currentUser.city || 'Delhi NCR');
 
     }, [navigate]);
@@ -134,11 +158,68 @@ export default function CreateListing() {
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                setFormError('Please select a valid image file (JPEG, PNG, or WebP).');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                setFormError('Item photo size cannot exceed 5 MB.');
+                return;
+            }
+            if (imagePreview && imagePreview.startsWith('blob:')) {
+                URL.revokeObjectURL(imagePreview);
+            }
+            const blobUrl = URL.createObjectURL(file);
             setImageFile(file);
+            setImagePreview(blobUrl);
             setFormError('');
-            const reader = new FileReader();
-            reader.onload = (e) => setImagePreview(e.target.result);
-            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        if (imagePreview && imagePreview.startsWith('blob:')) {
+            URL.revokeObjectURL(imagePreview);
+        }
+        setImageFile(null);
+        setImagePreview('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=600&q=80');
+        if (imageInputRef.current) {
+            imageInputRef.current.value = '';
+        }
+    };
+
+    const handleVideoUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const allowedTypes = ['video/mp4', 'video/quicktime'];
+            const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+            const allowedExts = ['.mp4', '.mov'];
+            if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
+                setFormError('Condition video must be an MP4 or MOV file.');
+                return;
+            }
+            if (file.size > 100 * 1024 * 1024) {
+                setFormError('Condition video cannot exceed 100 MB.');
+                return;
+            }
+            if (videoPreviewUrl) {
+                URL.revokeObjectURL(videoPreviewUrl);
+            }
+            const blobUrl = URL.createObjectURL(file);
+            setVideoFile(file);
+            setVideoPreviewUrl(blobUrl);
+            setFormError('');
+        }
+    };
+
+    const handleRemoveVideo = () => {
+        if (videoPreviewUrl) {
+            URL.revokeObjectURL(videoPreviewUrl);
+        }
+        setVideoFile(null);
+        setVideoPreviewUrl(null);
+        if (videoInputRef.current) {
+            videoInputRef.current.value = '';
         }
     };
 
@@ -203,8 +284,14 @@ export default function CreateListing() {
             return;
         }
 
-        if (!sellerPhone.trim()) {
+        const cleanPhone = (sellerPhone || '').replace(/\D/g, '');
+        if (!cleanPhone) {
             setFormError('Please provide a contact phone number.');
+            return;
+        }
+
+        if (cleanPhone.length !== 10) {
+            setFormError('Contact number must be of exactly 10 digits, not more or less than that.');
             return;
         }
 
@@ -223,13 +310,20 @@ export default function CreateListing() {
         formData.append('period', pricePeriod);
         formData.append('description', description.trim());
         formData.append('city', (sellerCity && sellerCity.trim()) || 'Delhi NCR');
+        formData.append('phone', cleanPhone);
         // Serialize amenities as JSON array per the controller's expectation
         formData.append('amenities', JSON.stringify(Object.keys(amenities).filter(k => amenities[k])));
         formData.append('image', imageFile);
+        if (videoFile) {
+            formData.append('video', videoFile);
+        }
 
         setIsPublishing(true);
+        setUploadProgress(0);
         try {
-            await saveListing(formData);
+            await saveListing(formData, (percent) => {
+                setUploadProgress(percent);
+            });
             setShowSuccess(true);
             setFormError('');
         } catch (error) {
@@ -238,6 +332,7 @@ export default function CreateListing() {
             setFormError(message);
         } finally {
             setIsPublishing(false);
+            setUploadProgress(0);
         }
     };
 
@@ -400,26 +495,146 @@ export default function CreateListing() {
                                 </div>
                             )}
 
-                            <div className="form-group">
-                                <label>Upload Item Photo *</label>
-                                <div className="upload-box" style={{position: 'relative', overflow: 'hidden'}}>
-                                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{position:'absolute', width:'100%', height:'100%', opacity:0, cursor:'pointer', zIndex: 1}} />
-                                    {imageFile ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2, position: 'relative', pointerEvents: 'none' }}>
-                                            <div style={{ color: 'var(--primary-orange)', fontWeight: 600 }}>{imageFile.name}</div>
-                                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Click to replace</div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="upload-icon">
-                                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <div className="form-section-title">Product Photos and Condition Video</div>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '-2px', marginBottom: '14px' }}>
+                                Add a required item photo and an optional condition video to demonstrate authenticity and quality.
+                            </p>
+
+                            <div className="media-upload-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                                {/* Main Photo Box */}
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <label style={{ margin: 0, fontWeight: 600 }}>Item Photo *</label>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>JPEG, PNG, WebP ≤ 5MB</span>
+                                    </div>
+                                    <div className="upload-box" style={{ position: 'relative', overflow: 'hidden', minHeight: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                                        <input
+                                            ref={imageInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            onChange={handleImageUpload}
+                                            style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 1 }}
+                                        />
+                                        {imageFile ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2, width: '100%' }}>
+                                                <img
+                                                    src={imagePreview}
+                                                    alt="Photo preview"
+                                                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }}
+                                                />
+                                                <div style={{ color: 'var(--primary-orange)', fontWeight: 600, fontSize: '13px', textAlign: 'center', wordBreak: 'break-all' }}>
+                                                    {imageFile.name}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Click to replace</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleRemoveImage();
+                                                        }}
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.15)',
+                                                            color: '#ef4444',
+                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                            borderRadius: '4px',
+                                                            padding: '2px 8px',
+                                                            fontSize: '11px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 600
+                                                        }}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="upload-text">Click or drag image to upload</div>
-                                            <div className="upload-hint">High quality images increase booking chances by 40%</div>
-                                        </>
-                                    )}
+                                        ) : (
+                                            <>
+                                                <div className="upload-icon">
+                                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                                </div>
+                                                <div className="upload-text" style={{ fontSize: '13px' }}>Click or drag photo to upload</div>
+                                                <div className="upload-hint" style={{ fontSize: '11px' }}>Required for all listings</div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Optional Condition Video Box */}
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <label style={{ margin: 0, fontWeight: 600 }}>Condition Video (Optional)</label>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MP4, MOV ≤ 100MB</span>
+                                    </div>
+                                    <div className="upload-box" style={{ position: 'relative', overflow: 'hidden', minHeight: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                                        <input
+                                            ref={videoInputRef}
+                                            type="file"
+                                            accept="video/mp4,video/quicktime"
+                                            onChange={handleVideoUpload}
+                                            style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 1 }}
+                                        />
+                                        {videoFile ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2, width: '100%' }}>
+                                                <video
+                                                    controls
+                                                    preload="metadata"
+                                                    src={videoPreviewUrl}
+                                                    style={{ width: '100%', maxHeight: '110px', borderRadius: '6px', background: '#000' }}
+                                                />
+                                                <div style={{ color: 'var(--primary-orange)', fontWeight: 600, fontSize: '13px', textAlign: 'center', wordBreak: 'break-all' }}>
+                                                    {videoFile.name} ({(videoFile.size / (1024 * 1024)).toFixed(1)} MB)
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Click to replace</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleRemoveVideo();
+                                                        }}
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.15)',
+                                                            color: '#ef4444',
+                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                            borderRadius: '4px',
+                                                            padding: '2px 8px',
+                                                            fontSize: '11px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 600
+                                                        }}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="upload-icon">
+                                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                                                </div>
+                                                <div className="upload-text" style={{ fontSize: '13px' }}>Click or drag video to upload</div>
+                                                <div className="upload-hint" style={{ fontSize: '11px' }}>Showcase working condition & details</div>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Upload Progress Indicator */}
+                            {isPublishing && uploadProgress > 0 && (
+                                <div style={{ marginBottom: '16px', background: 'var(--bg-subtle, rgba(0,0,0,0.05))', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
+                                        <span>Uploading Media...</span>
+                                        <span>{uploadProgress}%</span>
+                                    </div>
+                                    <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${uploadProgress}%`, height: '100%', background: 'linear-gradient(90deg, var(--primary-orange), #2563eb)', transition: 'width 0.2s ease' }}></div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="form-group">
                                 <label>Description (Optional)</label>
@@ -433,8 +648,25 @@ export default function CreateListing() {
                                     <input type="text" className="form-input" value={sellerName} onChange={e => setSellerName(e.target.value)} required />
                                 </div>
                                 <div className="form-group">
-                                    <label>Contact Phone *</label>
-                                    <input type="tel" className="form-input" value={sellerPhone} onChange={e => setSellerPhone(e.target.value)} required />
+                                    <label>Contact Phone (10 Digits) *</label>
+                                    <input
+                                        type="tel"
+                                        className="form-input"
+                                        value={sellerPhone}
+                                        onChange={e => {
+                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                            setSellerPhone(val);
+                                        }}
+                                        placeholder="10-digit mobile number"
+                                        maxLength={10}
+                                        pattern="[0-9]{10}"
+                                        required
+                                    />
+                                    {sellerPhone && sellerPhone.length !== 10 && (
+                                        <span style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px', display: 'block' }}>
+                                            Must be exactly 10 digits ({sellerPhone.length}/10 entered)
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                             <div className="form-group">
@@ -519,6 +751,19 @@ export default function CreateListing() {
                                         </span>
                                     </div>
                                 </div>
+                                {videoPreviewUrl && (
+                                    <div style={{ padding: '12px 16px 0 16px' }}>
+                                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                            Condition Video Preview:
+                                        </div>
+                                        <video
+                                            controls
+                                            preload="metadata"
+                                            src={videoPreviewUrl}
+                                            style={{ width: '100%', maxHeight: '160px', borderRadius: '8px', background: '#000' }}
+                                        />
+                                    </div>
+                                )}
                                 <div className="preview-body">
                                     <h3 className="preview-title">{title || 'Item Title Here'}</h3>
                                     {Object.keys(categorySpecs).length > 0 && (
