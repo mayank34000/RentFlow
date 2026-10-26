@@ -12,10 +12,15 @@
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
-    const uri = process.env.MONGO_URI;
+    // Re-use active connection in serverless runtime across warm invocations
+    if (mongoose.connection.readyState === 1) {
+        return;
+    }
+
+    const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
     if (!uri) {
-        console.warn('[DB] MONGO_URI is not set. Skipping database connection.');
+        console.warn('[DB] Neither MONGO_URI nor MONGODB_URI is set. Skipping database connection.');
         console.warn('[DB] The server will run, but all database operations will fail.');
         return;
     }

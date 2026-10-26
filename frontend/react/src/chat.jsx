@@ -92,15 +92,6 @@ export default function Chat() {
         };
 
         fetchConversations();
-
-        // Wallet legacy script fallback
-        window.__DISABLE_LEGACY_NAVBAR_SCROLL__ = true;
-        if (!document.getElementById('legacy-navbar-script')) {
-            const script = document.createElement('script');
-            script.id  = 'legacy-navbar-script';
-            script.src = '../../js/navbar-scroll.js';
-            document.body.appendChild(script);
-        }
     }, [currentUserId]);
 
     // ── Socket initialization ─────────────────────────────────────────────────
@@ -175,6 +166,29 @@ export default function Chat() {
         };
     }, [currentUserId, activeConversation]);
 
+    // Poll for new messages if socket is not connected (e.g. serverless environment)
+    useEffect(() => {
+        if (!activeConversation) return;
+        const interval = setInterval(async () => {
+            if (!socket || !socket.connected) {
+                try {
+                    const { data: responseData } = await apiRequest(`/api/chat/conversations/${activeConversation._id}/messages`);
+                    if (responseData?.success && Array.isArray(responseData.data)) {
+                        setMessages(prev => {
+                            if (responseData.data.length !== prev.length || responseData.data.some((m, i) => m._id !== prev[i]?._id)) {
+                                return responseData.data;
+                            }
+                            return prev;
+                        });
+                    }
+                } catch {
+                    // Suppress polling error in background
+                }
+            }
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [activeConversation, socket]);
+
     // Scroll to bottom on new messages
     useEffect(() => {
         scrollToBottom();
@@ -228,19 +242,37 @@ export default function Chat() {
         }, 1500);
     };
 
-    const sendMessage = (e) => {
+    const sendMessage = async (e) => {
         e.preventDefault();
         const text = inputText.trim();
-        if (!text || !socket || !activeConversation) return;
+        if (!text || !activeConversation) return;
 
-        socket.emit('send_message', { conversationId: activeConversation._id, text }, (response) => {
-            if (!response.success) {
-                alert('Failed to send message: ' + (response.message || 'Unknown error'));
+        if (socket && socket.connected) {
+            socket.emit('send_message', { conversationId: activeConversation._id, text }, (response) => {
+                if (!response.success) {
+                    alert('Failed to send message: ' + (response.message || 'Unknown error'));
+                }
+            });
+        } else {
+            // Graceful HTTP REST fallback for serverless / disconnected socket environments
+            try {
+                const { data: responseData } = await apiRequest(`/api/chat/conversations/${activeConversation._id}/messages`, {
+                    method: 'POST',
+                    body: { text }
+                });
+                if (responseData?.success && responseData?.data) {
+                    setMessages(prev => {
+                        if (prev.some(m => m._id === responseData.data._id)) return prev;
+                        return [...prev, responseData.data];
+                    });
+                }
+            } catch (err) {
+                alert('Failed to send message: ' + (err.message || 'Unknown error'));
             }
-        });
+        }
 
         setInputText('');
-        if (isTyping) {
+        if (isTyping && socket && socket.connected) {
             setIsTyping(false);
             socket.emit('typing_stop', { conversationId: activeConversation._id });
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -361,9 +393,8 @@ export default function Chat() {
                                         placeholder="Type a message..."
                                         value={inputText}
                                         onChange={handleTextChange}
-                                        disabled={!socket}
                                     />
-                                    <button type="submit" className="btn-send" disabled={!inputText.trim() || !socket}>
+                                    <button type="submit" className="btn-send" disabled={!inputText.trim()}>
                                         Send
                                     </button>
                                 </form>

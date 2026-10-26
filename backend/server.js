@@ -150,19 +150,31 @@ app.use('/api/feedback', require('./routes/feedback'));
 
 
 // ── 5a. Health check ──────────────────────────────────────────────────────────
+app.get('/api', (req, res) => {
+    const isDbConnected = mongoose.connection.readyState === 1;
+    res.json({
+        success: isDbConnected,
+        message: isDbConnected ? 'RentFlow API is active and database is connected' : 'RentFlow API is active (database disconnected)',
+        database: isDbConnected ? 'connected' : 'disconnected',
+    });
+});
+
 app.get('/api/health', (req, res) => {
     let dbStatus;
 
-    if (!process.env.MONGO_URI) {
+if (!process.env.MONGO_URI && !process.env.MONGODB_URI) {
         dbStatus = 'not_configured';
     } else {
         const state = mongoose.connection.readyState;
         dbStatus = state === 1 ? 'connected' : 'disconnected';
     }
 
-    res.json({
-        success: true,
-        message: 'Server is running',
+const isHealthy = dbStatus === 'connected';
+
+    res.status(isHealthy ? 200 : 503).json({
+        success: isHealthy,
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        message: isHealthy ? 'Server is running and database is connected' : `Server is running but database is ${dbStatus}`,
         database: dbStatus,
     });
 });
@@ -183,8 +195,12 @@ const PORT = process.env.PORT || 5000;
 
 // Validate JWT_SECRET for auth/admin routes
 if (!process.env.JWT_SECRET) {
-  console.error('ERROR: JWT_SECRET is not set in .env');
-  process.exit(1);
+    if (process.env.NODE_ENV === 'production') {
+    console.error('FATAL: JWT_SECRET environment variable is missing in production.');
+    throw new Error('FATAL: JWT_SECRET environment variable is missing in production.');
+    } else {
+    console.warn('[Server] WARNING: JWT_SECRET is not set in environment. Authentication operations will fail.');
+    }
 }
 
 const { syncListings } = require('./utils/syncListings');
@@ -210,4 +226,12 @@ const startServer = async () => {
     });
 };
 
-startServer();
+// Start HTTP server when executed directly; connect to DB when loaded in serverless runtime
+if (require.main === module) {
+    startServer();
+} else {
+    connectDB();
+}
+
+// Export the Express app for Vercel Serverless Functions
+module.exports = app;

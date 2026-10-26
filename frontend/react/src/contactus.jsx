@@ -47,20 +47,7 @@ export default function ContactUs() {
         }
     } else {
     setCurrentUser(null);
-}
-
-    // Fetch from GET /api/bookings/my
-
-        // Load legacy wallet script since it's massive and shared.
-        // We do this so window.openWalletModal is available.
-        // TODO: replace with Mayank's shared React Navbar when available.
-        window.__DISABLE_LEGACY_NAVBAR_SCROLL__ = true;
-        if (!document.getElementById("legacy-navbar-script")) {
-            const script = document.createElement("script");
-            script.id = "legacy-navbar-script";
-            script.src = "../../js/navbar-scroll.js";
-            document.body.appendChild(script);
-        }
+    }
     }, []);
 
     const showToast = (msg, type = "success") => {

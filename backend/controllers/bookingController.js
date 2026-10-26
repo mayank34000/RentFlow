@@ -1015,7 +1015,32 @@ exports.returnBooking = async (req, res) => {
             updateData.returnNote = req.body.returnNote.substring(0, 500);
         }
         if (req.file) {
-            updateData.returnPhoto = `uploads/returns/${req.file.filename}`;
+            if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
+                try {
+                    const cloudinary = require('../config/cloudinary');
+                    const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+                        folder: 'rentflow/returns',
+                        resource_type: 'image'
+                    });
+                    updateData.returnPhoto = uploadResult.secure_url;
+                    cleanupUpload();
+                } catch (cloudErr) {
+                    console.error('[Booking] Cloudinary upload for return photo failed:', cloudErr.message);
+                    cleanupUpload();
+                    return res.status(502).json({
+                        success: false,
+                        message: 'Failed to upload return verification photo to storage. Please try again.'
+                    });
+                }
+            } else if (process.env.NODE_ENV === 'production') {
+                cleanupUpload();
+                return res.status(500).json({
+                    success: false,
+                    message: 'Cloud storage is not configured on the server.'
+                });
+            } else {
+                updateData.returnPhoto = req.file.path;
+            }
         }
 
         const updated = await Booking.findOneAndUpdate(

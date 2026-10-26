@@ -8,23 +8,31 @@ const os = require('os');
 
 // Ensure destination directories exist
 const uploadDir = path.join(__dirname, '..', 'uploads', 'returns');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+try {
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+} catch (err) {
+    console.warn('[Upload] Notice: Could not create upload directory (read-only filesystem):', err.message);
 }
 
 const listingUploadDir = path.join(__dirname, '..', 'uploads', 'listings');
-if (!fs.existsSync(listingUploadDir)) {
-    fs.mkdirSync(listingUploadDir, { recursive: true });
+try {
+    if (!fs.existsSync(listingUploadDir)) {
+        fs.mkdirSync(listingUploadDir, { recursive: true });
+    }
+} catch (err) {
+    console.warn('[Upload] Notice: Could not create listing upload directory (read-only filesystem):', err.message);
 }
 
 // ── Storage Configuration ─────────────────────────────────────────────────────
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, uploadDir);
+        cb(null, os.tmpdir());
     },
     filename: function (req, file, cb) {
-        // Generate a safe, random filename
+        // Generate a safe, random filename in temp directory
         const randomHex = crypto.randomBytes(8).toString('hex');
         const timestamp = Date.now();
         // Determine extension safely
@@ -33,7 +41,6 @@ const storage = multer.diskStorage({
         else if (file.mimetype === 'image/png') ext = '.png';
         else if (file.mimetype === 'image/webp') ext = '.webp';
         else {
-            // Fallback, though fileFilter should prevent reaching here for invalid types
             const originalExt = path.extname(file.originalname).toLowerCase();
             ext = originalExt;
         }
