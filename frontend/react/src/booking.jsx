@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
 import '../../css/index.css';
 import './styles/booking.css';
-import { getListings, getAuthHeaders, getAuthUser } from './services/api';
+import { getListings, getAuthHeaders, getAuthUser,API_URL } from './services/api';
 import Navbar from './components/Navbar';
 
 // ============================================================================
@@ -112,12 +112,11 @@ export function resolveImageUrl(img, category) {
     const fallback = getCategoryFallback(category);
     if (!img || img === '/assets/profile.png') return fallback;
     if (img.startsWith('http://') || img.startsWith('https://')) return img;
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
     if (img.startsWith('/uploads')) {
-        return `${apiUrl}${img}`;
+        return `${API_URL}${img}`;
     }
     if (img.startsWith('uploads/')) {
-        return `${apiUrl}/${img}`;
+        return `${API_URL}/${img}`;
     }
     return img;
 }
@@ -393,15 +392,6 @@ export default function BookingPage() {
             localStorage.removeItem('user');
             navigate('/login');
         }
-
-        // Fallback for legacy wallet logic (preserve exact approach from contactus.jsx)
-        window.__DISABLE_LEGACY_NAVBAR_SCROLL__ = true;
-        if (!document.getElementById('legacy-navbar-script')) {
-            const script = document.createElement('script');
-            script.id = 'legacy-navbar-script';
-            script.src = '../../js/navbar-scroll.js';
-            document.body.appendChild(script);
-        }
     }, [navigate]);
 
     // ── Search & Filter API Fetch ──
@@ -575,12 +565,11 @@ export default function BookingPage() {
         setIsSubmitting(true);
 
         const payload = buildBookingRequest(selectedListing, startObj, endObj);
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
         abortControllerRef.current = new AbortController();
 
         try {
-            const response = await fetch(`${apiUrl}/api/bookings`, {
+            const response = await fetch(`${API_URL}/api/bookings`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -5,8 +5,36 @@
  * so that every page uses the same API request mechanism.
  */
 
-export const API_URL =
-    import.meta.env.VITE_API_URL || 'http://localhost:5000';
+/**
+ * Resolves the API base URL safely across environments.
+ *
+ * Rules:
+ * - In production (import.meta.env.PROD), never allow localhost / 127.0.0.1
+ *   to leak into client-side network traffic. Default to '' (same-origin relative).
+ * - If an external HTTPS URL is provided via VITE_API_URL (e.g. separate backend host),
+ *   use it (stripped of trailing slashes).
+ * - In local development (!import.meta.env.PROD), if VITE_API_URL is unset, default to ''
+ *   (which Vite dev server proxies to http://localhost:5002) or the configured URL.
+ */
+function getApiBaseUrl() {
+    const configuredUrl = (import.meta.env.VITE_API_URL || '').trim();
+    const isLoopback = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(configuredUrl);
+
+    if (import.meta.env.PROD) {
+        if (!configuredUrl || isLoopback) {
+            return '';
+        }
+        return configuredUrl.replace(/\/+$/, '');
+    }
+
+    if (isLoopback) {
+        return configuredUrl.replace(/\/+$/, '');
+    }
+
+    return configuredUrl ? configuredUrl.replace(/\/+$/, '') : '';
+}
+
+export const API_URL = getApiBaseUrl();
 
 /**
  * Returns authentication headers using the canonical JWT based authentication.

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import '../../css/index.css';
 import './styles/booking-history.css';
 import { useTheme, useScrollHide } from './useNavbarBehavior';
-import { apiRequest, getBookingPaymentQuote, payBookingWithWallet, createBookingPaymentOrder, verifyBookingPayment } from './services/api';
+import { apiRequest, getBookingPaymentQuote, payBookingWithWallet, createBookingPaymentOrder, verifyBookingPayment, API_URL } from './services/api';
 import Navbar from './components/Navbar';
 
 // ============================================================================
@@ -45,9 +45,8 @@ function resolveImageUrl(img, category) {
     const fallback = getCategoryFallback(category);
     if (!img || img === '/assets/profile.png') return fallback;
     if (img.startsWith('http://') || img.startsWith('https://')) return img;
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    if (img.startsWith('/uploads')) return `${apiUrl}${img}`;
-    if (img.startsWith('uploads/')) return `${apiUrl}/${img}`;
+    if (img.startsWith('/uploads')) return `${API_URL}${img}`;
+    if (img.startsWith('uploads/')) return `${API_URL}/${img}`;
     return img;
 }
 
