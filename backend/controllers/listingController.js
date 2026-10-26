@@ -1,5 +1,6 @@
 'use strict';
 
+const User = require('../models/User');
 const Listing = require('../models/Listing');
 const mongoose = require('mongoose');
 const path = require('path');
