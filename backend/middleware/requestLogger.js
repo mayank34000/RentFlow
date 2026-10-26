@@ -37,14 +37,22 @@ const path         = require('path');
 const LOG_DIR  = path.join(__dirname, '..', 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'requests.log');
 
-// Create the logs/ directory if it does not already exist.
-// { recursive: true } makes this a no-op if the directory is already present.
-if (!fs.existsSync(LOG_DIR)) {
-  fs.mkdirSync(LOG_DIR, { recursive: true });
-}
+let logStream = null;
 
-// Append-mode write stream — survives server restarts without truncating the log.
-const logStream = fs.createWriteStream(LOG_FILE, { flags: 'a' });
+try {
+  // Create the logs/ directory if it does not already exist.
+  if (!fs.existsSync(LOG_DIR)) {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+  }
+  // Append-mode write stream — survives server restarts without truncating the log.
+  logStream = fs.createWriteStream(LOG_FILE, { flags: 'a' });
+  logStream.on('error', (err) => {
+    console.error('[RequestLogger] Stream error:', err.message);
+  });
+} catch (err) {
+  // Handle serverless / read-only filesystems gracefully without throwing
+  console.warn('[RequestLogger] File logging disabled (read-only filesystem or restricted permissions):', err.message);
+}
 
 // ── EventEmitter — decouples log writing from the request cycle ───────────────
 
@@ -56,12 +64,14 @@ const logger = new RequestLogger();
 // writes it to disk via the stream. Running it asynchronously (via emit)
 // means the HTTP response is sent before fs I/O completes.
 logger.on('request-completed', (logLine) => {
-  logStream.write(logLine + '\n', (err) => {
-    if (err) {
-      // fs write errors should not crash the server — print to stderr only.
-      console.error('[RequestLogger] Failed to write log entry:', err.message);
-    }
-  });
+  if (logStream && logStream.writable) {
+    logStream.write(logLine + '\n', (err) => {
+      if (err) {
+        // fs write errors should not crash the server — print to stderr only.
+        console.error('[RequestLogger] Failed to write log entry:', err.message);
+      }
+    });
+  }
 });
 
 // ── Middleware factory ─────────────────────────────────────────────────────────
@@ -91,8 +101,10 @@ function requestLogger(req, res, next) {
     // Emit to the EventEmitter listener — I/O happens off the request path.
     logger.emit('request-completed', logLine);
 
-    // Also mirror to stdout in development so the console is informative.
-    if (process.env.NODE_ENV !== 'production') {
+    // Mirror to stdout so Vercel / serverless runtime logs capture it natively
+    if (process.env.NODE_ENV === 'production') {
+      console.log(`[HTTP] ${logLine}`);
+    } else {
       const colour = status >= 500 ? '\x1b[31m'  // red
                    : status >= 400 ? '\x1b[33m'  // yellow
                    : status >= 300 ? '\x1b[36m'  // cyan

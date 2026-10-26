@@ -5,6 +5,13 @@ const jwt = require('jsonwebtoken');
 // Authorization: Bearer <token>
 
 function auth(req, res, next) {
+  if (!process.env.JWT_SECRET) {
+    console.error('[Auth Middleware] FATAL: JWT_SECRET is not configured on the server.');
+    return res.status(500).json({
+      success: false,
+      message: 'Server authentication configuration error.'
+    });
+  }
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -22,7 +29,13 @@ function auth(req, res, next) {
       process.env.JWT_SECRET
     );
 
-    req.user = decoded;
+    const userId = decoded.userId || decoded.id || decoded._id;
+    req.user = {
+      ...decoded,
+      id: userId,
+      _id: userId,
+      role: (decoded.role === 'customer' || decoded.role === 'seller') ? 'user' : decoded.role,
+    };
 
     next();
   } catch (err) {

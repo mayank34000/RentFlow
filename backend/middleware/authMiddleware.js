@@ -2,6 +2,12 @@ const jwt = require('jsonwebtoken');
 
 const authenticateToken = (req, res, next) => {
     try {
+        if (!process.env.JWT_SECRET) {
+            console.error('[Auth Middleware] FATAL: JWT_SECRET is not configured on the server.');
+            return res.status(500).json({
+                message: 'Server authentication configuration error.',
+            });
+        }
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
