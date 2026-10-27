@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
-const Otp = require('../models/Otp');
+const Otp = require('../models/otp');
 const {
     sendOtpEmail,
     sendForgotPasswordOtpEmail,

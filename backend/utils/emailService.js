@@ -1,20 +1,56 @@
-const nodemailer = require('nodemailer');
+'use strict';
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: false,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+// HTTPS email transport for Node.js 18+ (no additional package required).
+// Set RESEND_API_KEY and MAIL_FROM on the backend deployment.
+// MAIL_FROM must be permitted by your Resend sender/domain configuration.
+const transporter = {
+    async sendMail(message) {
+        const apiKey = (process.env.RESEND_API_KEY || '').trim();
+        const from = (process.env.MAIL_FROM || '').trim();
+
+        if (!apiKey || !from) {
+            throw new Error('Email configuration missing: RESEND_API_KEY and MAIL_FROM are required.');
+        }
+
+        let response;
+        try {
+            response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    from,
+                    to: [message.to],
+                    subject: message.subject,
+                    text: message.text,
+                    html: message.html,
+                }),
+                signal: AbortSignal.timeout(10000),
+            });
+        } catch (error) {
+            if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+                throw new Error('Email provider request timed out.');
+            }
+            throw new Error('Unable to connect to the email provider.');
+        }
+
+        if (!response.ok) {
+            // Keep provider payloads, API keys and OTPs out of controller logs.
+            throw new Error(`Email provider rejected the request (HTTP ${response.status}). Check sender verification and provider logs.`);
+        }
+
+        // Acceptance by the provider is not a guarantee of inbox delivery.
+        return { accepted: true };
     },
-});
+};
 
 const sendOtpEmail = async (email, otp) => {
     const formattedOtp = otp.toString().split('').join(' ');
 
     await transporter.sendMail({
-        from: `"RentFlow" <${process.env.SMTP_USER}>`,
+        from: process.env.MAIL_FROM,
         to: email,
         subject: 'Your RentFlow Verification Code',
 
@@ -32,7 +68,7 @@ Please use the verification code below to continue:
 
 ${formattedOtp}
 
-Expires in 45 seconds
+Expires in 5 minutes
 
 Enter this code on the RentFlow verification screen. For your security, never share this code with anyone, including RentFlow support.
 
@@ -175,7 +211,7 @@ This is an automated message. Please do not reply to this email.
                         font-weight: 600;
                         color: #ff762f;
                     ">
-                        Expires in 45 seconds
+                        Expires in 5 minutes
                     </div>
 
                 </div>
@@ -283,7 +319,7 @@ const sendForgotPasswordOtpEmail = async (email, otp) => {
     const formattedOtp = otp.toString().split('').join(' ');
 
     await transporter.sendMail({
-        from: `"RentFlow" <${process.env.SMTP_USER}>`,
+        from: process.env.MAIL_FROM,
         to: email,
         subject: 'Reset Your RentFlow Password',
 

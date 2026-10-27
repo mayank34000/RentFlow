@@ -100,24 +100,25 @@ const loginLimiter = rateLimit({
 const otpLimiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
     max: parseInt(process.env.RATE_LIMIT_OTP_MAX) || 5,
-    keyGenerator: (req) => {
-        const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    keyGenerator: (req, res) => {
+        const ip = rateLimit.ipKeyGenerator(req, res);
         const email = req.body && req.body.email ? req.body.email.toLowerCase() : '';
         return `${ip}_${email}`;
     },
     message: { success: false, message: 'Too many requests, please try again later' },
-    validate: { trustProxy: false, xForwardedForHeader: false, keyGenerator: false }
+    validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
-// 3. Payment limiter
+// 3. Payment limiter (applies to mutations only; GET quote requests are excluded)
 const paymentLimiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_PAYMENT_MAX) || 10,
-    keyGenerator: (req) => {
-        return req.user ? req.user._id.toString() : (req.ip || req.socket.remoteAddress || 'unknown');
+    max: parseInt(process.env.RATE_LIMIT_PAYMENT_MAX) || 30,
+    skip: (req) => req.method === 'GET',
+    keyGenerator: (req, res) => {
+        return req.user ? req.user._id.toString() : rateLimit.ipKeyGenerator(req, res);
     },
     message: { success: false, message: 'Too many payment attempts, please try again later' },
-    validate: { trustProxy: false, xForwardedForHeader: false, keyGenerator: false }
+    validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
 // Mount limiters by path
@@ -136,6 +137,7 @@ app.use('/api/listings', require('./routes/listings'));
 app.use("/api/payment", authenticateToken, paymentLimiter, require("./routes/payment"));
 
 app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/notifications', require('./routes/notifications'));
@@ -148,19 +150,31 @@ app.use('/api/feedback', require('./routes/feedback'));
 
 
 // ── 5a. Health check ──────────────────────────────────────────────────────────
+app.get('/api', (req, res) => {
+    const isDbConnected = mongoose.connection.readyState === 1;
+    res.json({
+        success: isDbConnected,
+        message: isDbConnected ? 'RentFlow API is active and database is connected' : 'RentFlow API is active (database disconnected)',
+        database: isDbConnected ? 'connected' : 'disconnected',
+    });
+});
+
 app.get('/api/health', (req, res) => {
     let dbStatus;
 
-    if (!process.env.MONGO_URI) {
+if (!process.env.MONGO_URI && !process.env.MONGODB_URI) {
         dbStatus = 'not_configured';
     } else {
         const state = mongoose.connection.readyState;
         dbStatus = state === 1 ? 'connected' : 'disconnected';
     }
 
-    res.json({
-        success: true,
-        message: 'Server is running',
+const isHealthy = dbStatus === 'connected';
+
+    res.status(isHealthy ? 200 : 503).json({
+        success: isHealthy,
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        message: isHealthy ? 'Server is running and database is connected' : `Server is running but database is ${dbStatus}`,
         database: dbStatus,
     });
 });
@@ -181,13 +195,28 @@ const PORT = process.env.PORT || 5000;
 
 // Validate JWT_SECRET for auth/admin routes
 if (!process.env.JWT_SECRET) {
-  console.error('ERROR: JWT_SECRET is not set in .env');
-  process.exit(1);
+    if (process.env.NODE_ENV === 'production') {
+    console.error('FATAL: JWT_SECRET environment variable is missing in production.');
+    throw new Error('FATAL: JWT_SECRET environment variable is missing in production.');
+    } else {
+    console.warn('[Server] WARNING: JWT_SECRET is not set in environment. Authentication operations will fail.');
+    }
 }
+
+const { syncListings } = require('./utils/syncListings');
 
 const startServer = async () => {
     // Attempt DB connection first
     await connectDB();
+
+    // Sync & deduplicate catalog listings into MongoDB
+    if (mongoose.connection.readyState === 1) {
+        try {
+            await syncListings();
+        } catch (syncErr) {
+            console.error('[Server] Listing sync error:', syncErr.message);
+        }
+    }
 
     httpServer.listen(PORT, () => {
         console.log(`[Server] RentFlow API running on http://localhost:${PORT}`);
@@ -197,4 +226,12 @@ const startServer = async () => {
     });
 };
 
-startServer();
+// Start HTTP server when executed directly; connect to DB when loaded in serverless runtime
+if (require.main === module) {
+    startServer();
+} else {
+    connectDB();
+}
+
+// Export the Express app for Vercel Serverless Functions
+module.exports = app;
