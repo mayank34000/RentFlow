@@ -362,37 +362,61 @@ if (hygieneTimer.unref) hygieneTimer.unref();
 function calculatePricing(listing, startDate, endDate) {
     const diffMs = endDate.getTime() - startDate.getTime();
     const totalHours = diffMs / (1000 * 60 * 60);
-    const fullDays = Math.floor(totalHours / 24);
-    const remainingHours = totalHours % 24;
 
-    let chargedDays = 0;
-    if (fullDays === 0) {
-        chargedDays = remainingHours < 12 ? 0.5 : 1.0;
-    } else {
-        if (remainingHours === 0) {
-            chargedDays = fullDays;
-        } else if (remainingHours < 12) {
-            chargedDays = fullDays + 0.5;
-        } else {
-            chargedDays = fullDays + 1.0;
-        }
+    if (!Number.isFinite(totalHours) || totalHours <= 0) {
+        throw new Error('A valid positive booking duration is required.');
     }
 
-    const pricePerDay = parseFloat(listing.price) || 0;
-    const securityDeposit = parseFloat(listing.securityDeposit) || 0;
-    const subtotal = chargedDays * pricePerDay;
+    // Preserve the existing half-day/day charging thresholds.
+    const fullDays = Math.floor(totalHours / 24);
+    const remainingHours = totalHours % 24;
+    let chargedDays;
+
+    if (fullDays === 0) {
+        chargedDays = remainingHours < 12 ? 0.5 : 1;
+    } else if (remainingHours === 0) {
+        chargedDays = fullDays;
+    } else {
+        chargedDays = fullDays + (remainingHours < 12 ? 0.5 : 1);
+    }
+
+    // Policy: prorate weekly prices over 7 days and monthly prices over
+    // fixed 30-day periods. These are not started-week/calendar-month charges.
+    const period = String(listing.period || 'day').trim().toLowerCase();
+    const daysPerPeriod = { day: 1, week: 7, month: 30 };
+    if (!Object.prototype.hasOwnProperty.call(daysPerPeriod, period)) {
+        throw new Error(`Unsupported rental period: ${period}`);
+    }
+
+    const listedPrice = Number(listing.price);
+    const deposit = Number(listing.securityDeposit ?? 0);
+    if (!Number.isFinite(listedPrice) || listedPrice < 0 ||
+        !Number.isFinite(deposit) || deposit < 0) {
+        throw new Error('Listing price and deposit must be valid non-negative amounts.');
+    }
+
+    const periodDays = daysPerPeriod[period];
+    const listedPricePaise = Math.round(listedPrice * 100);
+    const depositPaise = Math.round(deposit * 100);
+
+    // Round the final rental subtotal to paise, not the intermediate daily rate.
+    const subtotalPaise = Math.round(chargedDays * listedPricePaise / periodDays);
+    const subtotal = subtotalPaise / 100;
+
+    // Preserve the existing 2% fee rounded to whole rupees.
     const platformFee = Math.round(subtotal * 0.02);
-    const total = subtotal + platformFee + securityDeposit;
+    const totalPaise = subtotalPaise + platformFee * 100 + depositPaise;
 
     return {
         totalDays: chargedDays,
-        pricePerDay,
+        pricePerDay: listedPricePaise / (100 * periodDays),
         subtotal,
         platformFee,
-        securityDeposit,
-        total
+        securityDeposit: depositPaise / 100,
+        total: totalPaise / 100,
     };
 }
+
 
 exports.createBooking = async (req, res) => {
     try {
