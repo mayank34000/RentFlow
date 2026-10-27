@@ -1,813 +1,508 @@
-# RentFlow
-
-RentFlow is a modern, responsive rental and booking platform built with **HTML, CSS, JavaScript, Bootstrap, and browser LocalStorage**. It allows users to discover rentable items, create listings, make bookings, manage profiles, submit feedback, and access premium features.
-
-The project is designed as a frontend-focused rental marketplace prototype with separate experiences for **customers, sellers, and administrators**.
-
----
-
-## ✨ Features
-
-### 🔐 Authentication & Accounts
-- User signup and login
-- Google Sign-In integration
-- Session handling through LocalStorage
-- Profile management
-- Profile image upload
-- Change password UI
-- Logout functionality
-- Automatic role-based navigation
-
-### 🏠 Rental Marketplace
-- Browse available rental listings
-- Search, filter, and sort listings
-- Categories for different rental types
-- Rental price calculations
-- Rental duration calculations
-- Availability checking
-- Location-based rental functionality
-- Detailed listing information
-
-### 📋 Listing Management
-- Create new rental listings
-- Edit existing listings
-- Upload listing images
-- Set rental pricing
-- Add listing details and categories
-- Preview pricing before publishing
-- Detect potentially duplicate listings
-- View their own listings
-- Track booking requests
-- Track completed settlements
-- View/update wallet-related information
-
-### 📅 Booking System
-- Browse listings
-- Select rental dates
-- Calculate rental duration
-- View pricing breakdown
-- Submit rental bookings
-- View booking history
-- Track booking status
-- Generate booking-related documents/receipts where supported
-
-### 👑 Premium
-- Premium membership page
-- Premium status stored with the user
-- Premium navigation changes dynamically
-- Premium-related account functionality
-
-### 👨‍💼 Admin Dashboard
-Administrators can manage and monitor:
-- Platform KPIs
-- Listings
-- Bookings
-- User activity
-- Feedback
-- Reports
-- Premium users
-- Listing status
-- Listing removal requests
-- Listing blocking/unblocking
-- Administrative activity
-
-### 📊 Analytics
-The analytics section provides:
-- Booking analytics
-- Revenue analytics
-- Listing performance
-- Category distribution
-- User overview
-- Feedback analytics
-- Listing management statistics
-- Blocked listing analytics
-- Premium user analytics
-
-### 💬 Feedback & Support
-- Contact and FAQ page
-- User feedback submission
-- Star rating system
-- Feedback history/display
-- Feedback moderation through the admin dashboard
-
-### 🎨 UI/UX
-- Responsive design
-- Dark/glassmorphism-inspired interface
-- Bootstrap components
-- Custom CSS styling
-- Background video
-- Responsive navigation
-- Mobile hamburger navigation
-- Light-theme support
-- Toast notifications
-- Modal dialogs
-- Dynamic profile dropdown
-
----
-
-## 🛠️ Tech Stack
-
-| Technology | Purpose |
-|---|---|
-| HTML5 | Page structure |
-| CSS3 | Custom styling and responsive layouts |
-| JavaScript (ES6+) | Application logic and interactivity |
-| Bootstrap 5.3.3 | UI components and responsive utilities |
-| Google Identity Services | Google authentication |
-| LocalStorage | Client-side data persistence |
-| jsPDF | PDF/receipt generation where used |
-| Nominatim / OpenStreetMap | Location/geocoding functionality |
-| Google Fonts | Inter and Manrope typography |
-
----
-
-## 📁 Project Structure
-
-```text
-RentFlow-main/
-│
-├── frontend/
-│   ├── assets/
-│   │   ├── facebook.png
-│   │   ├── google.png
-│   │   ├── profile.png
-│   │   └── video.mp4
-│   │
-│   ├── css/
-│   │   ├── about.css
-│   │   ├── admin-dashboard.css
-│   │   ├── analytics.css
-│   │   ├── booking-history.css
-│   │   ├── booking.css
-│   │   ├── contactus.css
-│   │   ├── create_listings.css
-│   │   ├── feedback.css
-│   │   ├── index.css
-│   │   ├── light-theme.css
-│   │   ├── navbar.css
-│   │   ├── premium.css
-│   │   ├── profile.css
-│   │   ├── rentflow-rental.css
-│   │   ├── signup.css
-│   │   └── upcoming_features.css
-│   │
-│   ├── html/
-│   │   ├── about.html
-│   │   ├── admin-dashboard.html
-│   │   ├── analytics.html
-│   │   ├── booking-history.html
-│   │   ├── booking.html
-│   │   ├── contact.html
-│   │   ├── create_listings.html
-│   │   ├── edit-listing.html
-│   │   ├── feedback.html
-│   │   ├── index.html
-│   │   ├── login.html
-│   │   ├── policy.html
-│   │   ├── premium.html
-│   │   ├── profile.html
-│   │   ├── signup.html
-│   │   └── upcoming_features.html
-│   │
-│   └── js/
-│       ├── admin-dashboard.js
-│       ├── analytics.js
-│       ├── booking-history.js
-│       ├── booking.js
-│       ├── contactus.js
-│       ├── create_listings.js
-│       ├── edit-listing.js
-│       ├── feedback.js
-│       ├── index.js
-│       ├── login.js
-│       ├── navbar-scroll.js
-│       ├── navbar.js
-│       ├── premium.js
-│       ├── products.json
-│       ├── profile.js
-│       ├── rentflow-rental.js
-│       ├── signup.js
-│       ├── storage.js
-│       └── theme.js
-│
-└── README.md
-```
-
----
-
----
-
-## 🖼️ Project Screenshots
-
-### 🏠 Homepage
-
-<p align="center">
-  <img src="./frontend/assets/homepage.jpeg" alt="RentFlow Homepage" width="900">
-</p>
-
-### 🔎 Browse Available Rentals
-
-<p align="center">
-  <img src="./frontend/assets/browse-rentals.jpeg" alt="Browse Available Rentals" width="900">
-</p>
-
-### ➕ Create a New Listing
-
-<p align="center">
-  <img src="./frontend/assets/create-listing.jpeg" alt="Create a New Listing" width="900">
-</p>
-
-### 📄 Rental Receipt
-
-<p align="center">
-  <img src="./frontend/assets/rental-receipt.jpeg" alt="Rental Receipt" width="700">
-</p>
-
-### 👤 User Profile
-
-<p align="center">
-  <img src="./frontend/assets/profile.jpeg" alt="RentFlow User Profile" width="900">
-</p>
-
-### ⭐ RentFlow Premium
-
-<p align="center">
-  <img src="./frontend/assets/premium.jpeg" alt="RentFlow Premium" width="700">
-</p>
-
-### 💬 Feedback
-
-<p align="center">
-  <img src="./frontend/assets/feedback.jpeg" alt="RentFlow Feedback Page" width="900">
-</p>
-
-### 📞 Contact & FAQ
-
-<p align="center">
-  <img src="./frontend/assets/contact-faq.jpeg" alt="Contact and FAQ" width="900">
-</p>
-
-### ℹ️ About RentFlow
-
-<p align="center">
-  <img src="./frontend/assets/about.jpeg" alt="About RentFlow" width="900">
-</p>
-
-### 👨‍💼 Admin Dashboard
-
-<p align="center">
-  <img src="./frontend/assets/admin-dashboard.jpeg" alt="Admin Dashboard" width="900">
-</p>
-
-### 📊 Admin Analytics
-
-<p align="center">
-  <img src="./frontend/assets/analytics-dashboard.jpeg" alt="Admin Analytics Dashboard" width="900">
-</p>
-
-### 🛠️ Admin Listing & Booking Management
-
-<p align="center">
-  <img src="./frontend/assets/admin-management.jpeg" alt="Admin Listing and Booking Management" width="900">
-</p>
-
-### 🚫 Listing Management & Blocked Listings
-
-<p align="center">
-  <img src="./frontend/assets/listing-management.jpeg" alt="Listing Management and Blocked Listings" width="900">
-</p>
-
-### 🚀 Upcoming Features
-
-<p align="center">
-  <img src="./frontend/assets/upcoming-features.jpeg" alt="Upcoming Features" width="900">
-</p>
-
----
-
-## Getting Started
-
-### 1. Clone the repository
-
-```bash
-git clone <your-repository-url>
-cd RentFlow-main
-```
-
-### 2. Open the project
-
-RentFlow is a frontend application, so no Node.js, Python, Java, or database server is required for the current LocalStorage-based version.
-
-For the best experience, run it using a local development server.
-
-### 3. Using VS Code
-
-Install the **Live Server** extension and:
-
-1. Open the project folder.
-2. Open `frontend/html/index.html`.
-3. Right-click the file.
-4. Select **Open with Live Server**.
-
-The application will open in your browser.
-
-### 4. Alternative
-
-You can also open:
-
-```text
-frontend/html/index.html
-```
-
-directly in a browser, although a local server is recommended for more reliable behavior.
-
----
-
-## 👥 Demo Accounts
-
-The project currently contains seed users in `frontend/js/storage.js`.
-
-### Admin
-
-```text
-Email: admin@rentflow.com
-Password: Admin@123
-Role: Admin
-```
-
-### Customer
-
-```text
-Email: rahul@example.com
-Password: User@1234
-Role: Customer
-```
-
-### Seller
-
-```text
-Email: aman@example.com
-Password: User@1234
-Role: Seller
-```
-
-Additional seeded users are also available in `frontend/js/storage.js`.
-
-> **Security note:** These credentials are demo credentials for the frontend prototype. They must not be used as production administrator credentials.
-
----
-
-## 💾 Data Storage
-
-The current version uses the browser's **LocalStorage** instead of a backend database.
-
-The central storage logic is handled by:
-
-```text
-frontend/js/storage.js
-```
-
-Important storage keys include:
-
-```text
-user
-RentFlow_listings
-rentflow_bookings
-rentiq_feedback
-current_user
-```
-
-The project initializes demo data when the corresponding LocalStorage keys do not already exist.
-
-### Main stored entities
-
-#### Users
-Stores:
-- Name
-- Email
-- Phone
-- Password
-- Role
-- Premium status
-
-#### Listings
-Stores:
-- Listing ID
-- Title
-- Category
-- Price
-- Status
-- Date
-- Seller information
-
-#### Bookings
-Stores:
-- Booking ID
-- Listing ID
-- Renter
-- Rental dates
-- Total amount
-- Booking status
-- Booking date
-
-#### Feedback
-Stores:
-- User information
-- Feedback type
-- Rating
-- Message
-- Booking reference
-- Date
-- Visibility status
-
----
-
-### Customer
-
-Customers can:
-- Browse rentals
-- Book available listings
-- View rental history
-- Manage their profile
-- Submit feedback
-- Access premium features
-
-### Seller
-
-Sellers can:
-- Create listings
-- Edit listings
-- Manage their listings
-- View booking requests
-- Track settlements
-- Manage seller-related information
-
-### Admin
-
+RentFlow
+
+🌐 Backend : https://rentflow-backend-k7lx.onrender.com
+
+RentFlow is a modern, responsive full-stack peer-to-peer rental marketplace. Owners list items, renters book them for a date range and pay online, both sides chat in real time, and items are returned with photo proof. Administrators get a dashboard for moderation and platform analytics.
+
+The project has separate experiences for renters, owners (listers), and administrators, backed by a REST API, a MongoDB database, and real-time sockets.
+✨ Features
+🔐 Authentication & Accounts
+- Email/password signup and login with JWT sessions (7-day expiry)
+- Google Sign-In
+- Email OTP verification
+- Forgot-password flow with OTP (expires in 5 minutes, max 5 attempts)
+- Profile management and profile image upload
+- Role-based access (user and admin)
+- Rate-limited login and OTP endpoints
+🏠 Rental Marketplace
+- Browse available listings
+- Search by keyword, and filter by category, city and price range
+- Categories: Electronics, Vehicles, Furniture, Equipment, Party
+- Item condition: brand-new, like-new, good, fair
+- Pricing per day, week or month
+- Availability checking for selected dates
+📋 Listing Management
+- Create, edit and delete listings
+- Upload a listing image (JPEG, PNG or WebP, max 5 MB)
+- Add city/location, description and amenities
+- Listing status: Active, Hidden, Deleted
+- View count tracking
+- "My listings" view and incoming booking requests
+📅 Booking System
+- Select rental dates and see a price breakdown (rental subtotal plus security deposit, with half-day rounding)
+- Owner approves or rejects requests; renter or admin can cancel
+- Secure payment through Razorpay with server-side signature verification
+- Return flow with photo upload and note, confirmed by the owner
+- Booking history for renters and owners
+- Receipt emails
+💬 Real-Time Chat & Notifications
+- One conversation per booking between renter and owner (Socket.IO)
+- Read receipts, presence state, archive and report conversation
+- In-app notifications (booking, message, review, confirmed, expiring)
+👑 Premium
+- Premium Pass (1 month, ₹300) paid through Razorpay
+- Renewals extend the existing premium period
+👨‍💼 Admin Dashboard
 Administrators can:
-- View platform statistics
-- Manage listings
-- Monitor bookings
-- Review feedback
-- Monitor users
-- Manage premium users
-- Block/unblock listings
-- Handle listing removal requests
-- Access analytics
+- View and manage users (update, delete)
+- View, change the status of, and remove listings
+- View and cancel bookings
+- Moderate feedback
+- See platform analytics (Chart.js)
+💬 Feedback & Support
+- Star-rating feedback with comments
+- Contact form and FAQ page
+🎨 UI/UX
+- Responsive design with mobile navigation
+- Dark theme with light-theme support
+- Background videos, toast notifications and modal dialogs
+🛠️ Tech Stack
+| Technology | Purpose |
 
----
-
-## 📄 Main Pages
-
-| Page | Purpose |
 |---|---|
-| `index.html` | Homepage and rental platform landing page |
-| `signup.html` | Create a new account |
-| `login.html` | User login |
-| `booking.html` | Browse and book rentals |
-| `booking-history.html` | View rental/booking history |
-| `create_listings.html` | Create and manage seller listings |
-| `edit-listing.html` | Edit an existing listing |
-| `profile.html` | User profile and account settings |
-| `premium.html` | Premium membership |
-| `feedback.html` | Submit and view feedback |
-| `contact.html` | Contact and FAQ |
-| `about.html` | About RentFlow |
-| `admin-dashboard.html` | Administration dashboard |
-| `analytics.html` | Platform analytics |
-| `policy.html` | Privacy policy and terms |
-| `upcoming_features.html` | Planned/upcoming functionality |
-
----
-
-## 🔄 Application Flow
-
-```text
-                    ┌──────────────┐
-                    │   RentFlow   │
-                    │    Home      │
-                    └──────┬───────┘
-                           │
-              ┌────────────┴────────────┐
-              │                         │
-           Login                     Sign Up
-              │                         │
-              └────────────┬────────────┘
-                           │
-                     Authentication
-                           │
-             ┌─────────────┼─────────────┐
-             │             │             │
-          Customer       Seller        Admin
-             │             │             │
-             ▼             ▼             ▼
-        Browse/Book    Create/Edit    Dashboard
-        Rentals        Listings       Analytics
-             │             │             │
-             └─────────────┼─────────────┘
-                           ▼ 
-                      LocalStorage
-```
-
----
-
-## Important JavaScript Modules
-
-### `storage.js`
-Centralized LocalStorage management for:
-- Users
-- Listings
-- Bookings
-- Feedback
-- Premium users
-- Revenue calculations
-
-### `rentflow-rental.js`
-Shared rental/business utilities including:
-- Listing normalization
-- Booking calculations
-- Rental duration
-- Bill calculation
-- Availability checking
-- Date overlap detection
-- Currency formatting
-- User/session helpers
-- Toast messages
-- Location/geocoding helpers
-
-### `login.js`
-Handles:
-- Normal login
-- Google login
-- JWT parsing
-- Session creation
-- Role-based redirects
-
-### `signup.js`
-Handles:
-- Account registration
-- Validation
-- Google signup
-- Terms & Conditions modal
-
-### `booking.js`
-Handles:
-- Listing retrieval
-- Search/filter/sort
-- Location functionality
-- Rental duration
-- Pricing calculations
-- Booking submission
-- Premium checks
-
-### `create_listings.js`
-Handles:
-- Listing creation
-- Image uploads/previews
-- Duplicate detection
-- Pricing preview
-- Seller dashboard
-- Booking requests
-- Settlements
-- Wallet information
-
-### `profile.js`
-Handles:
-- Profile loading
-- Profile updates
-- Profile image uploads
-- Premium status
-- Account settings
-- Password change UI
-- Location functionality
-
-### `admin-dashboard.js`
-Handles:
-- Admin KPIs
-- Listing management
-- Booking management
-- Feedback/reports
-- Premium users
-- Listing actions
-
-### `analytics.js`
-Handles:
-- Booking analytics
-- Revenue analytics
-- Listing performance
-- User analytics
-- Category distribution
-- Feedback analytics
-
----
-
-## 🔐 Google Login Setup
-
-The project uses **Google Identity Services**.
-
-Before deploying the application, configure your Google OAuth client and replace the client configuration in the relevant JavaScript/HTML code with your own credentials.
-
-For production:
-
-- Use your own Google OAuth Client ID.
-- Add your production domain to the authorized JavaScript origins.
-- Do not expose private OAuth secrets in frontend code.
-- Use a backend authentication flow for secure production authentication.
-
----
-
-## 🌐 External Resources
-
-The project currently uses external resources such as:
-
-- Bootstrap 5.3.3 CDN
-- Google Fonts
-- Google Identity Services
-- Nominatim/OpenStreetMap for location-related functionality
-- Google Cloud
-
-An internet connection may therefore be required for some features.
-
----
-
-## 📱 Responsive Design
-
-RentFlow is designed to work across:
-
-- Desktop
-- Laptop
-- Tablet
-- Mobile
-
-The project includes:
-- Responsive navigation
-- Hamburger menu
-- Flexible grids
-- Mobile-friendly forms
-- Responsive listing cards
-- Adaptive dashboards
-- Mobile profile interactions
-
----
-
-## 🎨 Design System
-
-The interface uses a modern rental-marketplace aesthetic with:
-
-- Dark backgrounds
-- Glassmorphism panels
-- Blue accent colors
-- Rounded cards
-- Inter and Manrope fonts
-- Background video
-- Subtle borders and shadows
-- Responsive layouts
-- Modal-based interactions
-
----
-
-## 🧪 Testing Checklist
-
-Before presenting or deploying the project, test:
-
-- [ ] User signup works
-- [ ] Login works
-- [ ] Google login is configured
-- [ ] Correct role is saved in LocalStorage
-- [ ] Customer is redirected correctly
-- [ ] Seller can create a listing
-- [ ] Seller can edit a listing
-- [ ] Listings appear on the rental page
-- [ ] Search/filter/sort works
-- [ ] Booking calculation works
-- [ ] Booking submission works
-- [ ] Booking history displays correctly
-- [ ] Profile information loads correctly
-- [ ] Profile updates persist
-- [ ] Logout clears the active session
-- [ ] Premium status updates correctly
-- [ ] Feedback submission works
-- [ ] Admin dashboard displays data
-- [ ] Analytics display correctly
-- [ ] Mobile navigation works
-- [ ] Theme switching works
-
----
-
-## ⚠️ Current Architecture & Limitations
-
-This version is primarily a **frontend prototype**.
 
-Because data is stored in LocalStorage:
+| React 19 + Vite | Primary frontend |
 
-- Data is stored only in the user's browser.
-- Different users/devices do not share the same database.
-- Clearing browser storage removes application data.
-- Authentication is not suitable for production.
-- Passwords are currently handled client-side and should not be stored this way in a production system.
-- Payments are not connected to a real payment gateway.
-- Booking and listing data is not synchronized between users/devices.
-- Administrative permissions are frontend-controlled.
-
----
-
-## 🔮 Future Improvements
-
-Potential next steps include:
-
-1. Build a secure backend API.
-2. Add a relational database such as PostgreSQL/MySQL.
-3. Implement secure password hashing.
-4. Add JWT/session-based authentication.
-5. Add real Google OAuth authentication through the backend.
-6. Add real payment processing.
-7. Add cloud image storage.
-8. Add real-time booking notifications.
-9. Add seller/customer messaging.
-10. Add booking conflict prevention at the server level.
-11. Add email/SMS notifications.
-12. Add production-grade authorization and role permissions.
-13. Deploy the frontend and backend separately.
-14. Add automated testing and CI/CD.
-15. Add a real admin audit log.
-
----
-
-## 🔒 Production Security Recommendations
-
-Before using RentFlow in production:
-
-- Never store plaintext passwords.
-- Never rely only on LocalStorage for authorization.
-- Validate all data on the server.
-- Implement server-side role permissions.
-- Use HTTPS.
-- Protect API endpoints.
-- Validate uploaded files.
-- Sanitize user-generated content.
-- Add rate limiting.
-- Implement secure authentication/session expiration.
-- Use a real database.
-- Keep API keys and private credentials out of frontend code.
-
----
-
-## 📌 Project Status
-
-**Status:** Frontend rental marketplace prototype
-
-**Current architecture:**  
-`HTML + CSS + JavaScript + LocalStorage`
-
-**Primary goal:**  
-Provide a complete rental marketplace interface with customer, seller, and administrator workflows that can later be connected to a production backend.
-
----
-
-## 👨‍💻 Development
-
-When making changes:
-
-1. Keep shared LocalStorage operations in `storage.js`.
-2. Keep reusable rental calculations/utilities in `rentflow-rental.js`.
-3. Keep page-specific logic inside its corresponding JavaScript file.
-4. Keep page styling inside the corresponding CSS file.
-5. Avoid duplicating authentication/session logic when a shared helper can be used.
-6. Test all three user roles after authentication-related changes.
-7. Clear or inspect LocalStorage when testing seeded/demo data.
-
-### Reset Demo Data
-
-To reset the browser's stored RentFlow data, open the browser console and run:
-
-```javascript
-localStorage.clear();
-location.reload();
-```
-
-This will remove the current LocalStorage data and allow the application's seed data to be initialized again.
-
----
-
-## 📜 License
-
-This project is currently a project/demo application. Add an appropriate open-source license here if the repository will be publicly distributed.
-
----
-
-## 🙌 Acknowledgements
-
-Built using:
-
-- HTML5
-- CSS3
-- JavaScript
-- Bootstrap
-- Google Identity Services
-- Google Fonts
-- OpenStreetMap/Nominatim
-- jsPDF
-
----
-
-**RentFlow — Rent Anything. Easily & Securely.**
+| React Router 7 | Client-side routing |
+
+| Chart.js / react-chartjs-2 | Analytics charts |
+
+| Node.js + Express 4 | REST API |
+
+| MongoDB + Mongoose 8 | Database and models |
+
+| Socket.IO | Real-time chat |
+
+| JWT, bcrypt | Authentication and password hashing |
+
+| Google OAuth (google-auth-library, @react-oauth/google) | Google Sign-In |
+
+| Razorpay | Payments |
+
+| Multer | File uploads (listing and return photos) |
+
+| Cloudinary | Profile image storage |
+
+| Nodemailer | OTP and receipt emails |
+
+| express-rate-limit | Rate limiting |
+
+| HTML / CSS / vanilla JS | Legacy prototype in frontend/html, css, js |
+📁 Project Structure
+
+RentFlow/
+
+│
+
+├── backend/
+
+│   ├── server.js                 # Express + Socket.IO entry point
+
+│   ├── createAdmin.js            # Create/promote an admin user
+
+│   ├── config/                   # db.js, cloudinary.js
+
+│   ├── controllers/              # auth, listing, booking, payment, chat, notification, contact
+
+│   ├── middleware/               # auth, admin, optionalAuth, upload, errorHandler, requestLogger
+
+│   ├── models/                   # User, Listing, Booking, Conversation, Message,
+
+│   │                             # Notification, Feedback, ContactMessage, Otp
+
+│   ├── routes/                   # auth, listings, bookings, payment, chat,
+
+│   │                             # notifications, feedback, contact, admin
+
+│   ├── sockets/chatSocket.js     # Real-time chat events
+
+│   ├── utils/                    # emailService, sendMail, receiptEmail, validate
+
+│   ├── uploads/                  # Uploaded files (git-ignored)
+
+│   └── .env.example
+
+│
+
+├── frontend/
+
+│   ├── react/                    # Primary React + Vite app
+
+│   │   ├── src/
+
+│   │   │   ├── components/       # Navbar
+
+│   │   │   ├── services/api.js   # API base URL and auth helpers
+
+│   │   │   ├── styles/           # Page and theme CSS
+
+│   │   │   ├── routes.jsx        # Route table
+
+│   │   │   └── *.jsx             # Page components
+
+│   │   ├── public/
+
+│   │   └── .env.example
+
+│   ├── html/  css/  js/          # Legacy vanilla prototype
+
+│   └── assets/                   # Videos and screenshots
+
+│
+
+├── RentFlow-Admin-Stage2.postman_collection.json
+
+├── RentFlow.postman_environment.json
+
+└── README.md
+
+🖼️ Project Screenshots
+The screenshots below show the main RentFlow user and administrator experiences.
+🔐 Sign Up
+<p align="center">
+  <img src="frontend/assets/01-signup.png.png" alt="RentFlow sign-up page" width="900">
+</p>
+
+🔑 Login with Password
+<p align="center">
+  <img src="frontend/assets/02-login-password.png.png" alt="RentFlow login with password" width="900">
+</p>
+
+✉️ Login with Email OTP
+<p align="center">
+  <img src="frontend/assets/03-login-otp-collage.png.png" alt="RentFlow email OTP login" width="900">
+</p>
+
+🏠 Homepage
+<p align="center">
+  <img src="frontend/assets/05-homepage.png.png" alt="RentFlow homepage" width="900">
+</p>
+
+🔎 Explore Rentals
+<p align="center">
+  <img src="frontend/assets/06-explore-rentals.png.png" alt="Browse and filter rental listings" width="900">
+</p>
+
+📋 My Rentals
+<p align="center">
+  <img src="frontend/assets/07-my-rentals.png.png" alt="Renter bookings and rental status dashboard" width="900">
+</p>
+
+👑 RentFlow Premium
+<p align="center">
+  <img src="frontend/assets/08-premium.png.png" alt="RentFlow Premium membership page" width="900">
+</p>
+
+➕ Create a Listing
+<p align="center">
+  <img src="frontend/assets/09-create-listing.png.png" alt="Create a rental listing with live preview" width="900">
+</p>
+
+📞 Contact & FAQ
+<p align="center">
+  <img src="frontend/assets/10-contact-faq.png.png" alt="Contact support and frequently asked questions" width="900">
+</p>
+
+👤 User Profile
+<p align="center">
+  <img src="frontend/assets/11-user-profile.png.png" alt="RentFlow user profile" width="900">
+</p>
+
+⚙️ Account Settings
+<p align="center">
+  <img src="frontend/assets/12-settings.png.png" alt="RentFlow account settings and appearance preferences" width="900">
+</p>
+
+🛡️ Admin Dashboard
+<p align="center">
+  <img src="frontend/assets/13-admin-dashboard.png.png" alt="Admin dashboard with user and listing metrics" width="900">
+</p>
+
+📊 Admin Analytics
+<p align="center">
+  <img src="frontend/assets/14-admin-analytics.png.png" alt="RentFlow analytics dashboard" width="900">
+</p>
+
+💬 Admin Feedback Management
+<p align="center">
+  <img src="frontend/assets/15-admin-feedback.png.png" alt="Admin user feedback and ratings management" width="900">
+</p>
+
+🚀 Getting Started
+Prerequisites
+- Node.js 18 or newer
+- A MongoDB database (a free MongoDB Atlas cluster works)
+- Optional, for specific features: Razorpay test keys, Google OAuth client ID, Cloudinary account, SMTP credentials
+1. Clone the repository
+
+git clone https\://github.com/mayank34000/RentFlow.git
+
+cd RentFlow
+
+2. Start the backend
+
+cd backend
+
+npm install
+
+cp .env.example .env      # fill in your values
+
+npm run dev               # nodemon (use "npm start" for plain node)
+
+The API runs on http\://localhost:5000. Verify with:
+
+curl http\://localhost:5000/api/health
+
+3. Start the frontend
+
+cd frontend/react
+
+npm install
+
+cp .env.example .env      # set VITE_API_URL and VITE_GOOGLE_CLIENT_ID
+
+npm run dev
+
+The app runs on http\://localhost:5173.
+
+Other scripts: npm run build, npm run preview, npm run lint.
+🔧 Environment Variables
+Backend (backend/.env)
+| Variable | Required | Description |
+
+|---|---|---|
+
+| MONGO_URI | Yes | MongoDB connection string |
+
+| JWT_SECRET | Yes | JWT signing secret (server exits without it) |
+
+| PORT | No | API port (default 5000) |
+
+| NODE_ENV | No | development or production |
+
+| CORS_ORIGIN | Production | Comma-separated allowed origins |
+
+| RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET | Payments | Razorpay credentials |
+
+| VITE_GOOGLE_CLIENT_ID | Google login | Google OAuth client ID (the backend reads this name) |
+
+| CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET | Profile images | Cloudinary credentials |
+
+| SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM | Emails | SMTP settings for OTP and receipts |
+
+| RATE_LIMIT_WINDOW_MS, RATE_LIMIT_LOGIN_MAX, RATE_LIMIT_OTP_MAX, RATE_LIMIT_PAYMENT_MAX | No | Rate-limit overrides (defaults: 15 min, 5, 5, 10) |
+Frontend (frontend/react/.env)
+| Variable | Description |
+
+|---|---|
+
+| VITE_API_URL | Backend base URL, e.g. http\://localhost:5000 |
+
+| VITE_GOOGLE_CLIENT_ID | Google OAuth client ID |
+Never commit .env files. They are already git-ignored.
+
+👥 Creating an Admin Account
+There are no built-in demo accounts. Sign up normally, or create an admin with the helper script:
+1. Open backend/createAdmin.js.
+2. Set your own admin email and a strong password.
+3. Run:
+
+cd backend
+
+node createAdmin.js
+
+Security note: Never commit real admin credentials to the repository.
+
+💾 Data Model
+Data lives in MongoDB (Mongoose models in backend/models/):
+
+| Model | Stores |
+
+|---|---|
+
+| User | Name, email, password hash, role, premium status, profile details |
+
+| Listing | Title, category, condition, price/period, image, city, amenities, owner, status, views |
+
+| Booking | Listing, renter, lender, dates, pricing, deposit, status, payment IDs, return photo/note |
+
+| Conversation / Message | Booking-linked two-party chat and its messages |
+
+| Notification | Per-user notifications with read state |
+
+| Feedback | User rating and comment |
+
+| ContactMessage | Contact form submissions |
+
+| Otp | Hashed OTPs with expiry and attempt count |
+🔄 Booking Lifecycle
+
+Pending ──approve──▶ Approved ──pay (Razorpay verified)──▶ Active ──end date──▶ Completed ──owner confirms──▶ Returned
+
+   │                    │
+
+   ├── reject ─▶ Rejected
+
+   └── cancel ─▶ Cancelled   (renter or admin, from Pending or Approved)
+
+Terminal states: Rejected, Returned, Cancelled.
+📡 API Reference
+All routes are prefixed with /api. 🔒 = requires Authorization: Bearer \<token>, 👑 = admin only.
+Auth: /api/auth
+| Method | Path | Description |
+
+|---|---|---|
+
+| POST | /signup, /login, /google | Register, log in, Google sign-in |
+
+| POST | /send-otp, /verify-otp | OTP verification |
+
+| GET / PUT | /me 🔒 | Get or update current user |
+
+| POST | /me/profile-image 🔒 | Upload profile image |
+
+| POST | /forgot-password/send-otp | Start password reset |
+
+| POST | /forgot-password/verify-otp | Verify reset OTP |
+
+| POST | /forgot-password/reset | Set new password |
+Listings: /api/listings
+| Method | Path | Description |
+
+|---|---|---|
+
+| GET | / | List (search, category, city, minPrice, maxPrice) |
+
+| GET | /my 🔒 | My listings |
+
+| GET | /:id | Listing details |
+
+| POST | / 🔒 | Create (multipart, field image) |
+
+| PUT / DELETE | /:id 🔒 | Update or delete |
+Bookings: /api/bookings
+| Method | Path | Description |
+
+|---|---|---|
+
+| GET | /availability | Check availability |
+
+| POST | / 🔒 | Create booking |
+
+| GET | /my, /lender 🔒 | Bookings as renter / as owner |
+
+| GET / DELETE | /:id 🔒 | View or cancel |
+
+| PATCH | /:id/approve 🔒 | Owner approves |
+
+| PATCH | /:id/pay 🔒 | Mark as paid |
+
+| PATCH | /:id/return 🔒 | Confirm return (multipart, field returnPhoto) |
+Payment: /api/payment 🔒
+| Method | Path | Description |
+
+|---|---|---|
+
+| POST | /create-order | Create Razorpay order |
+
+| POST | /verify | Verify payment signature |
+Chat: /api/chat 🔒
+| Method | Path | Description |
+
+|---|---|---|
+
+| GET / POST | /conversations | List, or get/create for a booking |
+
+| GET / POST | /conversations/:id/messages | Fetch or send messages |
+
+| PUT | /conversations/:id/read | Mark read |
+
+| PUT | /conversations/:id/archive | Toggle archive |
+
+| POST | /conversations/:id/report | Report conversation |
+
+Socket.IO events: join_conversation, send_message, mark_read.
+Notifications, Feedback, Contact
+| Method | Path | Description |
+
+|---|---|---|
+
+| GET | /api/notifications 🔒 | My notifications |
+
+| PUT | /api/notifications/read-all, /:id/read 🔒 | Mark read |
+
+| POST | /api/feedback 🔒 | Submit feedback |
+
+| GET | /api/feedback 👑 | All feedback |
+
+| GET / PATCH / DELETE | /api/feedback/:id 🔒 | Manage one entry |
+
+| POST | /api/contact | Contact message |
+
+| GET | /api/health | Server and DB status |
+Admin: /api/admin 👑
+| Method | Path | Description |
+
+|---|---|---|
+
+| GET, PATCH, DELETE | /users, /users/:id | Manage users |
+
+| GET, DELETE | /listings, /listings/:id | View or remove listings |
+
+| PATCH | /listings/:id/status | Change listing status |
+
+| GET | /bookings, /bookings/:id | View bookings |
+
+| PATCH | /bookings/:id/cancel | Cancel booking |
+
+| GET | /analytics/overview | Platform analytics |
+
+A Postman collection and environment are included in the repo root.
+📄 Main Pages
+| Route | Purpose |
+
+|---|---|
+
+| / | Homepage and browse rentals |
+
+| /login, /signup | Authentication |
+
+| /profile, /settings, /messages, /reviews | Account area |
+
+| /create-listing, /edit-listing/:id | Listing management |
+
+| /booking, /booking-history | Booking flow and history |
+
+| /chat | Messaging |
+
+| /premium | Premium membership |
+
+| /feedback, /give-feedback | Feedback |
+
+| /contact, /about, /policy, /upcoming-features | Information pages |
+
+| /admin-dashboard, /analytics | Admin tools |
+🧪 Testing Checklist
+- [ ] /api/health reports database connected
+- [ ] Signup and login work
+- [ ] Google login works
+- [ ] OTP and forgot-password flow work
+- [ ] Owner can create, edit and delete a listing
+- [ ] Search, filter and price range work
+- [ ] Booking price and availability are correct
+- [ ] Owner can approve or reject a booking
+- [ ] Feedback and contact forms submit
+- [ ] Admin dashboard and analytics load
+- [ ] Non-admin users are blocked from /api/admin
+- [ ] Mobile navigation and theme switching work
+🔒 Security
+- Passwords are hashed with bcrypt; sessions use signed JWTs
+- Admin routes are protected server-side
+- Login, OTP and payment endpoints are rate limited
+- Payment signatures are verified server-side (HMAC-SHA256)
+- Uploads are restricted by type and size
+- CORS is limited to CORS_ORIGIN
+- Keep secrets in .env, and rotate any credential that has been committed or shared
+
+
+RentFlow — Rent Anything. Easily & Securely.
